@@ -6,6 +6,11 @@
 
 const APP_VERSION = "0.1.5";
 
+/* potions.js est chargé avant ce fichier dans le navigateur ; en node, require explicite. */
+if (typeof module !== "undefined" && module.exports && typeof makeRandomPotion === "undefined") {
+  Object.assign(globalThis, require("./potions.js"));
+}
+
 /* ================= Dés & règles de base ================= */
 
 function rollDice(n, faces) {
@@ -42,9 +47,10 @@ function resolveAttack(attacker, defender, opts = {}) {
  * +1D6 % jusqu'à 50 %, +1D3 % jusqu'à 75 %, +1 % ensuite.
  * Sous 50 %, un échec fait quand même progresser de 1 % (on apprend de ses ratés).
  * Plafond `cap` : 90 % pour les compétences, 80 % pour les sortilèges. */
-function masteryRoll(talent, cap) {
+function masteryRoll(talent, cap, threshold) {
+  const pct = threshold != null ? threshold : talent.pct;
   const roll = 1 + Math.floor(Math.random() * 100);
-  const success = roll <= talent.pct;
+  const success = roll <= pct;
   let gain = 0;
   if (success) {
     gain = talent.pct < 50 ? rollDice(1, 6).total : talent.pct < 75 ? rollDice(1, 3).total : 1;
@@ -185,7 +191,7 @@ function monsterFromSpec(spec) {
 /* Instancie un objet depuis une spec d'éditeur : {x, y, kind, idx?, gold?} */
 function itemFromSpec(spec) {
   const base = { x: spec.x, y: spec.y };
-  if (spec.kind === "potion") return { ...base, kind: "potion", name: "Potion de Vie", emoji: "🧪" };
+  if (spec.kind === "potion") return { ...base, ...makePotionItem(spec.potionId, spec.power) };
   if (spec.kind === "gold") {
     const gold = spec.gold || 60;
     return { ...base, kind: "gold", name: `${gold} Mountyzédons`, emoji: "💰", gold };
@@ -280,7 +286,7 @@ const ARMORS = [
 
 function makeItem(depth) {
   const r = Math.random();
-  if (r < 0.35) return { kind: "potion", name: "Potion de Vie", emoji: "🧪" };
+  if (r < 0.35) return makeRandomPotion();
   if (r < 0.55) {
     const w = WEAPONS[Math.min(WEAPONS.length - 1, Math.floor(Math.random() * (depth + 1)))];
     return { kind: "gear", ...w };
@@ -315,7 +321,8 @@ function newGame(name, race, customLevel = null) {
       compPXTurn: false, sortPXTurn: false,
       weapon: null, armorItem: null,
       pa: PA_PER_TURN, pi: 0, totalPI: 0, gold: 0,
-      bag: [], camo: false, kills: 0, dla: 1,
+      bag: [], camo: false, kills: 0, dla: 1, tour: 1,
+      potionEffects: [], blockCamoTurns: 0,
     },
     depth: 1, grid: null, monsters: [], items: [], doors: [], stairs: null,
     seen: new Set(), over: false,
@@ -420,7 +427,7 @@ function buildLevel() {
 
 function updateFov() {
   const { x, y } = G.troll;
-  const r = G.troll.vue;
+  const r = effTroll(G.troll).vue;
   for (let dy = -r; dy <= r; dy++) {
     for (let dx = -r; dx <= r; dx++) {
       const tx = x + dx, ty = y + dy;
@@ -432,7 +439,18 @@ function updateFov() {
 
 function inSight(e) {
   const dx = e.x - G.troll.x, dy = e.y - G.troll.y;
-  return dx * dx + dy * dy <= G.troll.vue * G.troll.vue;
+  const vue = effTroll(G.troll).vue;
+  return dx * dx + dy * dy <= vue * vue;
+}
+
+function spellMM() {
+  const eff = effTroll(G.troll);
+  return trollMM() + Math.round(eff.mmPct / 10);
+}
+
+function spellRM(m) {
+  const eff = effTroll(G.troll);
+  return monsterRM(m) + Math.round(eff.rmPct / 10);
 }
 
 /* ================= Actions du troll ================= */
@@ -501,7 +519,7 @@ function cdAttackRolls(r) {
 
 /* Jet de résistance magique au format MH. */
 function resistInfo(m) {
-  const r = resolveSpell(trollMM(), monsterRM(m));
+  const r = resolveSpell(spellMM(), spellRM(m));
   cdLine(`Seuil de Résistance de la cible : <span class="cd-val">${r.sr} %</span>`);
   cdLine(`Jet de Résistance : <span class="cd-val">${r.roll}</span>`);
   cdLine(r.success
@@ -554,7 +572,7 @@ function attackMonster(m, opts = {}) {
   if (!spendPA(cost)) return false;
   cdStart(`⚔️ Attaque sur ${m.name}`);
   cdLine(`Vous avez attaqué <b>${m.name}</b> avec votre ${G.troll.weapon ? G.troll.weapon.name : "Grosse Patte de Trõll"}.`);
-  const r = resolveAttack(G.troll, effMonster(m));
+  const r = resolveAttack(effTroll(G.troll), effMonster(m));
   cdAttackRolls(r);
   if (r.hit) {
     m.pv -= r.damage;
@@ -600,7 +618,7 @@ function killMonster(m, source = "attack") {
   // butin : les monstres lâchent parfois un trésor en mourant
   if (Math.random() < 0.4 && !G.items.some(i => i.x === m.x && i.y === m.y)) {
     const drop = Math.random() < 0.5
-      ? { kind: "potion", name: "Potion de Vie", emoji: "🧪", x: m.x, y: m.y }
+      ? { ...makeRandomPotion(), x: m.x, y: m.y }
       : { kind: "gold", gold: m.level * 10, name: `${m.level * 10} Mountyzédons`, emoji: "💰", x: m.x, y: m.y };
     G.items.push(drop);
     cdLine(`Il a de plus laissé tomber <span class="cd-val">${drop.emoji} ${drop.name}</span>.`);
@@ -633,12 +651,14 @@ function cdClose() {
 function tryTalent(talent, cap, cost, label, kind) {
   if (!spendPA(cost)) return false;
   cdStart(label);
-  const before = talent.pct; // le jet se compare à la maîtrise d'avant progression
-  const r = masteryRoll(talent, cap);
+  const before = talent.pct; // le jet se compare à la maîtrise d'avant progression (+ potions)
+  const effPct = talentPctWithPotions(G.troll, talent, cap);
+  const r = masteryRoll(talent, cap, effPct);
   talent.tries = (talent.tries || 0) + 1;
   if (r.success) talent.successes = (talent.successes || 0) + 1;
   talent.lastUse = Date.now();
-  cdLine(`Jet de maîtrise : <span class="cd-val">${r.roll}</span> (il fallait ${before} % ou moins)`);
+  const pctLabel = effPct !== before ? `${effPct} % (base ${before} %)` : `${before} %`;
+  cdLine(`Jet de maîtrise : <span class="cd-val">${r.roll}</span> (il fallait ${pctLabel} ou moins)`);
   if (!r.success) {
     G.troll.pa += Math.floor(cost / 2);
     if (r.gain) cdLine(`Vous avez <span class="cd-good">augmenté votre Maîtrise</span> de <span class="cd-val">1 point</span> en apprenant de votre raté (→ ${talent.pct} %).`);
@@ -662,6 +682,7 @@ function tryTalent(talent, cap, cost, label, kind) {
 function useComp() {
   if (G.over) return;
   const t = G.troll;
+  const te = effTroll(t);
   const comp = RACES[t.race].comp;
 
   if (t.race === "Skrim") { // Botte Secrète : attaque bonus, 1 fois par DLA
@@ -671,7 +692,7 @@ function useComp() {
     if (!tryTalent(t.comp, 90, comp.cost, "🥋 Botte Secrète", "comp")) { cdFlush(); afterAction(); return; }
     t.compUsed = true;
     cdLine(`Vous portez une <b>Botte Secrète</b> à <b>${m.name}</b>.`);
-    const pseudo = { att: Math.max(1, Math.floor(t.att * 2 / 3)), deg: Math.max(1, Math.floor(t.att / 2)), degBonus: 0 };
+    const pseudo = { att: Math.max(1, Math.floor(te.att * 2 / 3)), deg: Math.max(1, Math.floor(te.att / 2)), degBonus: te.degBonus };
     const r = resolveAttack(pseudo, effMonster(m));
     cdAttackRolls(r);
     if (r.hit) {
@@ -699,6 +720,7 @@ function useComp() {
     log(`Accélération du Métabolisme : −${cost} PV, +4 PA (fatigue ${t.fatigue}).`, "good");
     if (t.pv <= 0) { cdClose(); die({ name: "son propre métabolisme" }); return; }
   } else if (t.race === "Tomawak") { // Camouflage : invisible tant qu'on n'attaque pas
+    if (t.blockCamoTurns > 0) { log("La Pàïntûré t'empêche de te camoufler.", "info"); return; }
     if (t.camo) { log("Tu es déjà camouflé.", "info"); return; }
     if (!tryTalent(t.comp, 90, comp.cost, "🥋 Camouflage", "comp")) { cdFlush(); afterAction(); return; }
     t.camo = true;
@@ -710,7 +732,7 @@ function useComp() {
     if (!m) { log("Aucun monstre adjacent.", "info"); return; }
     if (!tryTalent(t.comp, 90, comp.cost, "🥋 Balayage", "comp")) { cdFlush(); afterAction(); return; }
     t.compUsed = true;
-    const destab = rollDice(t.att, 6).total;
+    const destab = rollDice(te.att, 6).total;
     const stab = rollDice(Math.max(1, Math.floor(m.esq * 2 / 3)), 6).total;
     cdLine(`Vous balayez <b>${m.name}</b>.`);
     cdLine(`Votre jet de Déstabilisation est de : <span class="cd-val">${destab}</span>`);
@@ -731,6 +753,7 @@ function useComp() {
 function useSort() {
   if (G.over) return;
   const t = G.troll;
+  const te = effTroll(t);
   const sort = RACES[t.race].sort;
 
   if (t.race === "Skrim") { // Hypnotisme : esquive /2 + perd son tour
@@ -753,7 +776,7 @@ function useSort() {
     if (!tryTalent(t.sort, 80, sort.cost, "🔮 Rafale Psychique", "sort")) { cdFlush(); afterAction(); return; }
     cdLine(`Vous avez attaqué <b>${m.name}</b> grâce à un sortilège.`);
     cdLine(`Votre jet d'Attaque est : <span class="cd-good">automatiquement réussi</span> (imparable).`);
-    let dmg = rollDice(t.deg, 3).total;
+    let dmg = rollDice(te.deg, 3).total;
     const res = resistInfo(m);
     if (res) dmg = Math.max(1, Math.ceil(dmg / 2));
     m.pv -= dmg;
@@ -765,7 +788,7 @@ function useSort() {
     if (!m) { log("Aucun monstre adjacent.", "info"); return; }
     if (!tryTalent(t.sort, 80, sort.cost, "🔮 Vampirisme", "sort")) { cdFlush(); afterAction(); return; }
     cdLine(`Vous avez attaqué <b>${m.name}</b> grâce à un sortilège.`);
-    const pseudo = { att: Math.max(1, Math.floor(t.deg * 2 / 3)), deg: t.deg, degBonus: 0 };
+    const pseudo = { att: Math.max(1, Math.floor(te.deg * 2 / 3)), deg: te.deg, degBonus: te.degBonus };
     const r = resolveAttack(pseudo, effMonster(m), { ignoreArmor: true });
     cdAttackRolls(r);
     if (r.hit) {
@@ -787,9 +810,9 @@ function useSort() {
     if (!m) { log("Aucun monstre en vue.", "info"); return; }
     if (!tryTalent(t.sort, 80, sort.cost, "🔮 Projectile Magique", "sort")) { cdFlush(); afterAction(); return; }
     const dist = Math.max(Math.abs(m.x - t.x), Math.abs(m.y - t.y));
-    const proxBonus = Math.max(0, t.vue - dist);
+    const proxBonus = Math.max(0, te.vue - dist);
     cdLine(`Vous avez attaqué <b>${m.name}</b> grâce à un sortilège (distance ${dist}, bonus de proximité +${proxBonus}D6).`);
-    const pseudo = { att: t.vue + proxBonus, deg: Math.max(1, Math.floor(t.vue / 2)), degBonus: 0 };
+    const pseudo = { att: te.vue + proxBonus, deg: Math.max(1, Math.floor(te.vue / 2)), degBonus: 0 };
     const r = resolveAttack(pseudo, effMonster(m), { ignoreArmor: true });
     cdAttackRolls(r);
     if (r.hit) {
@@ -814,7 +837,7 @@ function useSort() {
     if (!m) { log("Aucun monstre adjacent.", "info"); return; }
     if (!tryTalent(t.sort, 80, sort.cost, "🔮 Siphon des Âmes", "sort")) { cdFlush(); afterAction(); return; }
     cdLine(`Vous avez attaqué <b>${m.name}</b> grâce à un sortilège.`);
-    const pseudo = { att: t.att, deg: t.reg, degBonus: 0 };
+    const pseudo = { att: te.att, deg: te.reg, degBonus: 0 };
     const r = resolveAttack(pseudo, effMonster(m), { ignoreArmor: true });
     cdAttackRolls(r);
     if (r.hit) {
@@ -822,7 +845,7 @@ function useSort() {
       const res = resistInfo(m);
       if (res) dmg = Math.max(1, Math.ceil(dmg / 2));
       m.pv -= dmg;
-      const necrose = res ? Math.max(1, Math.floor(t.reg / 2)) : t.reg;
+      const necrose = res ? Math.max(1, Math.floor(te.reg / 2)) : te.reg;
       m.attDownDice = (m.attDownDice || 0) + necrose;
       m.attDownTurns = 2;
       cdLine(`Vous lui avez infligé <span class="cd-val">${dmg} points de dégâts</span> (toute armure ignorée).`);
@@ -881,10 +904,9 @@ function useBagItem(idx) {
   if (!item) return;
   if (item.kind === "potion") {
     if (!spendPA(COSTS.potion)) return;
-    const heal = rollDice(2, 6).total + 3;
-    t.pv = Math.min(t.pvMax, t.pv + heal);
+    if (!drinkPotion(t, item, rollDice, log)) return;
     t.bag.splice(idx, 1);
-    log(`🧪 Glou glou : +${heal} PV.`, "good");
+    updateFov();
   } else if (item.kind === "gear") {
     if (!spendPA(COSTS.equip)) return;
     if (item.slot === "weapon") {
@@ -936,6 +958,7 @@ function passDLA() {
   if (G.over) return;
   const t = G.troll;
   t.dla++;
+  const dlaBonusPA = tickPotionTurns(t, log);
 
   // Tour des monstres
   for (const m of G.monsters) {
@@ -949,7 +972,7 @@ function passDLA() {
     const seesTroll = !t.camo && dist <= m.vue;
     if (dist <= 1 && !t.camo) {
       const eff = effMonster(m);
-      const r = resolveAttack(eff, t);
+      const r = resolveAttack(eff, effTroll(t));
       cdStart(`${m.emoji} ${m.name} vous attaque`);
       cdLine(`Son jet d'Attaque est de : <span class="cd-val">${r.attRoll}</span> (${r.attDice}D6)`);
       cdLine(`Votre jet d'Esquive est de : <span class="cd-val">${r.esqRoll}</span> (${r.esqDice}D6)`);
@@ -975,16 +998,17 @@ function passDLA() {
     if (m.attDownTurns > 0 && --m.attDownTurns === 0) m.attDownDice = 0;
   }
 
-  // Régénération (REG D3, comme à MountyHall)
+  // Régénération (REG D3, comme à MountyHall) — bonus potions pris en compte
+  const te = effTroll(t);
   if (t.pv < t.pvMax && t.pv > 0) {
-    const r = rollDice(t.reg, 3);
+    const r = rollDice(te.reg, 3);
     t.pv = Math.min(t.pvMax, t.pv + r.total);
-    log(`💤 Nouvelle DLA n°${t.dla} : tu régénères ${r.total} PV (${t.reg}D3).`, "info");
+    log(`💤 Tour n°${t.tour} (DLA n°${t.dla}) : tu régénères ${r.total} PV (${te.reg}D3).`, "info");
   } else {
-    log(`💤 Nouvelle DLA n°${t.dla}.`, "info");
+    log(`💤 Tour n°${t.tour} (DLA n°${t.dla}).`, "info");
   }
 
-  t.pa = PA_PER_TURN;
+  t.pa = Math.min(PA_PER_TURN + 3, PA_PER_TURN + dlaBonusPA);
   t.compUsed = false;
   t.compPXTurn = false;
   t.sortPXTurn = false;
@@ -1061,7 +1085,8 @@ function render() {
       const key = y * MAP_W + x;
       const px = x * TILE, py = y * TILE;
       if (!G.seen.has(key)) { ctx.fillStyle = "#0d0a06"; ctx.fillRect(px, py, TILE, TILE); continue; }
-      const visible = (x - G.troll.x) ** 2 + (y - G.troll.y) ** 2 <= G.troll.vue ** 2;
+      const vue = effTroll(G.troll).vue;
+      const visible = (x - G.troll.x) ** 2 + (y - G.troll.y) ** 2 <= vue ** vue;
       const t = G.grid[y][x];
       if (t === T_WALL) ctx.fillStyle = visible ? "#4a3a22" : "#2c2315";
       else ctx.fillStyle = visible ? "#7a6a45" : "#3d3522";
@@ -1082,7 +1107,7 @@ function render() {
   };
   for (const i of G.items) {
     if (!G.seen.has(i.y * MAP_W + i.x)) continue;
-    disc(i.x, i.y, i.kind === "gold" ? "#caa53d" : i.kind === "potion" ? "#5d8535" : "#7a8db0");
+    disc(i.x, i.y, i.kind === "gold" ? "#caa53d" : i.kind === "potion" ? (i.color || "#5d8535") : "#7a8db0");
     ctx.fillStyle = "#1a140e";
     ctx.fillText(i.emoji, i.x * TILE + TILE / 2, i.y * TILE + TILE / 2 + 1);
   }
@@ -1118,17 +1143,25 @@ function renderPanels() {
     : `Profondeur −${G.depth} · DLA n°${t.dla}`;
   $("troll-title").textContent = `${RACES[t.race].emoji} ${t.name}, ${t.race} niv. ${levelFromTotalPI(t.totalPI)}`;
 
+  const te = effTroll(t);
+  const statFmt = (base, eff, suffix) => {
+    const d = eff - base;
+    return d ? `${eff}${suffix} <small>(${base}${d > 0 ? "+" : ""}${d})</small>` : `${base}${suffix}`;
+  };
   const pct = Math.max(0, t.pv / t.pvMax);
   const hpClass = pct > 0.6 ? "high" : pct > 0.3 ? "mid" : "";
+  const potionLines = describeActiveEffects(t);
   $("stats").innerHTML = `
+    <div><span>Tour</span><span class="stat-val">${t.tour}</span></div>
     <div><span>PV</span><span class="stat-val">${t.pv} / ${t.pvMax}</span></div>
     <div class="hp-bar-wrap"><div class="hp-bar ${hpClass}" style="width:${pct * 100}%"></div></div>
-    <div><span>Attaque</span><span class="stat-val">${t.att}D6</span></div>
-    <div><span>Esquive</span><span class="stat-val">${t.esq}D6</span></div>
-    <div><span>Dégâts</span><span class="stat-val">${t.deg}D3${t.degBonus ? "+" + t.degBonus : ""}</span></div>
-    <div><span>Régénération</span><span class="stat-val">${t.reg}D3</span></div>
-    <div><span>Armure</span><span class="stat-val">${t.armor}${t.armorDice ? "+" + t.armorDice + "D3" : ""}</span></div>
-    <div><span>Vue</span><span class="stat-val">${t.vue}</span></div>
+    <div><span>Attaque</span><span class="stat-val">${statFmt(t.att, te.att, "D6")}</span></div>
+    <div><span>Esquive</span><span class="stat-val">${statFmt(t.esq, te.esq, "D6")}</span></div>
+    <div><span>Dégâts</span><span class="stat-val">${statFmt(t.deg, te.deg, "D3")}${te.degBonus ? "+" + te.degBonus : ""}</span></div>
+    <div><span>Régénération</span><span class="stat-val">${statFmt(t.reg, te.reg, "D3")}</span></div>
+    <div><span>Armure</span><span class="stat-val">${statFmt(t.armor, te.armor, "")}${t.armorDice ? "+" + t.armorDice + "D3" : ""}</span></div>
+    <div><span>Vue</span><span class="stat-val">${statFmt(t.vue, te.vue, "")}</span></div>
+    ${potionLines.length ? `<div class="potion-fx"><span>🧪 Effets</span></div>${potionLines.map(l => `<div class="potion-fx-line">${l}</div>`).join("")}` : ""}
     <div><span>${RACES[t.race].comp.name}</span><span class="stat-val">${t.comp.pct} %</span></div>
     <div><span>${RACES[t.race].sort.name}</span><span class="stat-val">${t.sort.pct} %</span></div>
     ${t.race === "Kastar" ? `<div><span>Fatigue</span><span class="stat-val">${t.fatigue}</span></div>` : ""}

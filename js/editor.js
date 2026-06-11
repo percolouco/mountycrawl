@@ -121,7 +121,7 @@ function edBuildPalette() {
 
   const itemsDiv = document.getElementById("ed-items");
   itemsDiv.innerHTML = "";
-  edAddBrushBtn(itemsDiv, "🧪 Potion de Vie", { mode: "item", kind: "potion" });
+  edAddBrushBtn(itemsDiv, "🧪 Potion (aléatoire)", { mode: "item", kind: "potion" });
   edAddBrushBtn(itemsDiv, "💰 Mountyzédons", { mode: "item", kind: "gold" });
   WEAPONS.forEach((w, i) => edAddBrushBtn(itemsDiv, `${w.emoji} ${w.name} (+${w.bonus})`, { mode: "item", kind: "weapon", idx: i }));
   ARMORS.forEach((a, i) => edAddBrushBtn(itemsDiv, `${a.emoji} ${a.name} (+${a.bonus})`, { mode: "item", kind: "armor", idx: i }));

@@ -2,7 +2,9 @@
 "use strict";
 
 const assert = require("assert");
+require("../js/potions.js");
 const g = require("../js/game.js");
+const p = require("../js/potions.js");
 
 // Dés
 for (let i = 0; i < 200; i++) {
@@ -154,6 +156,23 @@ assert.strictEqual(boss.name, "Béhémoth");
 assert(boss.pv === boss.pvMax && boss.pv > 0);
 const pot = g.itemFromSpec({ x: 1, y: 1, kind: "potion" });
 assert.strictEqual(pot.kind, "potion");
+assert(p.POTION_IDS.length === 25, "25 potions droppables");
+assert.strictEqual(p.POTION_DEFS.guerison.duration, 0);
+assert.strictEqual(p.corruptionYZ(3).y, 0);
+{ const { y } = p.corruptionYZ(6); assert(y >= 11 && y <= 20, "Y pour X=6 : " + y); }
+{
+  const troll = { att: 3, esq: 3, deg: 3, reg: 1, vue: 3, armor: 0, armorDice: 0, degBonus: 0, pvMax: 30, pv: 20, potionEffects: [], blockCamoTurns: 0, tour: 1 };
+  const item = p.makePotionItem("bonneBouffe", 5);
+  p.drinkPotion(troll, item, g.rollDice, () => {});
+  assert.strictEqual(troll.potionEffects.length, 1);
+  assert.strictEqual(p.effTroll(troll).deg, 8);
+  p.tickPotionTurns(troll, () => {});
+  assert.strictEqual(troll.tour, 2);
+  troll.potionEffects[0].turnsLeft = 0;
+  p.tickPotionTurns(troll, () => {});
+  assert.strictEqual(troll.potionEffects.length, 0);
+  assert.strictEqual(p.effTroll(troll).deg, 3);
+}
 const sword = g.itemFromSpec({ x: 1, y: 1, kind: "weapon", idx: 2 });
 assert.strictEqual(sword.kind, "gear");
 assert(sword.bonus > 0);

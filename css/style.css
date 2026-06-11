@@ -131,6 +131,9 @@ header h1 { font-size: 1.3em; color: #8fbf5a; }
 
 #stats div { display: flex; justify-content: space-between; padding: 2px 0; }
 #stats .stat-val { font-family: monospace; color: #f0e6c0; }
+#stats .stat-val small { color: #8a7a55; font-size: 0.85em; }
+.potion-fx { margin-top: 8px; color: #d8a040; font-size: 0.9em; border-top: 1px solid #4a3a20; padding-top: 6px; }
+.potion-fx-line { font-size: 0.82em; color: #a89568; padding: 1px 0 1px 8px; }
 
 .hp-bar-wrap { background: #3a2a1a; border-radius: 4px; height: 14px; margin: 6px 0; overflow: hidden; }
 .hp-bar { background: #b03030; height: 100%; transition: width .2s; }
