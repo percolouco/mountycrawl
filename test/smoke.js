@@ -174,9 +174,17 @@ assert.strictEqual(p.corruptionYZ(3).y, 0);
   assert.strictEqual(p.effTroll(t2).att, 3);
   const t3 = { att: 3, esq: 3, deg: 3, reg: 1, vue: 3, armor: 0, armorDice: 0, degBonus: 0, pvMax: 30, pv: 20, potionEffects: [], blockCamoTurns: 0, tour: 1 };
   p.drinkPotion(t3, p.makePotionItem("sangToh", 2), fixedRoll, () => {});
-  assert.strictEqual(p.effTroll(t3).attFlat, 12, "2D6 fixé → +12 sur le jet d'attaque");
+  assert.strictEqual(p.effTroll(t3).attFlat, 12, "2D3 fixé → +12 sur le jet d'attaque");
   assert.strictEqual(p.effTroll(t3).esqFlat, 12);
   assert.strictEqual(p.effTroll(t3).att, 3);
+  // Le jet de la potion est unique : même valeur sur ATT et ESQ, bornée par XD3
+  for (let i = 0; i < 50; i++) {
+    const t4 = { att: 3, esq: 3, deg: 3, reg: 1, vue: 3, armor: 0, armorDice: 0, degBonus: 0, pvMax: 30, pv: 20, potionEffects: [], blockCamoTurns: 0, tour: 1 };
+    p.drinkPotion(t4, p.makePotionItem("sangToh", 4), g.rollDice, () => {});
+    const e4 = p.effTroll(t4);
+    assert.strictEqual(e4.attFlat, e4.esqFlat, "Sang de Toh Réroh : un seul jet pour ATT et ESQ");
+    assert(e4.attFlat >= 4 && e4.attFlat <= 12, "4D3 borné [4,12] : " + e4.attFlat);
+  }
   p.tickPotionTurns(troll, () => {});
   assert.strictEqual(troll.tour, 2);
   troll.potionEffects[0].turnsLeft = 0;

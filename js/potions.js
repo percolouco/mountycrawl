@@ -25,10 +25,10 @@ function corruptionYZ(x) {
   return { y: potRand(16, 30), z: potRand(16, 30) };
 }
 
-/* Jet de modificateur potion : X D6/D3 → bonus/malus fixe sur les jets (pas sur le nb de dés). */
-function rollMod(rollDice, count, faces, negative = false) {
-  const r = rollDice(count, faces);
-  const value = negative ? -r.total : r.total;
+/* Modificateur de potion : un seul jet de X D3 par fiole, le même total
+ * s'applique à toutes les caracs concernées (ATT, ESQ…). */
+function sharedMod(total, count, faces, negative = false) {
+  const value = negative ? -total : total;
   const sign = negative ? "−" : "+";
   return {
     value,
@@ -85,8 +85,9 @@ const POTION_DEFS = {
     rollPower: () => potRand(3, 7),
     build(_t, p, rollDice) {
       const { y, z } = corruptionYZ(p);
-      const attR = rollMod(rollDice, p, 3, false);
-      const esqR = rollMod(rollDice, p, 3, true);
+      const jet = rollDice(p, 3).total;
+      const attR = sharedMod(jet, p, 3, false);
+      const esqR = sharedMod(jet, p, 3, true);
       const lines = [`ATT ${attR.line}`, `ESQ ${esqR.line}`, `DEG +${p}`, `REG −${p}`, `VUE −${p}`, `Armure +${p}`];
       return {
         log: `Elixir de Corruption : ${lines.join(", ")} ; RM −${y} %, MM −${z} % (5 tours).`,
@@ -101,7 +102,7 @@ const POTION_DEFS = {
     duration: 5,
     rollPower: () => potRand(3, 7),
     build(_t, p, rollDice) {
-      const attR = rollMod(rollDice, p, 3, false);
+      const attR = sharedMod(rollDice(p, 3).total, p, 3, false);
       const lines = [`ATT ${attR.line}`, `DEG +${p}`];
       return {
         log: `Elixir de Fertilité : ${lines.join(", ")} pendant 5 tours.`,
@@ -114,7 +115,7 @@ const POTION_DEFS = {
     duration: 5,
     rollPower: () => potRand(3, 7),
     build(_t, p, rollDice) {
-      const esqR = rollMod(rollDice, p, 3, false);
+      const esqR = sharedMod(rollDice(p, 3).total, p, 3, false);
       const lines = [`ESQ ${esqR.line}`, `VUE +${p}`];
       return {
         log: `Elixir de Feu : ${lines.join(", ")} pendant 5 tours.`,
@@ -189,8 +190,9 @@ const POTION_DEFS = {
     duration: 3,
     rollPower: () => potRand(1, 2),
     build(_t, p, rollDice) {
-      const attR = rollMod(rollDice, p, 3, true);
-      const esqR = rollMod(rollDice, p, 3, true);
+      const jet = rollDice(p, 3).total;
+      const attR = sharedMod(jet, p, 3, true);
+      const esqR = sharedMod(jet, p, 3, true);
       const lines = [`ATT ${attR.line}`, `ESQ ${esqR.line}`, `DEG −${p}`, `REG −${p}`];
       return {
         log: `Rhume en Conserve : ${lines.join(", ")} pendant 3 tours.`,
@@ -205,8 +207,9 @@ const POTION_DEFS = {
     duration: 3,
     rollPower: () => potRand(3, 4),
     build(_t, p, rollDice) {
-      const attR = rollMod(rollDice, p, 3, true);
-      const esqR = rollMod(rollDice, p, 3, true);
+      const jet = rollDice(p, 3).total;
+      const attR = sharedMod(jet, p, 3, true);
+      const esqR = sharedMod(jet, p, 3, true);
       const lines = [`ATT ${attR.line}`, `ESQ ${esqR.line}`, `DEG −${p}`, `REG −${p}`];
       return {
         log: `Grippe en Conserve : ${lines.join(", ")} pendant 3 tours.`,
@@ -221,8 +224,9 @@ const POTION_DEFS = {
     duration: 3,
     rollPower: () => 5,
     build(_t, _p, rollDice) {
-      const attR = rollMod(rollDice, 5, 3, true);
-      const esqR = rollMod(rollDice, 5, 3, true);
+      const jet = rollDice(5, 3).total;
+      const attR = sharedMod(jet, 5, 3, true);
+      const esqR = sharedMod(jet, 5, 3, true);
       const lines = [`ATT ${attR.line}`, `ESQ ${esqR.line}`, "DEG −5", "REG −5"];
       return {
         log: `Pneumonie en Conserve : ${lines.join(", ")} pendant 3 tours.`,
@@ -294,8 +298,9 @@ const POTION_DEFS = {
     duration: 3,
     rollPower: () => potRand(0, 2),
     build(troll, p, rollDice) {
-      const attR = p > 0 ? rollMod(rollDice, p, 6, true) : { value: 0, line: "ATT ±0" };
-      const esqR = p > 0 ? rollMod(rollDice, p, 6, true) : { value: 0, line: "ESQ ±0" };
+      const jet = p > 0 ? rollDice(p, 3).total : 0;
+      const attR = p > 0 ? sharedMod(jet, p, 3, true) : { value: 0, line: "±0" };
+      const esqR = p > 0 ? sharedMod(jet, p, 3, true) : { value: 0, line: "±0" };
       const y = p >= 2 ? rollDice(2, 3).total : 0;
       if (y > 0) troll.pv = Math.max(1, troll.pv - y);
       const lines = [`ATT ${attR.line}`, `ESQ ${esqR.line}`, `VUE −${p + 1}`];
@@ -313,8 +318,9 @@ const POTION_DEFS = {
     duration: 4,
     rollPower: () => potRand(1, 5),
     build(_t, p, rollDice) {
-      const attR = rollMod(rollDice, p, 6, false);
-      const esqR = rollMod(rollDice, p, 6, false);
+      const jet = rollDice(p, 3).total;
+      const attR = sharedMod(jet, p, 3, false);
+      const esqR = sharedMod(jet, p, 3, false);
       const lines = [`ATT ${attR.line}`, `ESQ ${esqR.line}`, `VUE +${p}`];
       return {
         log: `Sang de Toh Réroh : ${lines.join(", ")} pendant 4 tours.`,
@@ -363,8 +369,9 @@ const POTION_DEFS = {
     duration: 3,
     rollPower: () => potRand(1, 5),
     build(troll, p, rollDice) {
-      const attR = rollMod(rollDice, p, 3, true);
-      const esqR = rollMod(rollDice, p, 3, true);
+      const jet = rollDice(p, 3).total;
+      const attR = sharedMod(jet, p, 3, true);
+      const esqR = sharedMod(jet, p, 3, true);
       const heal = rollDice(p, 3).total;
       troll.pv = Math.min(troll.pvMax, troll.pv + heal);
       const lines = [`ATT ${attR.line}`, `ESQ ${esqR.line}`, `VUE −${p}`, `PV +${heal} (${p}D3)`];
@@ -499,10 +506,10 @@ const EFFECT_MOD_LABELS = {
 function formatEffectMods(effect) {
   if (effect.modLines?.length) return [...effect.modLines];
   const parts = [];
-  if (effect.attFlat) parts.push(`ATT ${effect.attFlat > 0 ? "+" : ""}${effect.attFlat} (jet)`);
-  if (effect.esqFlat) parts.push(`ESQ ${effect.esqFlat > 0 ? "+" : ""}${effect.esqFlat} (jet)`);
-  if (effect.degFlat) parts.push(`DEG ${effect.degFlat > 0 ? "+" : ""}${effect.degFlat} (jet)`);
-  if (effect.regFlat) parts.push(`REG ${effect.regFlat > 0 ? "+" : ""}${effect.regFlat} (jet)`);
+  if (effect.attFlat) parts.push(`ATT ${effect.attFlat > 0 ? "+" : ""}${effect.attFlat}`);
+  if (effect.esqFlat) parts.push(`ESQ ${effect.esqFlat > 0 ? "+" : ""}${effect.esqFlat}`);
+  if (effect.degFlat) parts.push(`DEG ${effect.degFlat > 0 ? "+" : ""}${effect.degFlat}`);
+  if (effect.regFlat) parts.push(`REG ${effect.regFlat > 0 ? "+" : ""}${effect.regFlat}`);
   for (const [key, label] of Object.entries(EFFECT_MOD_LABELS)) {
     const v = effect[key];
     if (typeof v !== "number" || !v) continue;
@@ -562,10 +569,10 @@ function renderEffectsPanel(troll) {
 
   const total = sumPotionMods(troll.potionEffects);
   const totalLines = [];
-  if (total.attFlat) totalLines.push(`ATT ${total.attFlat > 0 ? "+" : ""}${total.attFlat} (jet)`);
-  if (total.esqFlat) totalLines.push(`ESQ ${total.esqFlat > 0 ? "+" : ""}${total.esqFlat} (jet)`);
-  if (total.degFlat) totalLines.push(`DEG ${total.degFlat > 0 ? "+" : ""}${total.degFlat} (jet)`);
-  if (total.regFlat) totalLines.push(`REG ${total.regFlat > 0 ? "+" : ""}${total.regFlat} (jet)`);
+  if (total.attFlat) totalLines.push(`ATT ${total.attFlat > 0 ? "+" : ""}${total.attFlat}`);
+  if (total.esqFlat) totalLines.push(`ESQ ${total.esqFlat > 0 ? "+" : ""}${total.esqFlat}`);
+  if (total.degFlat) totalLines.push(`DEG ${total.degFlat > 0 ? "+" : ""}${total.degFlat}`);
+  if (total.regFlat) totalLines.push(`REG ${total.regFlat > 0 ? "+" : ""}${total.regFlat}`);
   for (const [key, label] of Object.entries(EFFECT_MOD_LABELS)) {
     const v = total[key];
     if (typeof v !== "number" || !v) continue;
@@ -579,7 +586,7 @@ function renderEffectsPanel(troll) {
 
   let html = "";
   if (totalLines.length) {
-    html += `<div class="fx-total"><div class="fx-total-title">Total des modificateurs (jets inclus)</div>`;
+    html += `<div class="fx-total"><div class="fx-total-title">Total des modificateurs</div>`;
     html += totalLines.map(m => `<span class="fx-mod">${m}</span>`).join("");
     html += "</div>";
   }
@@ -606,6 +613,6 @@ if (typeof module !== "undefined" && module.exports) {
     POTION_IDS, POTION_DEFS, sumPotionMods, effTroll, formatPotionItem,
     makeRandomPotion, makePotionItem, drinkPotion, tickPotionTurns,
     describeActiveEffects, renderEffectsPanel, countActiveEffects, formatEffectMods,
-    rollMod, fmtStatLine, talentPctWithPotions, corruptionYZ,
+    sharedMod, fmtStatLine, talentPctWithPotions, corruptionYZ,
   };
 }

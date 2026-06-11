@@ -152,6 +152,11 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **1.5.1** (2026-06-11) — Potions fidèles à Mountypedia : toutes les potions à jet
+  utilisent des D3 (Sang de Toh Réroh et PufPuff étaient à tort en D6), et chaque
+  fiole ne fait qu'un seul jet — le même total s'applique à toutes les caracs
+  concernées (ex. Sang de Toh Réroh niv. 4 : un jet de 4D3 partagé par ATT et ESQ).
+  Affichage : suppression des mentions « (jet) » dans le panneau des effets.
 - **1.5.0** (2026-06-11) — Page « Règles des talents » : les 10 fiches compétences/
   sortilèges au format MountyHall (coût, type, jet de résistance, formules, lore),
   avec encart « Mes infos » en partie (maîtrise, taux de réussite, jets calculés du
