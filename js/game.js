@@ -29,15 +29,21 @@ function rollDice(n, faces) {
 function resolveAttack(attacker, defender, opts = {}) {
   const att = rollDice(attacker.att, 6);
   const esq = rollDice(defender.esq, 6);
+  const attFlat = attacker.attFlat || 0;
+  const esqFlat = defender.esqFlat || 0;
+  const attTotal = att.total + attFlat;
+  const esqTotal = esq.total + esqFlat;
   const result = {
-    attRoll: att.total, esqRoll: esq.total,
+    attRoll: attTotal, esqRoll: esqTotal,
     attDice: attacker.att, esqDice: defender.esq,
-    hit: opts.autoHit || att.total > esq.total, damage: 0, rawDamage: 0,
-    critical: !opts.autoHit && att.total >= esq.total * 2, // coup critique MH : dégâts doublés
+    attFlat, esqFlat,
+    hit: opts.autoHit || attTotal > esqTotal, damage: 0, rawDamage: 0,
+    critical: !opts.autoHit && attTotal >= esqTotal * 2, // coup critique MH : dégâts doublés
   };
   if (result.hit) {
     const deg = rollDice(attacker.deg, 3);
-    result.rawDamage = (deg.total + (attacker.degBonus || 0)) * (result.critical ? 2 : 1);
+    const degFlat = attacker.degFlat || 0;
+    result.rawDamage = (deg.total + (attacker.degBonus || 0) + degFlat) * (result.critical ? 2 : 1);
     // armure : réduction fixe (équipement) + armure naturelle en D3 (achetée en PI)
     const armor = opts.ignoreArmor ? 0
       : (defender.armor || 0) + (defender.armorDice ? rollDice(defender.armorDice, 3).total : 0);
@@ -528,8 +534,14 @@ function adjustPX(n) {
 
 /* Jets de toucher au format MH dans le détail. */
 function cdAttackRolls(r) {
-  cdLine(`Votre jet d'Attaque est de : <span class="cd-val">${r.attRoll}</span> (${r.attDice}D6)`);
-  cdLine(`Le jet d'Esquive de votre adversaire est de : <span class="cd-val">${r.esqRoll}</span> (${r.esqDice}D6)`);
+  const attLbl = r.attFlat
+    ? `${r.attDice}D6 ${r.attFlat > 0 ? "+" : ""}${r.attFlat}`
+    : `${r.attDice}D6`;
+  const esqLbl = r.esqFlat
+    ? `${r.esqDice}D6 ${r.esqFlat > 0 ? "+" : ""}${r.esqFlat}`
+    : `${r.esqDice}D6`;
+  cdLine(`Votre jet d'Attaque est de : <span class="cd-val">${r.attRoll}</span> (${attLbl})`);
+  cdLine(`Le jet d'Esquive de votre adversaire est de : <span class="cd-val">${r.esqRoll}</span> (${esqLbl})`);
   if (r.hit) {
     cdLine(r.critical
       ? `Vous avez donc <span class="cd-good">TOUCHÉ</span> votre adversaire par un <span class="cd-good">coup critique</span>.`
@@ -714,7 +726,10 @@ function useComp() {
     if (!tryTalent(t.comp, 90, comp.cost, "🥋 Botte Secrète", "comp")) { cdFlush(); afterAction(); return; }
     t.compUsed = true;
     cdLine(`Vous portez une <b>Botte Secrète</b> à <b>${m.name}</b>.`);
-    const pseudo = { att: Math.max(1, Math.floor(te.att * 2 / 3)), deg: Math.max(1, Math.floor(te.att / 2)), degBonus: te.degBonus };
+    const pseudo = {
+      att: Math.max(1, Math.floor(te.att * 2 / 3)), deg: Math.max(1, Math.floor(te.att / 2)),
+      degBonus: te.degBonus, attFlat: te.attFlat, degFlat: te.degFlat,
+    };
     const r = resolveAttack(pseudo, effMonster(m));
     cdAttackRolls(r);
     if (r.hit) {
@@ -810,7 +825,10 @@ function useSort() {
     if (!m) { log("Aucun monstre adjacent.", "info"); return; }
     if (!tryTalent(t.sort, 80, sort.cost, "🔮 Vampirisme", "sort")) { cdFlush(); afterAction(); return; }
     cdLine(`Vous avez attaqué <b>${m.name}</b> grâce à un sortilège.`);
-    const pseudo = { att: Math.max(1, Math.floor(te.deg * 2 / 3)), deg: te.deg, degBonus: te.degBonus };
+    const pseudo = {
+      att: Math.max(1, Math.floor(te.deg * 2 / 3)), deg: te.deg,
+      degBonus: te.degBonus, attFlat: te.attFlat, degFlat: te.degFlat,
+    };
     const r = resolveAttack(pseudo, effMonster(m), { ignoreArmor: true });
     cdAttackRolls(r);
     if (r.hit) {
@@ -859,7 +877,7 @@ function useSort() {
     if (!m) { log("Aucun monstre adjacent.", "info"); return; }
     if (!tryTalent(t.sort, 80, sort.cost, "🔮 Siphon des Âmes", "sort")) { cdFlush(); afterAction(); return; }
     cdLine(`Vous avez attaqué <b>${m.name}</b> grâce à un sortilège.`);
-    const pseudo = { att: te.att, deg: te.reg, degBonus: 0 };
+    const pseudo = { att: te.att, deg: te.reg, degBonus: 0, attFlat: te.attFlat, degFlat: te.degFlat };
     const r = resolveAttack(pseudo, effMonster(m), { ignoreArmor: true });
     cdAttackRolls(r);
     if (r.hit) {
@@ -1025,8 +1043,10 @@ function passDLA() {
   const te = effTroll(t);
   if (t.pv < t.pvMax && t.pv > 0) {
     const r = rollDice(te.reg, 3);
-    t.pv = Math.min(t.pvMax, t.pv + r.total);
-    log(`💤 Tour n°${t.tour} (DLA n°${t.dla}) : tu régénères ${r.total} PV (${te.reg}D3).`, "info");
+    const heal = r.total + (te.regFlat || 0);
+    t.pv = Math.min(t.pvMax, t.pv + heal);
+    const regLbl = te.regFlat ? `${te.reg}D3 +${te.regFlat}` : `${te.reg}D3`;
+    log(`💤 Tour n°${t.tour} (DLA n°${t.dla}) : tu régénères ${heal} PV (${regLbl}).`, "info");
   } else {
     log(`💤 Tour n°${t.tour} (DLA n°${t.dla}).`, "info");
   }
@@ -1167,16 +1187,22 @@ function renderPanels() {
   $("troll-title").textContent = `${RACES[t.race].emoji} ${t.name}, ${t.race} niv. ${levelFromTotalPI(t.totalPI)}`;
 
   const te = effTroll(t);
+  const fmtDice = (n, faces, flat, extra = 0) => {
+    let s = `${n}D${faces}`;
+    const bonus = (flat || 0) + (extra || 0);
+    if (bonus) s += bonus > 0 ? ` +${bonus}` : ` ${bonus}`;
+    return s;
+  };
   const pct = Math.max(0, t.pv / t.pvMax);
   const hpClass = pct > 0.6 ? "high" : pct > 0.3 ? "mid" : "";
   $("stats").innerHTML = `
     <div><span>Tour</span><span class="stat-val">${t.tour}</span></div>
     <div><span>PV</span><span class="stat-val">${t.pv} / ${t.pvMax}</span></div>
     <div class="hp-bar-wrap"><div class="hp-bar ${hpClass}" style="width:${pct * 100}%"></div></div>
-    <div><span>Attaque</span><span class="stat-val">${te.att}D6</span></div>
-    <div><span>Esquive</span><span class="stat-val">${te.esq}D6</span></div>
-    <div><span>Dégâts</span><span class="stat-val">${te.deg}D3${te.degBonus ? "+" + te.degBonus : ""}</span></div>
-    <div><span>Régénération</span><span class="stat-val">${te.reg}D3</span></div>
+    <div><span>Attaque</span><span class="stat-val">${fmtDice(te.att, 6, te.attFlat)}</span></div>
+    <div><span>Esquive</span><span class="stat-val">${fmtDice(te.esq, 6, te.esqFlat)}</span></div>
+    <div><span>Dégâts</span><span class="stat-val">${fmtDice(te.deg, 3, te.degFlat, te.degBonus)}</span></div>
+    <div><span>Régénération</span><span class="stat-val">${fmtDice(te.reg, 3, te.regFlat)}</span></div>
     <div><span>Armure</span><span class="stat-val">${te.armor}${t.armorDice ? "+" + t.armorDice + "D3" : ""}</span></div>
     <div><span>Vue</span><span class="stat-val">${te.vue}</span></div>
     <div><span>${RACES[t.race].comp.name}</span><span class="stat-val">${t.comp.pct} %</span></div>

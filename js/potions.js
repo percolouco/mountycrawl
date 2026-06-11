@@ -25,9 +25,20 @@ function corruptionYZ(x) {
   return { y: potRand(16, 30), z: potRand(16, 30) };
 }
 
+/* Jet de modificateur potion : X D6/D3 → bonus/malus fixe sur les jets (pas sur le nb de dés). */
+function rollMod(rollDice, count, faces, negative = false) {
+  const r = rollDice(count, faces);
+  const value = negative ? -r.total : r.total;
+  const sign = negative ? "−" : "+";
+  return {
+    value,
+    line: `${sign}${count}D${faces} → ${value >= 0 ? "+" : ""}${value}`,
+  };
+}
+
 /* Fabrique un effet actif (durée en tours restants). */
-function makeEffect(name, emoji, turnsLeft, mods = {}) {
-  return { name, emoji, turnsLeft, ...mods };
+function makeEffect(name, emoji, turnsLeft, mods = {}, modLines = []) {
+  return { name, emoji, turnsLeft, modLines, ...mods };
 }
 
 const POTION_DEFS = {
@@ -71,13 +82,16 @@ const POTION_DEFS = {
     name: "Elixir de Corruption", emoji: "☠️", color: "#4a2858",
     duration: 5,
     rollPower: () => potRand(3, 7),
-    build(_t, p) {
+    build(_t, p, rollDice) {
       const { y, z } = corruptionYZ(p);
+      const attR = rollMod(rollDice, p, 3, false);
+      const esqR = rollMod(rollDice, p, 3, true);
+      const lines = [`ATT ${attR.line}`, `ESQ ${esqR.line}`, `DEG +${p}`, `REG −${p}`, `VUE −${p}`, `Armure +${p}`];
       return {
-        log: `Elixir de Corruption : malus multiples (X=${p}, RM −${y} %, MM −${z} %) pendant 5 tours.`,
+        log: `Elixir de Corruption : ${lines.join(", ")} ; RM −${y} %, MM −${z} % (5 tours).`,
         effects: [makeEffect("Elixir de Corruption", "☠️", 5, {
-          att: p, esq: -p, deg: p, reg: -p, vue: -p, armor: p, rmPct: -y, mmPct: -z,
-        })],
+          attFlat: attR.value, esqFlat: esqR.value, deg: p, reg: -p, vue: -p, armor: p, rmPct: -y, mmPct: -z,
+        }, lines)],
       };
     },
   },
@@ -85,10 +99,12 @@ const POTION_DEFS = {
     name: "Elixir de Fertilité", emoji: "🌱", color: "#5d9a48",
     duration: 5,
     rollPower: () => potRand(3, 7),
-    build(_t, p) {
+    build(_t, p, rollDice) {
+      const attR = rollMod(rollDice, p, 3, false);
+      const lines = [`ATT ${attR.line}`, `DEG +${p}`];
       return {
-        log: `Elixir de Fertilité : ATT +${p}D6, DEG +${p} pendant 5 tours.`,
-        effects: [makeEffect("Elixir de Fertilité", "🌱", 5, { att: p, deg: p })],
+        log: `Elixir de Fertilité : ${lines.join(", ")} pendant 5 tours.`,
+        effects: [makeEffect("Elixir de Fertilité", "🌱", 5, { attFlat: attR.value, deg: p }, lines)],
       };
     },
   },
@@ -96,10 +112,12 @@ const POTION_DEFS = {
     name: "Elixir de Feu", emoji: "🔥", color: "#e85830",
     duration: 5,
     rollPower: () => potRand(3, 7),
-    build(_t, p) {
+    build(_t, p, rollDice) {
+      const esqR = rollMod(rollDice, p, 3, false);
+      const lines = [`ESQ ${esqR.line}`, `VUE +${p}`];
       return {
-        log: `Elixir de Feu : ESQ +${p}D6, VUE +${p} pendant 5 tours.`,
-        effects: [makeEffect("Elixir de Feu", "🔥", 5, { esq: p, vue: p })],
+        log: `Elixir de Feu : ${lines.join(", ")} pendant 5 tours.`,
+        effects: [makeEffect("Elixir de Feu", "🔥", 5, { esqFlat: esqR.value, vue: p }, lines)],
       };
     },
   },
@@ -168,10 +186,15 @@ const POTION_DEFS = {
     name: "Rhume en Conserve", emoji: "🤧", color: "#c8d8a8",
     duration: 3,
     rollPower: () => potRand(1, 2),
-    build(_t, p) {
+    build(_t, p, rollDice) {
+      const attR = rollMod(rollDice, p, 3, true);
+      const esqR = rollMod(rollDice, p, 3, true);
+      const lines = [`ATT ${attR.line}`, `ESQ ${esqR.line}`, `DEG −${p}`, `REG −${p}`];
       return {
-        log: `Rhume en Conserve : ATT/ESQ/DEG/REG −${p} pendant 3 tours.`,
-        effects: [makeEffect("Rhume en Conserve", "🤧", 3, { att: -p, esq: -p, deg: -p, reg: -p })],
+        log: `Rhume en Conserve : ${lines.join(", ")} pendant 3 tours.`,
+        effects: [makeEffect("Rhume en Conserve", "🤧", 3, {
+          attFlat: attR.value, esqFlat: esqR.value, deg: -p, reg: -p,
+        }, lines)],
       };
     },
   },
@@ -179,10 +202,15 @@ const POTION_DEFS = {
     name: "Grippe en Conserve", emoji: "🤒", color: "#d8a848",
     duration: 3,
     rollPower: () => potRand(3, 4),
-    build(_t, p) {
+    build(_t, p, rollDice) {
+      const attR = rollMod(rollDice, p, 3, true);
+      const esqR = rollMod(rollDice, p, 3, true);
+      const lines = [`ATT ${attR.line}`, `ESQ ${esqR.line}`, `DEG −${p}`, `REG −${p}`];
       return {
-        log: `Grippe en Conserve : ATT/ESQ/DEG/REG −${p} pendant 3 tours.`,
-        effects: [makeEffect("Grippe en Conserve", "🤒", 3, { att: -p, esq: -p, deg: -p, reg: -p })],
+        log: `Grippe en Conserve : ${lines.join(", ")} pendant 3 tours.`,
+        effects: [makeEffect("Grippe en Conserve", "🤒", 3, {
+          attFlat: attR.value, esqFlat: esqR.value, deg: -p, reg: -p,
+        }, lines)],
       };
     },
   },
@@ -190,10 +218,15 @@ const POTION_DEFS = {
     name: "Pneumonie en Conserve", emoji: "😷", color: "#a87878",
     duration: 3,
     rollPower: () => 5,
-    build(_t, _p) {
+    build(_t, _p, rollDice) {
+      const attR = rollMod(rollDice, 5, 3, true);
+      const esqR = rollMod(rollDice, 5, 3, true);
+      const lines = [`ATT ${attR.line}`, `ESQ ${esqR.line}`, "DEG −5", "REG −5"];
       return {
-        log: "Pneumonie en Conserve : ATT/ESQ/DEG/REG −5 pendant 3 tours.",
-        effects: [makeEffect("Pneumonie en Conserve", "😷", 3, { att: -5, esq: -5, deg: -5, reg: -5 })],
+        log: `Pneumonie en Conserve : ${lines.join(", ")} pendant 3 tours.`,
+        effects: [makeEffect("Pneumonie en Conserve", "😷", 3, {
+          attFlat: attR.value, esqFlat: esqR.value, deg: -5, reg: -5,
+        }, lines)],
       };
     },
   },
@@ -259,11 +292,17 @@ const POTION_DEFS = {
     duration: 3,
     rollPower: () => potRand(0, 2),
     build(troll, p, rollDice) {
+      const attR = p > 0 ? rollMod(rollDice, p, 6, true) : { value: 0, line: "ATT ±0" };
+      const esqR = p > 0 ? rollMod(rollDice, p, 6, true) : { value: 0, line: "ESQ ±0" };
       const y = p >= 2 ? rollDice(2, 3).total : 0;
       if (y > 0) troll.pv = Math.max(1, troll.pv - y);
+      const lines = [`ATT ${attR.line}`, `ESQ ${esqR.line}`, `VUE −${p + 1}`];
+      if (y) lines.push(`PV −${y} (${y} = 2D3)`);
       return {
-        log: `PufPuff : ATT/ESQ −${p}D6, VUE −${p + 1}${y ? `, −${y} PV` : ""} pendant 3 tours.`,
-        effects: [makeEffect("PufPuff", "💨", 3, { att: -p, esq: -p, vue: -(p + 1) })],
+        log: `PufPuff : ${lines.join(", ")} pendant 3 tours.`,
+        effects: [makeEffect("PufPuff", "💨", 3, {
+          attFlat: attR.value, esqFlat: esqR.value, vue: -(p + 1),
+        }, lines)],
       };
     },
   },
@@ -271,10 +310,15 @@ const POTION_DEFS = {
     name: "Sang de Toh Réroh", emoji: "🩸", color: "#a83030",
     duration: 4,
     rollPower: () => potRand(1, 5),
-    build(_t, p) {
+    build(_t, p, rollDice) {
+      const attR = rollMod(rollDice, p, 6, false);
+      const esqR = rollMod(rollDice, p, 6, false);
+      const lines = [`ATT ${attR.line}`, `ESQ ${esqR.line}`, `VUE +${p}`];
       return {
-        log: `Sang de Toh Réroh : ATT +${p}D6, ESQ +${p}D6, VUE +${p} pendant 4 tours.`,
-        effects: [makeEffect("Sang de Toh Réroh", "🩸", 4, { att: p, esq: p, vue: p })],
+        log: `Sang de Toh Réroh : ${lines.join(", ")} pendant 4 tours.`,
+        effects: [makeEffect("Sang de Toh Réroh", "🩸", 4, {
+          attFlat: attR.value, esqFlat: esqR.value, vue: p,
+        }, lines)],
       };
     },
   },
@@ -317,11 +361,16 @@ const POTION_DEFS = {
     duration: 3,
     rollPower: () => potRand(1, 5),
     build(troll, p, rollDice) {
+      const attR = rollMod(rollDice, p, 3, true);
+      const esqR = rollMod(rollDice, p, 3, true);
       const heal = rollDice(p, 3).total;
       troll.pv = Math.min(troll.pvMax, troll.pv + heal);
+      const lines = [`ATT ${attR.line}`, `ESQ ${esqR.line}`, `VUE −${p}`, `PV +${heal} (${p}D3)`];
       return {
-        log: `Zet Crakdedand : ATT/ESQ/VUE −${p}, +${heal} PV (${p}D3) pendant 3 tours.`,
-        effects: [makeEffect("Zet Crakdedand", "🦷", 3, { att: -p, esq: -p, vue: -p })],
+        log: `Zet Crakdedand : ${lines.join(", ")} pendant 3 tours.`,
+        effects: [makeEffect("Zet Crakdedand", "🦷", 3, {
+          attFlat: attR.value, esqFlat: esqR.value, vue: -p,
+        }, lines)],
       };
     },
   },
@@ -330,6 +379,7 @@ const POTION_DEFS = {
 function sumPotionMods(effects) {
   const m = {
     att: 0, esq: 0, deg: 0, reg: 0, vue: 0, armor: 0,
+    attFlat: 0, esqFlat: 0, degFlat: 0, regFlat: 0,
     mmPct: 0, rmPct: 0, concentrationPct: 0, dlaBonusPA: 0,
   };
   for (const e of effects || []) {
@@ -344,13 +394,17 @@ function effTroll(troll) {
   const m = sumPotionMods(troll.potionEffects);
   return {
     att: Math.max(1, troll.att + m.att),
+    attFlat: m.attFlat,
     esq: Math.max(1, troll.esq + m.esq),
+    esqFlat: m.esqFlat,
     deg: Math.max(1, troll.deg + m.deg),
+    degFlat: m.degFlat,
     reg: Math.max(1, troll.reg + m.reg),
+    regFlat: m.regFlat,
     vue: Math.max(1, troll.vue + m.vue),
     armor: Math.max(0, troll.armor + m.armor),
     armorDice: troll.armorDice,
-    degBonus: troll.degBonus,
+    degBonus: troll.degBonus || 0,
     pvMax: troll.pvMax,
     mmPct: m.mmPct,
     rmPct: m.rmPct,
@@ -423,16 +477,21 @@ function tickPotionTurns(troll, logFn) {
 }
 
 const EFFECT_MOD_LABELS = {
-  att: ["ATT", "D6"], esq: ["ESQ", "D6"], deg: ["DEG", "D3"], reg: ["REG", "D3"],
+  att: ["ATT", "dés"], esq: ["ESQ", "dés"], deg: ["DEG", "dés"], reg: ["REG", "dés"],
   vue: ["VUE", ""], armor: ["Armure", ""],
 };
 
 function formatEffectMods(effect) {
+  if (effect.modLines?.length) return [...effect.modLines];
   const parts = [];
+  if (effect.attFlat) parts.push(`ATT ${effect.attFlat > 0 ? "+" : ""}${effect.attFlat}`);
+  if (effect.esqFlat) parts.push(`ESQ ${effect.esqFlat > 0 ? "+" : ""}${effect.esqFlat}`);
+  if (effect.degFlat) parts.push(`DEG ${effect.degFlat > 0 ? "+" : ""}${effect.degFlat}`);
+  if (effect.regFlat) parts.push(`REG ${effect.regFlat > 0 ? "+" : ""}${effect.regFlat}`);
   for (const [key, [label, suffix]] of Object.entries(EFFECT_MOD_LABELS)) {
     const v = effect[key];
     if (!v) continue;
-    parts.push(`${label} ${v > 0 ? "+" : ""}${v}${suffix}`);
+    parts.push(`${label} ${v > 0 ? "+" : ""}${v}${suffix ? " " + suffix : ""}`);
   }
   if (effect.mmPct) parts.push(`MM ${effect.mmPct > 0 ? "+" : ""}${effect.mmPct} %`);
   if (effect.rmPct) parts.push(`RM ${effect.rmPct > 0 ? "+" : ""}${effect.rmPct} %`);
@@ -487,12 +546,25 @@ function renderEffectsPanel(troll) {
   }
 
   const total = sumPotionMods(troll.potionEffects);
-  const totalLines = formatEffectMods(total);
+  const totalLines = [];
+  if (total.attFlat) totalLines.push(`ATT ${total.attFlat > 0 ? "+" : ""}${total.attFlat}`);
+  if (total.esqFlat) totalLines.push(`ESQ ${total.esqFlat > 0 ? "+" : ""}${total.esqFlat}`);
+  if (total.degFlat) totalLines.push(`DEG ${total.degFlat > 0 ? "+" : ""}${total.degFlat}`);
+  if (total.regFlat) totalLines.push(`REG ${total.regFlat > 0 ? "+" : ""}${total.regFlat}`);
+  for (const [key, [label, suffix]] of Object.entries(EFFECT_MOD_LABELS)) {
+    const v = total[key];
+    if (!v) continue;
+    totalLines.push(`${label} ${v > 0 ? "+" : ""}${v}${suffix ? " " + suffix : ""}`);
+  }
+  if (total.mmPct) totalLines.push(`MM ${total.mmPct > 0 ? "+" : ""}${total.mmPct} %`);
+  if (total.rmPct) totalLines.push(`RM ${total.rmPct > 0 ? "+" : ""}${total.rmPct} %`);
+  if (total.concentrationPct) totalLines.push(`Concentration ${total.concentrationPct > 0 ? "+" : ""}${total.concentrationPct} %`);
+  if (total.dlaBonusPA) totalLines.push(`DLA +${total.dlaBonusPA} PA/tour`);
   if (troll.blockCamoTurns > 0) totalLines.push("Camouflage bloqué");
 
   let html = "";
   if (totalLines.length) {
-    html += `<div class="fx-total"><div class="fx-total-title">Total des modificateurs</div>`;
+    html += `<div class="fx-total"><div class="fx-total-title">Total des modificateurs (jets inclus)</div>`;
     html += totalLines.map(m => `<span class="fx-mod">${m}</span>`).join("");
     html += "</div>";
   }
@@ -519,6 +591,6 @@ if (typeof module !== "undefined" && module.exports) {
     POTION_IDS, POTION_DEFS, sumPotionMods, effTroll, formatPotionItem,
     makeRandomPotion, makePotionItem, drinkPotion, tickPotionTurns,
     describeActiveEffects, renderEffectsPanel, countActiveEffects, formatEffectMods,
-    talentPctWithPotions, corruptionYZ,
+    rollMod, talentPctWithPotions, corruptionYZ,
   };
 }

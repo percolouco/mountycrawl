@@ -166,12 +166,31 @@ assert.strictEqual(p.corruptionYZ(3).y, 0);
   p.drinkPotion(troll, item, g.rollDice, () => {});
   assert.strictEqual(troll.potionEffects.length, 1);
   assert.strictEqual(p.effTroll(troll).deg, 8);
+  assert.strictEqual(p.effTroll(troll).attFlat, 0, "Bonne Bouffe ne modifie pas ATT");
+  const fixedRoll = () => ({ total: 12, rolls: [4, 4, 4] });
+  const t2 = { att: 3, esq: 3, deg: 3, reg: 1, vue: 3, armor: 0, armorDice: 0, degBonus: 0, pvMax: 30, pv: 20, potionEffects: [], blockCamoTurns: 0, tour: 1 };
+  p.drinkPotion(t2, p.makePotionItem("fertilite", 5), fixedRoll, () => {});
+  assert.strictEqual(p.effTroll(t2).attFlat, 12, "Fertilité +5D3 → +12 sur le jet");
+  assert.strictEqual(p.effTroll(t2).att, 3);
+  const t3 = { att: 3, esq: 3, deg: 3, reg: 1, vue: 3, armor: 0, armorDice: 0, degBonus: 0, pvMax: 30, pv: 20, potionEffects: [], blockCamoTurns: 0, tour: 1 };
+  p.drinkPotion(t3, p.makePotionItem("sangToh", 2), fixedRoll, () => {});
+  assert.strictEqual(p.effTroll(t3).attFlat, 12, "2D6 fixé → +12 sur le jet d'attaque");
+  assert.strictEqual(p.effTroll(t3).esqFlat, 12);
+  assert.strictEqual(p.effTroll(t3).att, 3);
   p.tickPotionTurns(troll, () => {});
   assert.strictEqual(troll.tour, 2);
   troll.potionEffects[0].turnsLeft = 0;
   p.tickPotionTurns(troll, () => {});
   assert.strictEqual(troll.potionEffects.length, 0);
   assert.strictEqual(p.effTroll(troll).deg, 3);
+  assert.strictEqual(p.effTroll(troll).attFlat, 0);
+}
+// Jet d'attaque : bonus potion ajouté au total des D6
+{
+  const r = g.resolveAttack({ att: 3, attFlat: 12, deg: 2, degBonus: 0 }, { esq: 1 });
+  assert.strictEqual(r.attFlat, 12);
+  assert(r.attRoll > 12, "attRoll = somme des D6 + bonus potion");
+  assert(r.attRoll <= 12 + 18, "attRoll borné (3D6 max 18 + 12)");
 }
 const sword = g.itemFromSpec({ x: 1, y: 1, kind: "weapon", idx: 2 });
 assert.strictEqual(sword.kind, "gear");
