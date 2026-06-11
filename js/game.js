@@ -4,7 +4,7 @@
 
 "use strict";
 
-const APP_VERSION = "1.7.1";
+const APP_VERSION = "1.8.0";
 
 /* Alpha : maîtrise initiale haute pour les tests. Remettre 15 % / 15 % à la v1.0 officielle. */
 const START_COMP_PCT = 90;

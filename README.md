@@ -152,6 +152,11 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **1.8.0** (2026-06-12) — Habillage « pack parchemin » officiel de MountyHall
+  (https://www.mountyhall.com/MH_Pack/packMH_parchemin/) : fond lin, tableaux
+  crème à bordure noire (tableau1/2.jpg), liens rouge sombre #990000, boutons
+  olive #666633 façon `mh_form_submit`, bandeaux en boiseries (interfacehaut),
+  police Trebuchet MS. Assets dans `img/mh/`.
 - **1.7.1** (2026-06-12) — Les bonus ATT/ESQ/DEG/REG de l'équipement sont des bonus
   **fixes** ajoutés aux jets, jamais des dés supplémentaires (un Gourdin donne
   DEG +5 sur le jet, pas +5D3).
