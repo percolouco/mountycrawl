@@ -447,14 +447,11 @@ function inSight(e) {
   return inSightAt(e.x, e.y);
 }
 
-/* Met à jour le brouillard : retire les cases hors de la Vue actuelle
- * (ex. quand un bonus de potion expire) puis révèle la zone portée. */
+/* Révèle les cases à portée de la Vue actuelle (ajout uniquement).
+ * La mémoire (zones déjà explorées, affichées plus sombres) est conservée
+ * même si la Vue diminue — seuls monstres et trésors hors portée sont masqués. */
 function refreshFov() {
   const r = currentVue();
-  for (const key of [...G.seen]) {
-    const tx = key % MAP_W, ty = Math.floor(key / MAP_W);
-    if (tileDist(tx, ty) > r) G.seen.delete(key);
-  }
   const { x, y } = G.troll;
   for (let dy = -r; dy <= r; dy++) {
     for (let dx = -r; dx <= r; dx++) {

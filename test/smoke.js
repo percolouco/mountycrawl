@@ -207,17 +207,20 @@ assert(srv.validateLevel({ ...goodLevel, grid: goodGrid.slice(1) }), "grille tro
 assert(srv.validateLevel({ ...goodLevel, monsters: [{ x: 0, y: 0, type: 0, tpl: 0 }] }), "monstre dans un mur refusé");
 assert(srv.validateLevel({ ...goodLevel, items: [{ x: 3, y: 3, kind: "nawak" }] }), "objet inconnu refusé");
 
-// Vue : le brouillard est rogné quand la portée diminue (fin de potion)
+// Vue : mémoire du brouillard conservée, entités seulement à portée actuelle
 {
   g.newGame("Test", "Skrim");
   const t = g.state.troll;
   t.x = 5; t.y = 5;
+  const farKey = 5 * g.MAP_W + 10;
   t.potionEffects = [{ name: "Test", emoji: "🔭", turnsLeft: 1, vue: 5 }];
   g.refreshFov();
   assert(g.inSightAt(10, 5), "vue 8 (3+5) doit voir à 5 cases");
+  assert(g.state.seen.has(farKey), "case lointaine mémorisée");
   t.potionEffects = [];
   g.refreshFov();
-  assert(!g.inSightAt(10, 5), "vue 3 seule ne doit plus voir à 5 cases");
+  assert(!g.inSightAt(10, 5), "vue 3 ne voit plus à 5 cases");
+  assert(g.state.seen.has(farKey), "mémoire conservée (affichage sombre)");
   assert(g.inSightAt(8, 5), "vue 3 voit encore à 3 cases");
 }
 
