@@ -185,6 +185,13 @@ assert.strictEqual(p.corruptionYZ(3).y, 0);
   assert.strictEqual(p.effTroll(troll).deg, 3);
   assert.strictEqual(p.effTroll(troll).attFlat, 0);
 }
+// DjhinTonik : +X dés de DEG et REG (pas un jet D3)
+{
+  const t = { att: 3, esq: 3, deg: 4, reg: 1, vue: 3, armor: 0, armorDice: 0, degBonus: 0, pvMax: 30, pv: 20, potionEffects: [], blockCamoTurns: 0, tour: 1 };
+  p.drinkPotion(t, p.makePotionItem("djhinTonik", 5), g.rollDice, () => {});
+  assert.strictEqual(p.effTroll(t).deg, 9, "DEG 4 + 5 dés potion = 9D3");
+  assert.strictEqual(p.effTroll(t).reg, 6, "REG 1 + 5 dés potion = 6D3");
+}
 // Jet d'attaque : bonus potion ajouté au total des D6
 {
   const r = g.resolveAttack({ att: 3, attFlat: 12, deg: 2, degBonus: 0 }, { esq: 1 });

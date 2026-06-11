@@ -169,6 +169,7 @@ header h1 { font-size: 1.3em; color: #8fbf5a; }
 
 #stats div { display: flex; justify-content: space-between; padding: 2px 0; }
 #stats .stat-val { font-family: monospace; color: #f0e6c0; }
+#stats .stat-hint { color: #8a7a55; font-size: 0.82em; font-family: Georgia, serif; }
 
 #effects-panel { margin-top: 4px; }
 .fx-empty { color: #8a7a55; font-style: italic; font-size: 0.88em; line-height: 1.4; }
@@ -180,6 +181,7 @@ header h1 { font-size: 1.3em; color: #8fbf5a; }
   margin-bottom: 10px;
 }
 .fx-total-title { color: #d8a040; font-size: 0.85em; margin-bottom: 6px; font-weight: bold; }
+.fx-total .fx-mod { margin: 0 6px 4px 0; }
 .fx-card {
   background: #1f1810;
   border: 1px solid #4a3a20;

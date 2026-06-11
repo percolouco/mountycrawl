@@ -72,9 +72,10 @@ const POTION_DEFS = {
     duration: 5,
     rollPower: () => potRand(3, 7),
     build(_t, p) {
+      const lines = [`DEG +${p} dés`, `REG +${p} dés`];
       return {
-        log: `Elixir de Bonne Bouffe : DEG +${p}, REG +${p} pendant 5 tours.`,
-        effects: [makeEffect("Elixir de Bonne Bouffe", "🍖", 5, { deg: p, reg: p })],
+        log: `Elixir de Bonne Bouffe : ${lines.join(", ")} pendant 5 tours.`,
+        effects: [makeEffect("Elixir de Bonne Bouffe", "🍖", 5, { deg: p, reg: p }, lines)],
       };
     },
   },
@@ -153,9 +154,10 @@ const POTION_DEFS = {
     build(troll, p, rollDice) {
       const heal = rollDice(2, 3).total;
       troll.pv = Math.min(troll.pvMax, troll.pv + heal);
+      const lines = [`DEG +${p} dés`, `REG +${p} dés`, `PV +${heal} (2D3)`];
       return {
-        log: `Extrait de DjhinTonik : DEG +${p}, REG +${p}, +${heal} PV (2D3) pendant 4 tours.`,
-        effects: [makeEffect("Extrait de DjhinTonik", "🧞", 4, { deg: p, reg: p })],
+        log: `Extrait de DjhinTonik : ${lines.join(", ")} pendant 4 tours.`,
+        effects: [makeEffect("Extrait de DjhinTonik", "🧞", 4, { deg: p, reg: p }, lines)],
       };
     },
   },
@@ -383,11 +385,25 @@ function sumPotionMods(effects) {
     mmPct: 0, rmPct: 0, concentrationPct: 0, dlaBonusPA: 0,
   };
   for (const e of effects || []) {
+    if (e.blockCamo) continue;
     for (const k of Object.keys(m)) {
-      if (e[k]) m[k] += e[k];
+      if (typeof e[k] === "number") m[k] += e[k];
     }
   }
   return m;
+}
+
+/* Affichage caractéristique : valeur effective + rappel de la base si modifiée. */
+function fmtStatLine(base, eff, faces, flat = 0, extra = 0) {
+  const diceDelta = eff - base;
+  const jetBonus = (flat || 0) + (extra || 0);
+  let main = `${eff}D${faces}`;
+  if (jetBonus) main += jetBonus > 0 ? ` +${jetBonus}` : ` ${jetBonus}`;
+  if (diceDelta !== 0) {
+    const sign = diceDelta > 0 ? "+" : "";
+    return `${main} <small class="stat-hint">(${base}D${faces} ${sign}${diceDelta})</small>`;
+  }
+  return main;
 }
 
 function effTroll(troll) {
@@ -477,21 +493,20 @@ function tickPotionTurns(troll, logFn) {
 }
 
 const EFFECT_MOD_LABELS = {
-  att: ["ATT", "dés"], esq: ["ESQ", "dés"], deg: ["DEG", "dés"], reg: ["REG", "dés"],
-  vue: ["VUE", ""], armor: ["Armure", ""],
+  att: "ATT", esq: "ESQ", deg: "DEG", reg: "REG", vue: "VUE", armor: "Armure",
 };
 
 function formatEffectMods(effect) {
   if (effect.modLines?.length) return [...effect.modLines];
   const parts = [];
-  if (effect.attFlat) parts.push(`ATT ${effect.attFlat > 0 ? "+" : ""}${effect.attFlat}`);
-  if (effect.esqFlat) parts.push(`ESQ ${effect.esqFlat > 0 ? "+" : ""}${effect.esqFlat}`);
-  if (effect.degFlat) parts.push(`DEG ${effect.degFlat > 0 ? "+" : ""}${effect.degFlat}`);
-  if (effect.regFlat) parts.push(`REG ${effect.regFlat > 0 ? "+" : ""}${effect.regFlat}`);
-  for (const [key, [label, suffix]] of Object.entries(EFFECT_MOD_LABELS)) {
+  if (effect.attFlat) parts.push(`ATT ${effect.attFlat > 0 ? "+" : ""}${effect.attFlat} (jet)`);
+  if (effect.esqFlat) parts.push(`ESQ ${effect.esqFlat > 0 ? "+" : ""}${effect.esqFlat} (jet)`);
+  if (effect.degFlat) parts.push(`DEG ${effect.degFlat > 0 ? "+" : ""}${effect.degFlat} (jet)`);
+  if (effect.regFlat) parts.push(`REG ${effect.regFlat > 0 ? "+" : ""}${effect.regFlat} (jet)`);
+  for (const [key, label] of Object.entries(EFFECT_MOD_LABELS)) {
     const v = effect[key];
-    if (!v) continue;
-    parts.push(`${label} ${v > 0 ? "+" : ""}${v}${suffix ? " " + suffix : ""}`);
+    if (typeof v !== "number" || !v) continue;
+    parts.push(`${label} ${v > 0 ? "+" : ""}${v}${["att", "esq", "deg", "reg"].includes(key) ? " dés" : ""}`);
   }
   if (effect.mmPct) parts.push(`MM ${effect.mmPct > 0 ? "+" : ""}${effect.mmPct} %`);
   if (effect.rmPct) parts.push(`RM ${effect.rmPct > 0 ? "+" : ""}${effect.rmPct} %`);
@@ -547,14 +562,14 @@ function renderEffectsPanel(troll) {
 
   const total = sumPotionMods(troll.potionEffects);
   const totalLines = [];
-  if (total.attFlat) totalLines.push(`ATT ${total.attFlat > 0 ? "+" : ""}${total.attFlat}`);
-  if (total.esqFlat) totalLines.push(`ESQ ${total.esqFlat > 0 ? "+" : ""}${total.esqFlat}`);
-  if (total.degFlat) totalLines.push(`DEG ${total.degFlat > 0 ? "+" : ""}${total.degFlat}`);
-  if (total.regFlat) totalLines.push(`REG ${total.regFlat > 0 ? "+" : ""}${total.regFlat}`);
-  for (const [key, [label, suffix]] of Object.entries(EFFECT_MOD_LABELS)) {
+  if (total.attFlat) totalLines.push(`ATT ${total.attFlat > 0 ? "+" : ""}${total.attFlat} (jet)`);
+  if (total.esqFlat) totalLines.push(`ESQ ${total.esqFlat > 0 ? "+" : ""}${total.esqFlat} (jet)`);
+  if (total.degFlat) totalLines.push(`DEG ${total.degFlat > 0 ? "+" : ""}${total.degFlat} (jet)`);
+  if (total.regFlat) totalLines.push(`REG ${total.regFlat > 0 ? "+" : ""}${total.regFlat} (jet)`);
+  for (const [key, label] of Object.entries(EFFECT_MOD_LABELS)) {
     const v = total[key];
-    if (!v) continue;
-    totalLines.push(`${label} ${v > 0 ? "+" : ""}${v}${suffix ? " " + suffix : ""}`);
+    if (typeof v !== "number" || !v) continue;
+    totalLines.push(`${label} ${v > 0 ? "+" : ""}${v}${["att", "esq", "deg", "reg"].includes(key) ? " dés" : ""}`);
   }
   if (total.mmPct) totalLines.push(`MM ${total.mmPct > 0 ? "+" : ""}${total.mmPct} %`);
   if (total.rmPct) totalLines.push(`RM ${total.rmPct > 0 ? "+" : ""}${total.rmPct} %`);
@@ -591,6 +606,6 @@ if (typeof module !== "undefined" && module.exports) {
     POTION_IDS, POTION_DEFS, sumPotionMods, effTroll, formatPotionItem,
     makeRandomPotion, makePotionItem, drinkPotion, tickPotionTurns,
     describeActiveEffects, renderEffectsPanel, countActiveEffects, formatEffectMods,
-    rollMod, talentPctWithPotions, corruptionYZ,
+    rollMod, fmtStatLine, talentPctWithPotions, corruptionYZ,
   };
 }

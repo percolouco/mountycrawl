@@ -4,7 +4,7 @@
 
 "use strict";
 
-const APP_VERSION = "0.1.5";
+const APP_VERSION = "0.1.6";
 
 /* Alpha : maîtrise initiale haute pour les tests. Remettre 15 % / 15 % à la v1.0 officielle. */
 const START_COMP_PCT = 90;
@@ -1187,22 +1187,16 @@ function renderPanels() {
   $("troll-title").textContent = `${RACES[t.race].emoji} ${t.name}, ${t.race} niv. ${levelFromTotalPI(t.totalPI)}`;
 
   const te = effTroll(t);
-  const fmtDice = (n, faces, flat, extra = 0) => {
-    let s = `${n}D${faces}`;
-    const bonus = (flat || 0) + (extra || 0);
-    if (bonus) s += bonus > 0 ? ` +${bonus}` : ` ${bonus}`;
-    return s;
-  };
   const pct = Math.max(0, t.pv / t.pvMax);
   const hpClass = pct > 0.6 ? "high" : pct > 0.3 ? "mid" : "";
   $("stats").innerHTML = `
     <div><span>Tour</span><span class="stat-val">${t.tour}</span></div>
     <div><span>PV</span><span class="stat-val">${t.pv} / ${t.pvMax}</span></div>
     <div class="hp-bar-wrap"><div class="hp-bar ${hpClass}" style="width:${pct * 100}%"></div></div>
-    <div><span>Attaque</span><span class="stat-val">${fmtDice(te.att, 6, te.attFlat)}</span></div>
-    <div><span>Esquive</span><span class="stat-val">${fmtDice(te.esq, 6, te.esqFlat)}</span></div>
-    <div><span>Dégâts</span><span class="stat-val">${fmtDice(te.deg, 3, te.degFlat, te.degBonus)}</span></div>
-    <div><span>Régénération</span><span class="stat-val">${fmtDice(te.reg, 3, te.regFlat)}</span></div>
+    <div><span>Attaque</span><span class="stat-val">${fmtStatLine(t.att, te.att, 6, te.attFlat)}</span></div>
+    <div><span>Esquive</span><span class="stat-val">${fmtStatLine(t.esq, te.esq, 6, te.esqFlat)}</span></div>
+    <div><span>Dégâts</span><span class="stat-val">${fmtStatLine(t.deg, te.deg, 3, te.degFlat, te.degBonus)}</span></div>
+    <div><span>Régénération</span><span class="stat-val">${fmtStatLine(t.reg, te.reg, 3, te.regFlat)}</span></div>
     <div><span>Armure</span><span class="stat-val">${te.armor}${t.armorDice ? "+" + t.armorDice + "D3" : ""}</span></div>
     <div><span>Vue</span><span class="stat-val">${te.vue}</span></div>
     <div><span>${RACES[t.race].comp.name}</span><span class="stat-val">${t.comp.pct} %</span></div>
