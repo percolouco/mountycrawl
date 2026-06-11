@@ -165,7 +165,9 @@ assert.strictEqual(p.corruptionYZ(3).y, 0);
   const item = p.makePotionItem("bonneBouffe", 5);
   p.drinkPotion(troll, item, g.rollDice, () => {});
   assert.strictEqual(troll.potionEffects.length, 1);
-  assert.strictEqual(p.effTroll(troll).deg, 8);
+  assert.strictEqual(p.effTroll(troll).deg, 3, "Bonne Bouffe n'ajoute pas de dés de DEG");
+  assert.strictEqual(p.effTroll(troll).degFlat, 5, "Bonne Bouffe : DEG +5 fixe");
+  assert.strictEqual(p.effTroll(troll).regFlat, 5, "Bonne Bouffe : REG +5 fixe");
   assert.strictEqual(p.effTroll(troll).attFlat, 0, "Bonne Bouffe ne modifie pas ATT");
   const fixedRoll = () => ({ total: 12, rolls: [4, 4, 4] });
   const t2 = { att: 3, esq: 3, deg: 3, reg: 1, vue: 3, armor: 0, armorDice: 0, degBonus: 0, pvMax: 30, pv: 20, potionEffects: [], blockCamoTurns: 0, tour: 1 };
@@ -193,12 +195,21 @@ assert.strictEqual(p.corruptionYZ(3).y, 0);
   assert.strictEqual(p.effTroll(troll).deg, 3);
   assert.strictEqual(p.effTroll(troll).attFlat, 0);
 }
-// DjhinTonik : +X dés de DEG et REG (pas un jet D3)
+// DjhinTonik : DEG +X et REG +X fixes (pas des dés en plus)
 {
   const t = { att: 3, esq: 3, deg: 4, reg: 1, vue: 3, armor: 0, armorDice: 0, degBonus: 0, pvMax: 30, pv: 20, potionEffects: [], blockCamoTurns: 0, tour: 1 };
   p.drinkPotion(t, p.makePotionItem("djhinTonik", 5), g.rollDice, () => {});
-  assert.strictEqual(p.effTroll(t).deg, 9, "DEG 4 + 5 dés potion = 9D3");
-  assert.strictEqual(p.effTroll(t).reg, 6, "REG 1 + 5 dés potion = 6D3");
+  assert.strictEqual(p.effTroll(t).deg, 4, "DEG reste 4D3");
+  assert.strictEqual(p.effTroll(t).degFlat, 5, "DEG +5 fixe");
+  assert.strictEqual(p.effTroll(t).reg, 1, "REG reste 1D3");
+  assert.strictEqual(p.effTroll(t).regFlat, 5, "REG +5 fixe");
+}
+// Fertilité : ATT en jet D3 partagé, DEG +X fixe
+{
+  const t = { att: 3, esq: 3, deg: 4, reg: 1, vue: 3, armor: 0, armorDice: 0, degBonus: 0, pvMax: 30, pv: 20, potionEffects: [], blockCamoTurns: 0, tour: 1 };
+  p.drinkPotion(t, p.makePotionItem("fertilite", 6), g.rollDice, () => {});
+  assert.strictEqual(p.effTroll(t).deg, 4, "Fertilité n'ajoute pas de dés de DEG");
+  assert.strictEqual(p.effTroll(t).degFlat, 6, "Fertilité : DEG +6 fixe");
 }
 // Jet d'attaque : bonus potion ajouté au total des D6
 {

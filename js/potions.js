@@ -51,7 +51,7 @@ const POTION_DEFS = {
       troll.pv = Math.min(troll.pvMax, troll.pv + heal);
       return {
         log: `Biskot : +2 REG et +${heal} PV (${heal} = 2D3) pendant 2 tours.`,
-        effects: [makeEffect("Biskot", "🍪", 2, { reg: 2, biskot: true })],
+        effects: [makeEffect("Biskot", "🍪", 2, { regFlat: 2, biskot: true })],
       };
     },
   },
@@ -72,10 +72,10 @@ const POTION_DEFS = {
     duration: 5,
     rollPower: () => potRand(3, 7),
     build(_t, p) {
-      const lines = [`DEG +${p} dés`, `REG +${p} dés`];
+      const lines = [`DEG +${p}`, `REG +${p}`];
       return {
         log: `Elixir de Bonne Bouffe : ${lines.join(", ")} pendant 5 tours.`,
-        effects: [makeEffect("Elixir de Bonne Bouffe", "🍖", 5, { deg: p, reg: p }, lines)],
+        effects: [makeEffect("Elixir de Bonne Bouffe", "🍖", 5, { degFlat: p, regFlat: p }, lines)],
       };
     },
   },
@@ -92,7 +92,7 @@ const POTION_DEFS = {
       return {
         log: `Elixir de Corruption : ${lines.join(", ")} ; RM −${y} %, MM −${z} % (5 tours).`,
         effects: [makeEffect("Elixir de Corruption", "☠️", 5, {
-          attFlat: attR.value, esqFlat: esqR.value, deg: p, reg: -p, vue: -p, armor: p, rmPct: -y, mmPct: -z,
+          attFlat: attR.value, esqFlat: esqR.value, degFlat: p, regFlat: -p, vue: -p, armor: p, rmPct: -y, mmPct: -z,
         }, lines)],
       };
     },
@@ -106,7 +106,7 @@ const POTION_DEFS = {
       const lines = [`ATT ${attR.line}`, `DEG +${p}`];
       return {
         log: `Elixir de Fertilité : ${lines.join(", ")} pendant 5 tours.`,
-        effects: [makeEffect("Elixir de Fertilité", "🌱", 5, { attFlat: attR.value, deg: p }, lines)],
+        effects: [makeEffect("Elixir de Fertilité", "🌱", 5, { attFlat: attR.value, degFlat: p }, lines)],
       };
     },
   },
@@ -144,7 +144,7 @@ const POTION_DEFS = {
       troll.pv = Math.min(troll.pvMax, troll.pv + heal);
       return {
         log: `Essence de KouleMann : REG +${p}, VUE +${p}, +${heal} PV (${dice}D3) pendant 4 tours.`,
-        effects: [makeEffect("Essence de KouleMann", "🎵", 4, { reg: p, vue: p })],
+        effects: [makeEffect("Essence de KouleMann", "🎵", 4, { regFlat: p, vue: p })],
       };
     },
   },
@@ -155,10 +155,10 @@ const POTION_DEFS = {
     build(troll, p, rollDice) {
       const heal = rollDice(2, 3).total;
       troll.pv = Math.min(troll.pvMax, troll.pv + heal);
-      const lines = [`DEG +${p} dés`, `REG +${p} dés`, `PV +${heal} (2D3)`];
+      const lines = [`DEG +${p}`, `REG +${p}`, `PV +${heal} (2D3)`];
       return {
         log: `Extrait de DjhinTonik : ${lines.join(", ")} pendant 4 tours.`,
-        effects: [makeEffect("Extrait de DjhinTonik", "🧞", 4, { deg: p, reg: p }, lines)],
+        effects: [makeEffect("Extrait de DjhinTonik", "🧞", 4, { degFlat: p, regFlat: p }, lines)],
       };
     },
   },
@@ -169,7 +169,7 @@ const POTION_DEFS = {
     build(_t, p) {
       return {
         log: `Extrait du Glacier : REG +${p}, Armure +${p} pendant 5 tours.`,
-        effects: [makeEffect("Extrait du Glacier", "🧊", 5, { reg: p, armor: p })],
+        effects: [makeEffect("Extrait du Glacier", "🧊", 5, { regFlat: p, armor: p })],
       };
     },
   },
@@ -197,7 +197,7 @@ const POTION_DEFS = {
       return {
         log: `Rhume en Conserve : ${lines.join(", ")} pendant 3 tours.`,
         effects: [makeEffect("Rhume en Conserve", "🤧", 3, {
-          attFlat: attR.value, esqFlat: esqR.value, deg: -p, reg: -p,
+          attFlat: attR.value, esqFlat: esqR.value, degFlat: -p, regFlat: -p,
         }, lines)],
       };
     },
@@ -214,7 +214,7 @@ const POTION_DEFS = {
       return {
         log: `Grippe en Conserve : ${lines.join(", ")} pendant 3 tours.`,
         effects: [makeEffect("Grippe en Conserve", "🤒", 3, {
-          attFlat: attR.value, esqFlat: esqR.value, deg: -p, reg: -p,
+          attFlat: attR.value, esqFlat: esqR.value, degFlat: -p, regFlat: -p,
         }, lines)],
       };
     },
@@ -231,7 +231,7 @@ const POTION_DEFS = {
       return {
         log: `Pneumonie en Conserve : ${lines.join(", ")} pendant 3 tours.`,
         effects: [makeEffect("Pneumonie en Conserve", "😷", 3, {
-          attFlat: attR.value, esqFlat: esqR.value, deg: -5, reg: -5,
+          attFlat: attR.value, esqFlat: esqR.value, degFlat: -5, regFlat: -5,
         }, lines)],
       };
     },

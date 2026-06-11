@@ -4,7 +4,7 @@
 
 "use strict";
 
-const APP_VERSION = "1.5.1";
+const APP_VERSION = "1.5.2";
 
 /* Alpha : maîtrise initiale haute pour les tests. Remettre 15 % / 15 % à la v1.0 officielle. */
 const START_COMP_PCT = 90;
@@ -1043,9 +1043,9 @@ function passDLA() {
   const te = effTroll(t);
   if (t.pv < t.pvMax && t.pv > 0) {
     const r = rollDice(te.reg, 3);
-    const heal = r.total + (te.regFlat || 0);
+    const heal = Math.max(0, r.total + (te.regFlat || 0));
     t.pv = Math.min(t.pvMax, t.pv + heal);
-    const regLbl = te.regFlat ? `${te.reg}D3 +${te.regFlat}` : `${te.reg}D3`;
+    const regLbl = te.regFlat ? `${te.reg}D3 ${te.regFlat > 0 ? "+" : ""}${te.regFlat}` : `${te.reg}D3`;
     log(`💤 Tour n°${t.tour} (DLA n°${t.dla}) : tu régénères ${heal} PV (${regLbl}).`, "info");
   } else {
     log(`💤 Tour n°${t.tour} (DLA n°${t.dla}).`, "info");

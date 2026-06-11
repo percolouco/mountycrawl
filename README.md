@@ -152,6 +152,11 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **1.5.2** (2026-06-11) — Les bonus/malus DEG et REG des potions sont des valeurs
+  fixes ajoutées au jet, plus des dés supplémentaires (seules les notations « X D3 »
+  de Mountypedia sont des jets). Concerne Bonne Bouffe, Fertilité, Corruption,
+  DjhinTonik, Rhume/Grippe/Pneumonie, Biskot, KouleMann et Glacier. La régénération
+  ne peut plus être négative sous malus.
 - **1.5.1** (2026-06-11) — Potions fidèles à Mountypedia : toutes les potions à jet
   utilisent des D3 (Sang de Toh Réroh et PufPuff étaient à tort en D6), et chaque
   fiole ne fait qu'un seul jet — le même total s'applique à toutes les caracs
