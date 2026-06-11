@@ -4,6 +4,8 @@
 
 "use strict";
 
+const APP_VERSION = "0.1.5";
+
 /* ================= Dés & règles de base ================= */
 
 function rollDice(n, faces) {
@@ -1267,6 +1269,8 @@ function bindKeys() {
 
 if (typeof document !== "undefined") {
   document.addEventListener("DOMContentLoaded", () => {
+    const footer = $("app-footer");
+    if (footer) footer.textContent = `MountyCrawl v${APP_VERSION}`;
     initCreateScreen();
     bindKeys();
     $("btn-start").onclick = () => startGame();
@@ -1308,7 +1312,7 @@ if (typeof document !== "undefined") {
 /* Export pour les tests node */
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
-    rollDice, resolveAttack, resolveSpell, masteryRoll, improveCost, levelFromTotalPI, killPX,
+    APP_VERSION, rollDice, resolveAttack, resolveSpell, masteryRoll, improveCost, levelFromTotalPI, killPX,
     RACES, MONSTER_TYPES, BOSS, TEMPLATES, makeMonster, monsterFromSpec, itemFromSpec,
     generateCavern, largestRegion,
     MAP_W, MAP_H, T_WALL, T_FLOOR, T_STAIRS,
