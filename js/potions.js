@@ -414,19 +414,21 @@ function fmtStatLine(base, eff, faces, flat = 0, extra = 0) {
 }
 
 /* Caractéristiques effectives : base + effets magiques (potions, parchemins)
- * + équipement (troll.gearMods, recalculé par game.js à chaque équipement). */
+ * + équipement (troll.gearMods, recalculé par game.js à chaque équipement).
+ * Les bonus ATT/ESQ/DEG/REG de l'équipement sont des bonus FIXES sur les jets,
+ * jamais des dés supplémentaires. */
 function effTroll(troll) {
   const m = sumPotionMods(troll.potionEffects);
   const g = troll.gearMods || {};
   return {
-    att: Math.max(1, troll.att + m.att + (g.att || 0)),
-    attFlat: m.attFlat,
-    esq: Math.max(1, troll.esq + m.esq + (g.esq || 0)),
-    esqFlat: m.esqFlat,
-    deg: Math.max(1, troll.deg + m.deg + (g.deg || 0)),
-    degFlat: m.degFlat,
-    reg: Math.max(1, troll.reg + m.reg + (g.reg || 0)),
-    regFlat: m.regFlat,
+    att: Math.max(1, troll.att + m.att),
+    attFlat: m.attFlat + (g.att || 0),
+    esq: Math.max(1, troll.esq + m.esq),
+    esqFlat: m.esqFlat + (g.esq || 0),
+    deg: Math.max(1, troll.deg + m.deg),
+    degFlat: m.degFlat + (g.deg || 0),
+    reg: Math.max(1, troll.reg + m.reg),
+    regFlat: m.regFlat + (g.reg || 0),
     vue: Math.max(1, troll.vue + m.vue + (g.vue || 0)),
     armor: Math.max(0, troll.armor + m.armor + (g.arm || 0)),
     armorDice: troll.armorDice,

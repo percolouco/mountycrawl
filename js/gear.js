@@ -1,7 +1,8 @@
 /* Équipement MountyHall — 6 emplacements, objets dropables actuels de la Mountypedia :
  * https://mountypedia.mountyhall.com/Mountyhall/{Arme,Armure,Casque,Bouclier,Talisman,Bottes}
- * Valeurs de base (sans templates) : ATT/ESQ/DEG/REG modifient le nombre de dés,
- * ARM/VUE/PV sont fixes, RM/MM en %. `tier` (1-5) borne la profondeur de drop.
+ * Valeurs de base (sans templates) : TOUS les bonus sont fixes — ATT/ESQ/DEG/REG
+ * s'ajoutent aux jets (jamais en dés), ARM/VUE/PV sont fixes, RM/MM en %.
+ * `tier` (1-5) borne la profondeur de drop.
  * Les armes à deux mains (twoHanded) sont incompatibles avec un bouclier. */
 
 "use strict";
@@ -90,8 +91,8 @@ const LEGACY_WEAPON_NAMES = ["Épée Courte", "Gourdin", "Épée Longue", "Lame 
 const LEGACY_ARMOR_NAMES = ["Armure de cuir", "Haubert de mailles", "Armure de plates"];
 
 const GEAR_MOD_LABELS = [
-  ["att", "ATT", " dé(s)"], ["esq", "ESQ", " dé(s)"], ["deg", "DEG", " dé(s)"],
-  ["reg", "REG", " dé(s)"], ["arm", "Armure", ""], ["vue", "VUE", ""], ["pv", "PV", ""],
+  ["att", "ATT", ""], ["esq", "ESQ", ""], ["deg", "DEG", ""],
+  ["reg", "REG", ""], ["arm", "Armure", ""], ["vue", "VUE", ""], ["pv", "PV", ""],
   ["rmPct", "RM", " %"], ["mmPct", "MM", " %"],
 ];
 

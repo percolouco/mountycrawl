@@ -271,12 +271,15 @@ assert.strictEqual(g.itemFromSpec({ x: 1, y: 1, kind: "armor", idx: 0 }).name, "
   const t = { att: 3, esq: 3, deg: 3, reg: 1, vue: 3, armor: 0, armorDice: 0, degBonus: 0, pvMax: 30, pv: 20,
     potionEffects: [], blockCamoTurns: 0, tour: 1, bag: [],
     equip: { arme: null, armure: null, casque: null, bouclier: null, talisman: null, bottes: null }, gearMods: null };
-  g.equipGear(t, gear.gearItemByName("arme", "Gourdin")); // att +2, esq −2, deg +5
+  g.equipGear(t, gear.gearItemByName("arme", "Gourdin")); // att +2, esq −2, deg +5 (fixes)
   g.equipGear(t, gear.gearItemByName("armure", "Armure de cuir")); // esq +3, arm +4, rm +40 %
   let e = p.effTroll(t);
-  assert.strictEqual(e.att, 5, "Gourdin : ATT 3 + 2 dés");
-  assert.strictEqual(e.deg, 8, "Gourdin : DEG 3 + 5 dés");
-  assert.strictEqual(e.esq, 4, "ESQ 3 − 2 + 3");
+  assert.strictEqual(e.att, 3, "l'équipement n'ajoute jamais de dés");
+  assert.strictEqual(e.attFlat, 2, "Gourdin : ATT +2 fixe sur le jet");
+  assert.strictEqual(e.deg, 3, "DEG reste 3D3");
+  assert.strictEqual(e.degFlat, 5, "Gourdin : DEG +5 fixe");
+  assert.strictEqual(e.esq, 3, "ESQ reste 3D6");
+  assert.strictEqual(e.esqFlat, 1, "ESQ −2 (Gourdin) +3 (Armure de cuir) = +1 fixe");
   assert.strictEqual(e.armor, 4, "Armure de cuir : armure +4");
   assert.strictEqual(e.rmPct, 40, "Armure de cuir : RM +40 %");
   // PV max d'équipement
@@ -289,8 +292,8 @@ assert.strictEqual(g.itemFromSpec({ x: 1, y: 1, kind: "armor", idx: 0 }).name, "
   assert.strictEqual(t.pvMax, 30, "PV max retombé après déséquipement de la Rondache");
   assert(t.bag.some(i => i.name === "Gourdin"), "l'ancienne arme est dans le sac");
   e = p.effTroll(t);
-  assert.strictEqual(e.att, 1, "Hallebarde : ATT 3 − 5 → min 1");
-  assert.strictEqual(e.deg, 15, "Hallebarde : DEG 3 + 12");
+  assert.strictEqual(e.attFlat, -5, "Hallebarde : ATT −5 fixe");
+  assert.strictEqual(e.degFlat, 12, "Hallebarde : DEG +12 fixe");
   // rééquiper un bouclier range l'arme à 2 mains
   g.equipGear(t, gear.gearItemByName("bouclier", "Targe"));
   assert.strictEqual(t.equip.arme, null, "Targe : la Hallebarde est rangée");

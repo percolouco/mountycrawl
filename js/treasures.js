@@ -83,7 +83,8 @@ function treasuresRender() {
   const gearCount = Object.values(GEAR).reduce((n, list) => n + list.length, 0);
   html += `<h2 class="tz-section">⚔️ Équipement (${gearCount})</h2>
     <p class="tz-intro">Six emplacements : ${Object.values(GEAR_SLOTS).map(s => s.label).join(", ")}.
-    Les bonus ATT/ESQ/DEG/REG s'ajoutent en <b>dés</b>, Armure/VUE/PV sont fixes, RM/MM en %.
+    Tous les bonus d'équipement sont <b>fixes</b> : ATT/ESQ/DEG/REG s'ajoutent aux jets
+    (jamais en dés), Armure/VUE/PV aussi, RM/MM en %.
     Une arme <b>à 2 mains</b> est incompatible avec un bouclier. S'équiper coûte <b>2 PA</b>.
     Valeurs de base de la Mountypedia (sans templates) ; les objets puissants ne se trouvent
     qu'en profondeur.</p>`;

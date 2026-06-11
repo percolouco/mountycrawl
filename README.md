@@ -152,9 +152,12 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **1.7.1** (2026-06-12) — Les bonus ATT/ESQ/DEG/REG de l'équipement sont des bonus
+  **fixes** ajoutés aux jets, jamais des dés supplémentaires (un Gourdin donne
+  DEG +5 sur le jet, pas +5D3).
 - **1.7.0** (2026-06-11) — Équipement Mountypedia complet : 6 emplacements (Arme,
   Armure, Casque, Bouclier, Talisman, Bottes) et 55 objets dropables aux valeurs
-  de base officielles (ATT/ESQ/DEG/REG en dés, Armure/VUE/PV fixes, RM/MM en %).
+  de base officielles (bonus fixes, RM/MM en %).
   Armes à 2 mains incompatibles avec un bouclier, PV max d'équipement, tiers de
   drop par profondeur, pinceaux d'éditeur par emplacement, rétrocompatibilité des
   anciens niveaux publiés (specs weapon/armor mappées). Section « Équipement »
