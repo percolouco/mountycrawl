@@ -11,17 +11,21 @@ for (let i = 0; i < 200; i++) {
   assert.strictEqual(r.rolls.length, 3);
 }
 
-// Combat : un attaquant écrasant doit toucher la plupart du temps. Dégâts en D3.
-let hits = 0;
+// Combat : un attaquant écrasant doit toucher la plupart du temps. Dégâts en D3,
+// doublés sur coup critique (jet d'attaque ≥ 2 × jet d'esquive).
+let hits = 0, crits = 0;
 for (let i = 0; i < 500; i++) {
   const r = g.resolveAttack({ att: 10, deg: 3, degBonus: 2 }, { esq: 1, armor: 2 });
   if (r.hit) {
     hits++;
+    if (r.critical) crits++;
     assert(r.damage >= 1, "dégâts minimum 1");
-    assert(r.damage <= 3 * 3 + 2 - 2, "dégâts trop élevés (D3 attendu) : " + r.damage);
+    const max = (3 * 3 + 2) * (r.critical ? 2 : 1) - 2;
+    assert(r.damage <= max, "dégâts trop élevés : " + r.damage + (r.critical ? " (critique)" : ""));
   }
 }
 assert(hits > 450, "10D6 vs 1D6 devrait presque toujours toucher (" + hits + "/500)");
+assert(crits > 0, "10D6 vs 1D6 devrait produire des coups critiques");
 
 // autoHit : ne rate jamais (Rafale Psychique)
 for (let i = 0; i < 50; i++) {

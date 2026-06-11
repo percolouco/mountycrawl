@@ -258,18 +258,56 @@ header h1 { font-size: 1.3em; color: #8fbf5a; }
 
 #equipment div, #inventory .empty { font-size: .88em; padding: 2px 0; color: #c9b685; }
 
-#log {
+#bottom-row {
+  display: flex;
+  gap: 10px;
   margin: 0 10px 10px;
+  align-items: stretch;
+}
+
+#log {
+  flex: 1 1 55%;
   background: #14100a;
   border: 2px solid #4a3a20;
   border-radius: 8px;
   padding: 8px 12px;
-  height: 140px;
+  height: 190px;
   overflow-y: auto;
   font-size: .85em;
   font-family: monospace;
   line-height: 1.45;
 }
+
+#combat-detail {
+  flex: 1 1 45%;
+  background: #14100a;
+  border: 2px solid #4a3a20;
+  border-radius: 8px;
+  padding: 8px 12px;
+  height: 190px;
+  overflow-y: auto;
+  font-size: .85em;
+  line-height: 1.5;
+}
+#combat-detail .cd-header {
+  color: #d8a040;
+  font-weight: bold;
+  border-bottom: 1px solid #4a3a20;
+  margin-bottom: 6px;
+  position: sticky;
+  top: 0;
+  background: #14100a;
+}
+#combat-detail .cd-empty { color: #6a5c40; font-style: italic; }
+.cd-block {
+  border-bottom: 1px dashed #3a2f1c;
+  padding: 6px 0;
+  color: #cbb98c;
+}
+.cd-block .cd-title { color: #8fbf5a; font-weight: bold; }
+.cd-val { color: #e0b070; font-weight: bold; }
+.cd-good { color: #8fbf5a; font-weight: bold; }
+.cd-bad { color: #e06060; font-weight: bold; }
 #log .l-combat { color: #e0b070; }
 #log .l-bad { color: #e06060; }
 #log .l-good { color: #8fbf5a; }

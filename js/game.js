@@ -22,10 +22,11 @@ function resolveAttack(attacker, defender, opts = {}) {
     attRoll: att.total, esqRoll: esq.total,
     attDice: attacker.att, esqDice: defender.esq,
     hit: opts.autoHit || att.total > esq.total, damage: 0, rawDamage: 0,
+    critical: !opts.autoHit && att.total >= esq.total * 2, // coup critique MH : dégâts doublés
   };
   if (result.hit) {
     const deg = rollDice(attacker.deg, 3);
-    result.rawDamage = deg.total + (attacker.degBonus || 0);
+    result.rawDamage = (deg.total + (attacker.degBonus || 0)) * (result.critical ? 2 : 1);
     // armure : réduction fixe (équipement) + armure naturelle en D3 (achetée en PI)
     const armor = opts.ignoreArmor ? 0
       : (defender.armor || 0) + (defender.armorDice ? rollDice(defender.armorDice, 3).total : 0);
@@ -428,6 +429,71 @@ function inSight(e) {
 
 /* ================= Actions du troll ================= */
 
+/* ----- Détail du combat (panneau façon MountyHall, à droite du journal) ----- */
+
+let CD = null; // bloc de détail en cours de construction
+
+function cdStart(title) {
+  CD = { title, lines: [] };
+  G.actionPX = 0;
+}
+
+function cdLine(html) {
+  if (CD) CD.lines.push(html);
+}
+
+function cdPXLine() {
+  cdLine(`Pour cette action, vous avez gagné un total de <span class="cd-val">${G.actionPX} PX</span>.`);
+}
+
+function cdFlush() {
+  if (!CD) return;
+  const block = CD;
+  CD = null;
+  if (typeof document === "undefined") return;
+  const panel = $("combat-detail");
+  if (!panel) return;
+  const empty = panel.querySelector(".cd-empty");
+  if (empty) empty.remove();
+  const div = document.createElement("div");
+  div.className = "cd-block";
+  div.innerHTML = `<div class="cd-title">${block.title}</div>` + block.lines.map(l => `<div>${l}</div>`).join("");
+  panel.appendChild(div);
+  while (panel.querySelectorAll(".cd-block").length > 25) panel.querySelector(".cd-block").remove();
+  panel.scrollTop = panel.scrollHeight;
+}
+
+/* Gain de PX (convertis en PI) comptabilisé dans l'action en cours. */
+function gainPX(n) {
+  G.troll.pi += n;
+  G.troll.totalPI += n;
+  if (G.actionPX !== undefined) G.actionPX += n;
+}
+
+/* Jets de toucher au format MH dans le détail. */
+function cdAttackRolls(r) {
+  cdLine(`Votre jet d'Attaque est de : <span class="cd-val">${r.attRoll}</span> (${r.attDice}D6)`);
+  cdLine(`Le jet d'Esquive de votre adversaire est de : <span class="cd-val">${r.esqRoll}</span> (${r.esqDice}D6)`);
+  if (r.hit) {
+    cdLine(r.critical
+      ? `Vous avez donc <span class="cd-good">TOUCHÉ</span> votre adversaire par un <span class="cd-good">coup critique</span>.`
+      : `Vous avez donc <span class="cd-good">TOUCHÉ</span> votre adversaire.`);
+  } else {
+    cdLine(`Vous avez donc <span class="cd-bad">RATÉ</span> votre adversaire.`);
+  }
+}
+
+/* Jet de résistance magique au format MH. */
+function resistInfo(m) {
+  const r = resolveSpell(trollMM(), monsterRM(m));
+  cdLine(`Seuil de Résistance de la cible : <span class="cd-val">${r.sr} %</span>`);
+  cdLine(`Jet de Résistance : <span class="cd-val">${r.roll}</span>`);
+  cdLine(r.success
+    ? `La cible endure donc <span class="cd-good">pleinement l'effet</span> du sortilège.`
+    : `La cible <span class="cd-bad">résiste partiellement</span> à l'effet du sortilège.`);
+  return !r.success;
+}
+
 function spendPA(cost) {
   if (G.troll.pa < cost) { log(`Pas assez de PA (${cost} requis).`, "info"); return false; }
   G.troll.pa -= cost;
@@ -470,15 +536,21 @@ function tryMove(dx, dy) {
 function attackMonster(m, opts = {}) {
   const cost = opts.cost ?? COSTS.attack;
   if (!spendPA(cost)) return false;
+  cdStart(`⚔️ Attaque sur ${m.name}`);
+  cdLine(`Vous avez attaqué <b>${m.name}</b> avec votre ${G.troll.weapon ? G.troll.weapon.name : "Grosse Patte de Trõll"}.`);
   const r = resolveAttack(G.troll, effMonster(m));
+  cdAttackRolls(r);
   if (r.hit) {
     m.pv -= r.damage;
-    G.troll.pi += 1; G.troll.totalPI += 1; // +1 PX par attaque réussie (converti en PI)
-    log(`Tu attaques ${m.name} : ATT ${r.attDice}D6=${r.attRoll} vs ESQ ${r.esqDice}D6=${r.esqRoll} → touché ! ${r.rawDamage} dégâts (−${m.armor} armure) = ${r.damage} PV.`, "combat");
+    gainPX(1); // +1 PX par attaque réussie (converti en PI)
+    cdLine(`Vous lui avez infligé <span class="cd-val">${r.damage} points de dégâts</span>.`);
+    log(`Tu attaques ${m.name} : ATT ${r.attRoll} vs ESQ ${r.esqRoll} → ${r.critical ? "CRITIQUE ! " : "touché ! "}${r.damage} dégâts.`, "combat");
     if (m.pv <= 0) killMonster(m);
   } else {
-    log(`Tu attaques ${m.name} : ATT ${r.attDice}D6=${r.attRoll} vs ESQ ${r.esqDice}D6=${r.esqRoll} → esquivé !`, "combat");
+    log(`Tu attaques ${m.name} : ATT ${r.attRoll} vs ESQ ${r.esqRoll} → esquivé !`, "combat");
   }
+  cdPXLine();
+  cdFlush();
   if (G.troll.camo) {
     G.troll.camo = false;
     log("Ton attaque brise le camouflage.", "info");
@@ -489,9 +561,19 @@ function attackMonster(m, opts = {}) {
 
 function killMonster(m) {
   const px = m.level * 2;
-  G.troll.pi += px; G.troll.totalPI += px;
+  gainPX(px);
   G.troll.kills++;
+  cdLine(`Vous l'avez <span class="cd-good">TUÉ</span> et vous avez débarrassé le Monde Souterrain de sa présence maléfique.`);
   log(`💀 ${m.name} est terrassé ! +${px} PX (convertis en PI à l'entraînement).`, "good");
+  // butin : les monstres lâchent parfois un trésor en mourant
+  if (Math.random() < 0.4 && !G.items.some(i => i.x === m.x && i.y === m.y)) {
+    const drop = Math.random() < 0.5
+      ? { kind: "potion", name: "Potion de Vie", emoji: "🧪", x: m.x, y: m.y }
+      : { kind: "gold", gold: m.level * 10, name: `${m.level * 10} Mountyzédons`, emoji: "💰", x: m.x, y: m.y };
+    G.items.push(drop);
+    cdLine(`Il a de plus laissé tomber <span class="cd-val">${drop.emoji} ${drop.name}</span>.`);
+    log(`${m.name} laisse tomber ${drop.emoji} ${drop.name}.`, "info");
+  }
   G.monsters = G.monsters.filter(x => x !== m);
   if (G.custom) {
     if (G.monsters.length === 0) {
@@ -508,24 +590,33 @@ function killMonster(m) {
 const trollMM = () => levelFromTotalPI(G.troll.totalPI) + 1;
 const monsterRM = m => Math.ceil(m.level / 2);
 
-/* Jet de résistance magique du monstre : s'il résiste, l'effet est de moitié. */
-function resisted(m) {
-  return !resolveSpell(trollMM(), monsterRM(m)).success;
+/* En fin d'action de talent : clôt le bloc de détail s'il est ouvert. */
+function cdClose() {
+  if (CD) { cdPXLine(); cdFlush(); }
 }
 
 /* Tente le talent : dépense les PA (moitié remboursée en cas d'échec, comme à MH),
- * jette la maîtrise et journalise. Retourne true si l'effet s'applique. */
+ * jette la maîtrise, journalise et ouvre le bloc de détail du combat.
+ * Retourne true si l'effet s'applique ; le bloc reste à flusher par l'appelant. */
 function tryTalent(talent, cap, cost, label) {
   if (!spendPA(cost)) return false;
+  cdStart(label);
+  const before = talent.pct; // le jet se compare à la maîtrise d'avant progression
   const r = masteryRoll(talent, cap);
+  cdLine(`Jet de maîtrise : <span class="cd-val">${r.roll}</span> (il fallait ${before} % ou moins)`);
   if (!r.success) {
     G.troll.pa += Math.floor(cost / 2);
-    const learn = r.gain ? ` Tu apprends de ton raté : maîtrise +1 % → ${talent.pct} %.` : "";
+    if (r.gain) cdLine(`Vous avez <span class="cd-good">augmenté votre Maîtrise</span> de <span class="cd-val">1 point</span> en apprenant de votre raté (→ ${talent.pct} %).`);
+    cdLine(`L'action <span class="cd-bad">échoue</span> ; la moitié des PA est remboursée.`);
+    const learn = r.gain ? ` Maîtrise +1 % → ${talent.pct} %.` : "";
     log(`${label} : échec (jet ${r.roll}). La moitié des PA est remboursée.${learn}`, "combat");
     return false;
   }
-  G.troll.pi += 1; G.troll.totalPI += 1;
-  if (talent.pct < cap && r.gain) log(`${label} : réussite (jet ${r.roll}) — maîtrise +${r.gain} % → ${talent.pct} %.`, "good");
+  gainPX(1);
+  if (r.gain && talent.pct > before) {
+    cdLine(`Vous avez <span class="cd-good">augmenté votre Maîtrise</span> de <span class="cd-val">${talent.pct - before} point(s)</span> (→ ${talent.pct} %).`);
+    log(`${label} : réussite (jet ${r.roll}) — maîtrise +${talent.pct - before} % → ${talent.pct} %.`, "good");
+  }
   return true;
 }
 
@@ -538,51 +629,63 @@ function useComp() {
     if (t.compUsed) { log("Botte Secrète déjà utilisée cette DLA.", "info"); return; }
     const m = adjacentMonster();
     if (!m) { log("Aucun monstre adjacent.", "info"); return; }
-    if (!tryTalent(t.comp, 90, comp.cost, "🥋 Botte Secrète")) { afterAction(); return; }
+    if (!tryTalent(t.comp, 90, comp.cost, "🥋 Botte Secrète")) { cdFlush(); afterAction(); return; }
     t.compUsed = true;
+    cdLine(`Vous portez une <b>Botte Secrète</b> à <b>${m.name}</b>.`);
     const pseudo = { att: Math.max(1, Math.floor(t.att * 2 / 3)), deg: Math.max(1, Math.floor(t.att / 2)), degBonus: 0 };
     const r = resolveAttack(pseudo, effMonster(m));
+    cdAttackRolls(r);
     if (r.hit) {
       m.pv -= r.damage;
-      log(`Botte Secrète : ${r.attDice}D6=${r.attRoll} vs ${r.esqDice}D6=${r.esqRoll} → ${r.damage} dégâts !`, "combat");
+      cdLine(`Vous lui avez infligé <span class="cd-val">${r.damage} points de dégâts</span>.`);
+      log(`Botte Secrète : ${r.attRoll} vs ${r.esqRoll} → ${r.damage} dégâts !`, "combat");
       if (m.pv <= 0) killMonster(m);
     } else {
       log(`Botte Secrète esquivée (${r.attRoll} vs ${r.esqRoll}).`, "combat");
     }
   } else if (t.race === "Durakuir") { // Régénération Accrue : 1D3 par tranche de 15 PV max
-    if (!tryTalent(t.comp, 90, comp.cost, "🥋 Régénération Accrue")) { afterAction(); return; }
+    if (!tryTalent(t.comp, 90, comp.cost, "🥋 Régénération Accrue")) { cdFlush(); afterAction(); return; }
     const dice = Math.max(1, Math.floor(t.pvMax / 15));
     const heal = rollDice(dice, 3).total;
     t.pv = Math.min(t.pvMax, t.pv + heal);
+    cdLine(`Votre chair se referme : vous récupérez <span class="cd-val">${heal} points de Vie</span> (${dice}D3).`);
     log(`Régénération Accrue : ${dice}D3 → +${heal} PV.`, "good");
   } else if (t.race === "Kastar") { // Accélération du Métabolisme : PV → PA, fatigue croissante
-    if (!tryTalent(t.comp, 90, comp.cost, "🥋 Accélération du Métabolisme")) { afterAction(); return; }
+    if (!tryTalent(t.comp, 90, comp.cost, "🥋 Accélération du Métabolisme")) { cdFlush(); afterAction(); return; }
     const cost = rollDice(1, 3).total + t.fatigue;
     t.fatigue += 1;
     t.pv -= cost;
     t.pa = Math.min(PA_PER_TURN, t.pa + 4);
+    cdLine(`Vous sacrifiez <span class="cd-bad">${cost} points de Vie</span> pour regagner <span class="cd-val">4 PA</span> (fatigue : ${t.fatigue}).`);
     log(`Accélération du Métabolisme : −${cost} PV, +4 PA (fatigue ${t.fatigue}).`, "good");
-    if (t.pv <= 0) { die({ name: "son propre métabolisme" }); return; }
+    if (t.pv <= 0) { cdClose(); die({ name: "son propre métabolisme" }); return; }
   } else if (t.race === "Tomawak") { // Camouflage : invisible tant qu'on n'attaque pas
     if (t.camo) { log("Tu es déjà camouflé.", "info"); return; }
-    if (!tryTalent(t.comp, 90, comp.cost, "🥋 Camouflage")) { afterAction(); return; }
+    if (!tryTalent(t.comp, 90, comp.cost, "🥋 Camouflage")) { cdFlush(); afterAction(); return; }
     t.camo = true;
+    cdLine(`Vous vous fondez dans les ombres : <span class="cd-good">invisible</span> tant que vous n'attaquez pas.`);
     log("🌫️ Camouflage : les monstres ne te voient plus. Chaque pas risque de te dévoiler (75 % de la maîtrise).", "good");
   } else if (t.race === "Darkling") { // Balayage : déstabilise, la cible perd son tour
     if (t.compUsed) { log("Balayage déjà utilisé cette DLA.", "info"); return; }
     const m = adjacentMonster();
     if (!m) { log("Aucun monstre adjacent.", "info"); return; }
-    if (!tryTalent(t.comp, 90, comp.cost, "🥋 Balayage")) { afterAction(); return; }
+    if (!tryTalent(t.comp, 90, comp.cost, "🥋 Balayage")) { cdFlush(); afterAction(); return; }
     t.compUsed = true;
     const destab = rollDice(t.att, 6).total;
     const stab = rollDice(Math.max(1, Math.floor(m.esq * 2 / 3)), 6).total;
+    cdLine(`Vous balayez <b>${m.name}</b>.`);
+    cdLine(`Votre jet de Déstabilisation est de : <span class="cd-val">${destab}</span>`);
+    cdLine(`Le jet de Stabilité de votre adversaire est de : <span class="cd-val">${stab}</span>`);
     if (destab > stab) {
       m.skip = (m.skip || 0) + 1;
+      cdLine(`Votre adversaire est <span class="cd-good">À TERRE</span> et perdra son prochain tour.`);
       log(`Balayage : ${destab} vs ${stab} → ${m.name} est à terre et perdra son prochain tour !`, "good");
     } else {
+      cdLine(`Votre adversaire <span class="cd-bad">reste stable</span>.`);
       log(`Balayage : ${destab} vs ${stab} → ${m.name} reste stable.`, "combat");
     }
   }
+  cdClose();
   afterAction();
 }
 
@@ -594,36 +697,47 @@ function useSort() {
   if (t.race === "Skrim") { // Hypnotisme : esquive /2 + perd son tour
     const m = adjacentMonster();
     if (!m) { log("Aucun monstre adjacent.", "info"); return; }
-    if (!tryTalent(t.sort, 80, sort.cost, "🔮 Hypnotisme")) { afterAction(); return; }
-    const res = resisted(m);
+    if (!tryTalent(t.sort, 80, sort.cost, "🔮 Hypnotisme")) { cdFlush(); afterAction(); return; }
+    cdLine(`Vous avez attaqué <b>${m.name}</b> grâce à un sortilège.`);
+    const res = resistInfo(m);
     m.esqHalfTurns = (m.esqHalfTurns || 0) + (res ? 1 : 2);
     if (!res) m.skip = (m.skip || 0) + 1;
+    cdLine(res
+      ? `Son esquive est <span class="cd-val">divisée par 2</span> pendant 1 tour.`
+      : `Son esquive est <span class="cd-val">divisée par 2</span> pendant 2 tours et il <span class="cd-good">perd son prochain tour</span>.`);
     log(res
       ? `Hypnotisme : ${m.name} résiste — esquive réduite 1 tour seulement.`
       : `Hypnotisme : ${m.name} est hébété ! Esquive divisée par 2 et tour perdu.`, "good");
   } else if (t.race === "Durakuir") { // Rafale Psychique : imparable, ignore l'armure
     const m = adjacentMonster();
     if (!m) { log("Aucun monstre adjacent.", "info"); return; }
-    if (!tryTalent(t.sort, 80, sort.cost, "🔮 Rafale Psychique")) { afterAction(); return; }
+    if (!tryTalent(t.sort, 80, sort.cost, "🔮 Rafale Psychique")) { cdFlush(); afterAction(); return; }
+    cdLine(`Vous avez attaqué <b>${m.name}</b> grâce à un sortilège.`);
+    cdLine(`Votre jet d'Attaque est : <span class="cd-good">automatiquement réussi</span> (imparable).`);
     let dmg = rollDice(t.deg, 3).total;
-    const res = resisted(m);
+    const res = resistInfo(m);
     if (res) dmg = Math.max(1, Math.ceil(dmg / 2));
     m.pv -= dmg;
+    cdLine(`Vous lui avez infligé <span class="cd-val">${dmg} points de dégâts</span> (armure ignorée).`);
     log(`Rafale Psychique : touche automatique, ${dmg} dégâts${res ? " (résisté : moitié)" : ""}, armure ignorée.`, "combat");
     if (m.pv <= 0) killMonster(m);
   } else if (t.race === "Kastar") { // Vampirisme : dégâts + vol de vie
     const m = adjacentMonster();
     if (!m) { log("Aucun monstre adjacent.", "info"); return; }
-    if (!tryTalent(t.sort, 80, sort.cost, "🔮 Vampirisme")) { afterAction(); return; }
+    if (!tryTalent(t.sort, 80, sort.cost, "🔮 Vampirisme")) { cdFlush(); afterAction(); return; }
+    cdLine(`Vous avez attaqué <b>${m.name}</b> grâce à un sortilège.`);
     const pseudo = { att: Math.max(1, Math.floor(t.deg * 2 / 3)), deg: t.deg, degBonus: 0 };
     const r = resolveAttack(pseudo, effMonster(m), { ignoreArmor: true });
+    cdAttackRolls(r);
     if (r.hit) {
       let dmg = r.damage;
-      const res = resisted(m);
+      const res = resistInfo(m);
       if (res) dmg = Math.max(1, Math.ceil(dmg / 2));
       m.pv -= dmg;
       const heal = Math.ceil(dmg / 2);
       t.pv = Math.min(t.pvMax, t.pv + heal);
+      cdLine(`Vous lui avez infligé <span class="cd-val">${dmg} points de dégâts</span> (armure ignorée).`);
+      cdLine(`Vous avez également gagné <span class="cd-good">${heal} points de Vie</span> grâce au Vampirisme.`);
       log(`Vampirisme : ${dmg} dégâts${res ? " (résisté)" : ""}, tu draines ${heal} PV.`, "good");
       if (m.pv <= 0) killMonster(m);
     } else {
@@ -632,16 +746,19 @@ function useSort() {
   } else if (t.race === "Tomawak") { // Projectile Magique : à distance, portée = Vue
     const m = nearestVisibleMonster();
     if (!m) { log("Aucun monstre en vue.", "info"); return; }
-    if (!tryTalent(t.sort, 80, sort.cost, "🔮 Projectile Magique")) { afterAction(); return; }
+    if (!tryTalent(t.sort, 80, sort.cost, "🔮 Projectile Magique")) { cdFlush(); afterAction(); return; }
     const dist = Math.max(Math.abs(m.x - t.x), Math.abs(m.y - t.y));
     const proxBonus = Math.max(0, t.vue - dist);
+    cdLine(`Vous avez attaqué <b>${m.name}</b> grâce à un sortilège (distance ${dist}, bonus de proximité +${proxBonus}D6).`);
     const pseudo = { att: t.vue + proxBonus, deg: Math.max(1, Math.floor(t.vue / 2)), degBonus: 0 };
     const r = resolveAttack(pseudo, effMonster(m), { ignoreArmor: true });
+    cdAttackRolls(r);
     if (r.hit) {
       let dmg = r.damage;
-      const res = resisted(m);
+      const res = resistInfo(m);
       if (res) dmg = Math.max(1, Math.ceil(dmg / 2));
       m.pv -= dmg;
+      cdLine(`Vous lui avez infligé <span class="cd-val">${dmg} points de dégâts</span> (armure ignorée).`);
       log(`Projectile Magique sur ${m.name} (distance ${dist}) : ${dmg} dégâts${res ? " (résisté)" : ""}.`, "combat");
       if (m.pv <= 0) killMonster(m);
     } else {
@@ -650,28 +767,34 @@ function useSort() {
     // 25 % de la maîtrise pour conserver le camouflage
     if (t.camo && 1 + Math.floor(Math.random() * 100) > Math.floor(t.comp.pct * 0.25)) {
       t.camo = false;
+      cdLine(`Votre <span class="cd-bad">camouflage se dissipe</span> dans l'éclat du projectile.`);
       log("Ton camouflage se dissipe dans l'éclat du projectile.", "info");
     }
   } else if (t.race === "Darkling") { // Siphon des Âmes : dégâts + nécrose (−ATT)
     const m = adjacentMonster();
     if (!m) { log("Aucun monstre adjacent.", "info"); return; }
-    if (!tryTalent(t.sort, 80, sort.cost, "🔮 Siphon des Âmes")) { afterAction(); return; }
+    if (!tryTalent(t.sort, 80, sort.cost, "🔮 Siphon des Âmes")) { cdFlush(); afterAction(); return; }
+    cdLine(`Vous avez attaqué <b>${m.name}</b> grâce à un sortilège.`);
     const pseudo = { att: t.att, deg: t.reg, degBonus: 0 };
     const r = resolveAttack(pseudo, effMonster(m), { ignoreArmor: true });
+    cdAttackRolls(r);
     if (r.hit) {
       let dmg = r.damage;
-      const res = resisted(m);
+      const res = resistInfo(m);
       if (res) dmg = Math.max(1, Math.ceil(dmg / 2));
       m.pv -= dmg;
       const necrose = res ? Math.max(1, Math.floor(t.reg / 2)) : t.reg;
       m.attDownDice = (m.attDownDice || 0) + necrose;
       m.attDownTurns = 2;
+      cdLine(`Vous lui avez infligé <span class="cd-val">${dmg} points de dégâts</span> (toute armure ignorée).`);
+      cdLine(`La nécrose lui fait perdre <span class="cd-val">${necrose} dé(s) d'Attaque</span> pendant 2 tours.`);
       log(`Siphon des Âmes : ${dmg} dégâts${res ? " (résisté)" : ""}, nécrose −${necrose} dé(s) d'ATT pendant 2 tours.`, "combat");
       if (m.pv <= 0) killMonster(m);
     } else {
       log(`Siphon des Âmes esquivé (${r.attRoll} vs ${r.esqRoll}).`, "combat");
     }
   }
+  cdClose();
   if (!G.over) afterAction();
 }
 
@@ -788,13 +911,19 @@ function passDLA() {
     if (dist <= 1 && !t.camo) {
       const eff = effMonster(m);
       const r = resolveAttack(eff, t);
+      cdStart(`${m.emoji} ${m.name} vous attaque`);
+      cdLine(`Son jet d'Attaque est de : <span class="cd-val">${r.attRoll}</span> (${r.attDice}D6)`);
+      cdLine(`Votre jet d'Esquive est de : <span class="cd-val">${r.esqRoll}</span> (${r.esqDice}D6)`);
       if (r.hit) {
         t.pv -= r.damage;
-        log(`${m.emoji} ${m.name} t'attaque : ${r.attDice}D6=${r.attRoll} vs ${r.esqDice}D6=${r.esqRoll} → ${r.damage} dégâts !`, "bad");
-        if (t.pv <= 0) { die(m); return; }
+        cdLine(`Il vous a <span class="cd-bad">TOUCHÉ</span>${r.critical ? ` d'un <span class="cd-bad">coup critique</span>` : ""} et vous a infligé <span class="cd-bad">${r.damage} points de dégâts</span>.`);
+        log(`${m.emoji} ${m.name} t'attaque : ${r.attRoll} vs ${r.esqRoll} → ${r.damage} dégâts !`, "bad");
+        if (t.pv <= 0) { cdLine(`Il vous a <span class="cd-bad">TERRASSÉ</span>…`); cdFlush(); die(m); return; }
       } else {
+        cdLine(`Vous avez <span class="cd-good">ESQUIVÉ</span> son coup.`);
         log(`${m.emoji} ${m.name} t'attaque… et tu esquives !`, "combat");
       }
+      cdFlush();
     } else if (seesTroll && !m.static) {
       stepToward(m, t);
     } else if (!m.static && Math.random() < 0.4) {
@@ -1075,6 +1204,7 @@ function startGame(customLevel = null) {
   $("screen-end").classList.add("hidden");
   $("screen-game").classList.remove("hidden");
   $("log").innerHTML = "";
+  $("combat-detail").innerHTML = '<div class="cd-header">⚔️ Détail du combat</div><div class="cd-empty">— Aucun combat pour l\'instant —</div>';
   newGame(name, selectedRace, customLevel);
   render();
   renderPanels();
@@ -1107,6 +1237,21 @@ if (typeof document !== "undefined") {
       if (RACES[params.get("race")]) selectedRace = params.get("race");
       if (params.get("name")) $("troll-name").value = params.get("name");
       startGame();
+      // ?demo=combat : matérialise un gobelin adjacent et enchaîne attaque + sortilège
+      // (sert aux captures d'écran et au test visuel du détail du combat)
+      if (params.get("demo") === "combat") {
+        const t = G.troll;
+        const spot = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+          .map(([dx, dy]) => ({ x: t.x + dx, y: t.y + dy }))
+          .find(p => G.grid[p.y] && G.grid[p.y][p.x] === T_FLOOR);
+        if (spot) {
+          const m = makeMonster(1, spot.x, spot.y);
+          G.monsters.push(m);
+          render();
+          attackMonster(m);
+          if (G.monsters.includes(m)) useSort();
+        }
+      }
     }
     $("btn-restart").onclick = () => {
       $("screen-end").classList.add("hidden");
