@@ -36,6 +36,21 @@ for (let i = 0; i < 50; i++) {
   const sure = { pct: 100 };
   const r = g.masteryRoll(sure, 200);
   assert(r.success && sure.pct > 100, "succès garanti doit faire progresser");
+
+  // Sous 50 %, même un échec rapporte +1 %
+  const novice = { pct: 0 }; // 0 % : échec garanti, mais on apprend quand même
+  const rf = g.masteryRoll(novice, 90);
+  assert(!rf.success && rf.gain === 1 && novice.pct === 1, "échec sous 50 % doit donner +1 %");
+  for (let i = 0; i < 500; i++) g.masteryRoll(novice, 90);
+  assert(novice.pct === 90, "la maîtrise doit finir au plafond à force d'essais : " + novice.pct);
+
+  // À 50 % ou plus, l'échec ne rapporte plus rien (vérifiable à pct=50 : jet 51-100 → échec sec)
+  const adept = { pct: 50 };
+  for (let i = 0; i < 300; i++) {
+    const r2 = g.masteryRoll(adept, 90);
+    if (!r2.success) assert(r2.gain === 0, "échec à 50 %+ ne doit rien rapporter");
+    adept.pct = 50; // on fige pour garder la condition du test
+  }
 }
 
 // Sortilège : SR borné [10, 90]

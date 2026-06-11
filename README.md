@@ -37,7 +37,7 @@ lance directement une partie (utilisé pour les captures d'écran et les tests).
 | Tour de jeu | DLA de 12 h, 6 PA | DLA instantanée quand les PA sont épuisés (ou bouton « Passer la DLA »), 6 PA |
 | Caractéristiques | ATT/ESQ en D6, DEG/REG en D3, PV, Vue | Identique, profils de base officiels des 5 races (`MH_Rules/Races_*.php`) |
 | Combat | Somme ATT D6 vs somme ESQ D6, dégâts DEG D3 − armure | Identique, avec le détail des jets dans le journal |
-| Talents | Compétence + sortilège réservés par race, 15 % de maîtrise initiale, jet D100 sous le %, progression à l'usage (+1D6 % < 50, +1D3 % < 75, +1 % ensuite), plafonds 90 %/80 %, échec = PA partiellement remboursés | Identique |
+| Talents | Compétence + sortilège réservés par race, 15 % de maîtrise initiale, jet D100 sous le %, progression à l'usage (+1D6 % < 50, +1D3 % < 75, +1 % ensuite ; sous 50 %, un échec donne quand même +1 %), plafonds 90 % compétences / 80 % sortilèges, échec = PA partiellement remboursés | Identique |
 | Magie | Seuil de Résistance basé sur MM vs RM, borné 10–90 % | Identique : jet de résistance des monstres → effets de moitié |
 | Progression | PX → PI, le N-ième achat coûte N × coût de base racial (table de Rules_3.php) | Identique : 16 PI de base (12 pour la caractéristique favorite), REG 30 (Darkling 22), Armure naturelle 30 pour tous, PV par tranche de 10 |
 | Niveaux | 10 × N PI pour atteindre le niveau N | Identique |
@@ -142,6 +142,8 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **1.3.2** (2026-06-11) — Sous 50 % de maîtrise, un jet de talent raté fait quand
+  même progresser de 1 % (plafonds inchangés : 90 % compétences, 80 % sortilèges).
 - **1.3.1** (2026-06-11) — Coûts d'amélioration officiels de Rules_3.php (N-ième
   achat = N × base, favorisée 12 PI, REG 30/22, PV par 10) et armure naturelle
   en D3 achetable (30 PI pour toutes les races).

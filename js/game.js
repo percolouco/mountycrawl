@@ -36,15 +36,19 @@ function resolveAttack(attacker, defender, opts = {}) {
 
 /* Maîtrise d'un talent (compétence ou sortilège) : jet D100 sous le pourcentage.
  * En cas de réussite, la maîtrise progresse comme à MountyHall :
- * +1D6 % jusqu'à 50 %, +1D3 % jusqu'à 75 %, +1 % ensuite, plafond `cap`. */
+ * +1D6 % jusqu'à 50 %, +1D3 % jusqu'à 75 %, +1 % ensuite.
+ * Sous 50 %, un échec fait quand même progresser de 1 % (on apprend de ses ratés).
+ * Plafond `cap` : 90 % pour les compétences, 80 % pour les sortilèges. */
 function masteryRoll(talent, cap) {
   const roll = 1 + Math.floor(Math.random() * 100);
   const success = roll <= talent.pct;
   let gain = 0;
   if (success) {
     gain = talent.pct < 50 ? rollDice(1, 6).total : talent.pct < 75 ? rollDice(1, 3).total : 1;
-    talent.pct = Math.min(cap, talent.pct + gain);
+  } else if (talent.pct < 50) {
+    gain = 1;
   }
+  talent.pct = Math.min(cap, talent.pct + gain);
   return { roll, success, gain };
 }
 
@@ -516,7 +520,8 @@ function tryTalent(talent, cap, cost, label) {
   const r = masteryRoll(talent, cap);
   if (!r.success) {
     G.troll.pa += Math.floor(cost / 2);
-    log(`${label} : échec (jet ${r.roll} > ${talent.pct} %). La moitié des PA est remboursée.`, "combat");
+    const learn = r.gain ? ` Tu apprends de ton raté : maîtrise +1 % → ${talent.pct} %.` : "";
+    log(`${label} : échec (jet ${r.roll}). La moitié des PA est remboursée.${learn}`, "combat");
     return false;
   }
   G.troll.pi += 1; G.troll.totalPI += 1;
