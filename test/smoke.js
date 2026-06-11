@@ -42,10 +42,27 @@ for (let i = 0; i < 50; i++) {
 assert.strictEqual(g.resolveSpell(100, 0).sr, 90);
 assert.strictEqual(g.resolveSpell(0, 100).sr, 10);
 
-// Coûts d'amélioration : la race favorisée paie moins cher
-const skrimAtt = g.improveCost("att", 3, "Skrim");
-const kastarAtt = g.improveCost("att", 3, "Kastar");
-assert(skrimAtt < kastarAtt, `Skrim devrait payer son ATT moins cher (${skrimAtt} vs ${kastarAtt})`);
+// Coûts d'amélioration officiels (Rules_3.php) : N-ième achat = N × coût de base
+assert.strictEqual(g.improveCost("att", 0, "Skrim"), 12, "1er dé d'ATT Skrim = 12 PI");
+assert.strictEqual(g.improveCost("att", 2, "Skrim"), 36, "3e dé d'ATT Skrim = 36 PI (exemple officiel)");
+assert.strictEqual(g.improveCost("att", 0, "Kastar"), 16, "ATT non favorisée = 16 PI");
+assert.strictEqual(g.improveCost("deg", 0, "Kastar"), 12, "DEG favorisé Kastar = 12 PI");
+assert.strictEqual(g.improveCost("pv", 0, "Durakuir"), 12, "PV favorisés Durakuir = 12 PI");
+assert.strictEqual(g.improveCost("vue", 0, "Tomawak"), 12, "Vue favorisée Tomawak = 12 PI");
+assert.strictEqual(g.improveCost("reg", 0, "Darkling"), 22, "REG favorisée Darkling = 22 PI");
+assert.strictEqual(g.improveCost("reg", 0, "Skrim"), 30, "REG non favorisée = 30 PI");
+assert.strictEqual(g.improveCost("armor", 0, "Durakuir"), 30, "Armure = 30 PI pour tous");
+assert.strictEqual(g.improveCost("esq", 1, "Tomawak"), 32, "2e dé d'ESQ = 32 PI");
+
+// L'armure naturelle en D3 réduit bien les dégâts
+{
+  let withArmor = 0, without = 0;
+  for (let i = 0; i < 400; i++) {
+    withArmor += g.resolveAttack({ att: 10, deg: 5 }, { esq: 1, armor: 0, armorDice: 4 }).damage;
+    without += g.resolveAttack({ att: 10, deg: 5 }, { esq: 1, armor: 0 }).damage;
+  }
+  assert(withArmor < without, "4D3 d'armure naturelle doit réduire les dégâts");
+}
 
 // Niveaux : 0 PI → niv 1 ; 20 PI → niv 2 ; 50 PI → niv 3 (20 + 30)
 assert.strictEqual(g.levelFromTotalPI(0), 1);

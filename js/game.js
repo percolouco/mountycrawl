@@ -26,7 +26,9 @@ function resolveAttack(attacker, defender, opts = {}) {
   if (result.hit) {
     const deg = rollDice(attacker.deg, 3);
     result.rawDamage = deg.total + (attacker.degBonus || 0);
-    const armor = opts.ignoreArmor ? 0 : (defender.armor || 0);
+    // armure : réduction fixe (équipement) + armure naturelle en D3 (achetée en PI)
+    const armor = opts.ignoreArmor ? 0
+      : (defender.armor || 0) + (defender.armorDice ? rollDice(defender.armorDice, 3).total : 0);
     result.damage = Math.max(1, result.rawDamage - armor);
   }
   return result;
@@ -53,14 +55,17 @@ function resolveSpell(mm, rm) {
   return { sr, roll, success: roll <= sr };
 }
 
-/* Coût en PI du prochain dé d'une caractéristique : (dés actuels + 1) × coût de base,
- * réduit pour la caractéristique favorite de la race (cf. règles MH). */
-function improveCost(stat, currentValue, race) {
-  const base = { att: 18, esq: 18, deg: 18, reg: 15, pv: 10, vue: 15 };
+/* Coûts d'amélioration officiels (MH_Rules/Rules_3.php) : le N-ième achat d'une
+ * caractéristique coûte N × coût de base de la race. La caractéristique favorite
+ * est à 12 PI (REG du Darkling : 22), le reste à 16, REG à 30, Armure à 30.
+ * `bought` = nombre d'améliorations déjà achetées dans cette caractéristique. */
+const IMPROVE_BASE = { att: 16, esq: 16, deg: 16, reg: 30, pv: 16, vue: 16, armor: 30 };
+const IMPROVE_FAVORED = { att: 12, deg: 12, pv: 12, vue: 12, reg: 22 };
+
+function improveCost(stat, bought, race) {
   const favored = RACES[race].favored === stat;
-  const mult = favored ? Math.ceil(base[stat] * 2 / 3) : base[stat];
-  if (stat === "pv") return mult; // +5 PV, coût fixe
-  return (currentValue + 1) * mult;
+  const base = favored ? IMPROVE_FAVORED[stat] : IMPROVE_BASE[stat];
+  return (bought + 1) * base;
 }
 
 /* Niveau d'ancienneté : passer au niveau N coûte 10×N PI gagnés (cumulés). */
@@ -292,7 +297,8 @@ function newGame(name, race, customLevel = null) {
       name, race,
       att: s.att, esq: s.esq, deg: s.deg, reg: s.reg,
       pv: s.pvMax, pvMax: s.pvMax, vue: s.vue,
-      degBonus: 0, armor: 0,
+      degBonus: 0, armor: 0, armorDice: 0,
+      bought: { att: 0, esq: 0, deg: 0, reg: 0, pv: 0, vue: 0, armor: 0 },
       comp: { pct: 15 }, sort: { pct: 15 }, fatigue: 0, compUsed: false,
       weapon: null, armorItem: null,
       pa: PA_PER_TURN, pi: 0, totalPI: 0, gold: 0,
@@ -744,13 +750,14 @@ function descend() {
 
 function improveStat(stat) {
   const t = G.troll;
-  const current = stat === "pv" ? t.pvMax : t[stat];
-  const cost = improveCost(stat, stat === "pv" ? 0 : current, t.race);
+  const cost = improveCost(stat, t.bought[stat], t.race);
   if (t.pi < cost) return;
   t.pi -= cost;
-  if (stat === "pv") { t.pvMax += 5; t.pv += 5; }
+  t.bought[stat] += 1;
+  if (stat === "pv") { t.pvMax += 10; t.pv += 10; }
+  else if (stat === "armor") t.armorDice += 1;
   else t[stat] += 1;
-  const label = { att: "Attaque", esq: "Esquive", deg: "Dégâts", reg: "Régénération", pv: "PV max", vue: "Vue" }[stat];
+  const label = { att: "Attaque", esq: "Esquive", deg: "Dégâts", reg: "Régénération", pv: "PV max", vue: "Vue", armor: "Armure naturelle" }[stat];
   log(`📈 Entraînement : ${label} améliorée pour ${cost} PI.`, "good");
   if (stat === "vue") updateFov();
   afterAction();
@@ -945,7 +952,7 @@ function renderPanels() {
     <div><span>Esquive</span><span class="stat-val">${t.esq}D6</span></div>
     <div><span>Dégâts</span><span class="stat-val">${t.deg}D3${t.degBonus ? "+" + t.degBonus : ""}</span></div>
     <div><span>Régénération</span><span class="stat-val">${t.reg}D3</span></div>
-    <div><span>Armure</span><span class="stat-val">${t.armor}</span></div>
+    <div><span>Armure</span><span class="stat-val">${t.armor}${t.armorDice ? "+" + t.armorDice + "D3" : ""}</span></div>
     <div><span>Vue</span><span class="stat-val">${t.vue}</span></div>
     <div><span>${RACES[t.race].comp.name}</span><span class="stat-val">${t.comp.pct} %</span></div>
     <div><span>${RACES[t.race].sort.name}</span><span class="stat-val">${t.sort.pct} %</span></div>
@@ -957,10 +964,9 @@ function renderPanels() {
 
   const improve = $("improve");
   improve.innerHTML = "";
-  const labels = { att: "Attaque +1D6", esq: "Esquive +1D6", deg: "Dégâts +1D3", reg: "Régén. +1D3", pv: "PV max +5", vue: "Vue +1" };
+  const labels = { att: "Attaque +1D6", esq: "Esquive +1D6", deg: "Dégâts +1D3", reg: "Régén. +1D3", pv: "PV max +10", vue: "Vue +1", armor: "Armure +1D3" };
   for (const stat of Object.keys(labels)) {
-    const current = stat === "pv" ? 0 : t[stat];
-    const cost = improveCost(stat, current, t.race);
+    const cost = improveCost(stat, t.bought[stat], t.race);
     const btn = document.createElement("button");
     const fav = RACES[t.race].favored === stat ? " ★" : "";
     btn.textContent = `${labels[stat]} — ${cost} PI${fav}`;
