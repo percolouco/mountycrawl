@@ -89,6 +89,12 @@ assert.strictEqual(g.levelFromTotalPI(20), 2);
 assert.strictEqual(g.levelFromTotalPI(49), 2);
 assert.strictEqual(g.levelFromTotalPI(50), 3);
 
+// PX de mise à mort : 10 + 2 × (niveau cible − niveau troll) + niveau cible
+assert.strictEqual(g.killPX(1, 5), 23, "troll niv 1 vs cible niv 5");
+assert.strictEqual(g.killPX(5, 5), 15, "même niveau");
+assert.strictEqual(g.killPX(60, 1), -107, "troll niv 60 vs cible niv 1 → négatif");
+assert.strictEqual(g.killPX(3, 1), 7, "troll niv 3 vs cible niv 1");
+
 // Les 5 races existent avec stats officielles, compétence et sortilège réservés
 assert.strictEqual(Object.keys(g.RACES).length, 5);
 for (const r of Object.values(g.RACES)) {
