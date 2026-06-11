@@ -11,17 +11,32 @@ for (let i = 0; i < 200; i++) {
   assert.strictEqual(r.rolls.length, 3);
 }
 
-// Combat : un attaquant écrasant doit toucher la plupart du temps, et jamais l'inverse d'un mur
+// Combat : un attaquant écrasant doit toucher la plupart du temps. Dégâts en D3.
 let hits = 0;
 for (let i = 0; i < 500; i++) {
   const r = g.resolveAttack({ att: 10, deg: 3, degBonus: 2 }, { esq: 1, armor: 2 });
   if (r.hit) {
     hits++;
     assert(r.damage >= 1, "dégâts minimum 1");
-    assert(r.damage <= 3 * 6 + 2 - 2, "dégâts trop élevés : " + r.damage);
+    assert(r.damage <= 3 * 3 + 2 - 2, "dégâts trop élevés (D3 attendu) : " + r.damage);
   }
 }
 assert(hits > 450, "10D6 vs 1D6 devrait presque toujours toucher (" + hits + "/500)");
+
+// autoHit : ne rate jamais (Rafale Psychique)
+for (let i = 0; i < 50; i++) {
+  assert(g.resolveAttack({ att: 1, deg: 1 }, { esq: 10 }, { autoHit: true }).hit, "autoHit doit toucher");
+}
+
+// Maîtrise : progresse en cas de succès, plafonnée, jamais au-delà du cap
+{
+  const talent = { pct: 89 };
+  for (let i = 0; i < 200; i++) g.masteryRoll(talent, 90);
+  assert(talent.pct <= 90 && talent.pct >= 89, "plafond de maîtrise dépassé : " + talent.pct);
+  const sure = { pct: 100 };
+  const r = g.masteryRoll(sure, 200);
+  assert(r.success && sure.pct > 100, "succès garanti doit faire progresser");
+}
 
 // Sortilège : SR borné [10, 90]
 assert.strictEqual(g.resolveSpell(100, 0).sr, 90);
@@ -38,13 +53,31 @@ assert.strictEqual(g.levelFromTotalPI(20), 2);
 assert.strictEqual(g.levelFromTotalPI(49), 2);
 assert.strictEqual(g.levelFromTotalPI(50), 3);
 
-// Les 5 races existent avec toutes leurs stats
+// Les 5 races existent avec stats officielles, compétence et sortilège réservés
 assert.strictEqual(Object.keys(g.RACES).length, 5);
 for (const r of Object.values(g.RACES)) {
   for (const k of ["att", "esq", "deg", "reg", "pvMax", "vue"]) {
     assert(typeof r.stats[k] === "number", "stat manquante : " + k);
   }
+  assert(r.comp && r.comp.name && r.comp.cost > 0, "compétence raciale manquante");
+  assert(r.sort && r.sort.name && r.sort.cost > 0, "sortilège racial manquant");
 }
+// Profils de base officiels (Races_*.php)
+assert.deepStrictEqual(g.RACES.Skrim.stats,    { att: 4, esq: 3, deg: 3, reg: 1, pvMax: 30, vue: 3 });
+assert.deepStrictEqual(g.RACES.Durakuir.stats, { att: 3, esq: 3, deg: 3, reg: 1, pvMax: 40, vue: 3 });
+assert.deepStrictEqual(g.RACES.Kastar.stats,   { att: 3, esq: 3, deg: 4, reg: 1, pvMax: 30, vue: 3 });
+assert.deepStrictEqual(g.RACES.Tomawak.stats,  { att: 3, esq: 3, deg: 3, reg: 1, pvMax: 30, vue: 4 });
+assert.deepStrictEqual(g.RACES.Darkling.stats, { att: 3, esq: 3, deg: 3, reg: 2, pvMax: 30, vue: 3 });
+assert.strictEqual(g.RACES.Skrim.comp.name, "Botte Secrète");
+assert.strictEqual(g.RACES.Skrim.sort.name, "Hypnotisme");
+assert.strictEqual(g.RACES.Durakuir.comp.name, "Régénération Accrue");
+assert.strictEqual(g.RACES.Durakuir.sort.name, "Rafale Psychique");
+assert.strictEqual(g.RACES.Kastar.comp.name, "Accélération du Métabolisme");
+assert.strictEqual(g.RACES.Kastar.sort.name, "Vampirisme");
+assert.strictEqual(g.RACES.Tomawak.comp.name, "Camouflage");
+assert.strictEqual(g.RACES.Tomawak.sort.name, "Projectile Magique");
+assert.strictEqual(g.RACES.Darkling.comp.name, "Balayage");
+assert.strictEqual(g.RACES.Darkling.sort.name, "Siphon des Âmes");
 
 // Génération de caverne : connexe, bordures murées, assez de sol
 for (let i = 0; i < 20; i++) {

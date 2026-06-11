@@ -35,9 +35,10 @@ lance directement une partie (utilisé pour les captures d'écran et les tests).
 | Mécanique | Dans MountyHall | Dans MountyCrawl |
 |---|---|---|
 | Tour de jeu | DLA de 12 h, 6 PA | DLA instantanée quand les PA sont épuisés (ou bouton « Passer la DLA »), 6 PA |
-| Caractéristiques | ATT, ESQ, DEG, REG, PV, Vue en dés | Identique : ATT/ESQ/DEG en D6, REG en D3, Vue = rayon de vision (brouillard de guerre) |
-| Combat | Somme ATT D6 vs somme ESQ D6, dégâts DEG D6 − armure | Identique, avec le détail des jets dans le journal |
-| Magie | Seuil de Résistance basé sur MM vs RM, borné 10–90 % | Identique (Siphon d'Âme du Darkling) |
+| Caractéristiques | ATT/ESQ en D6, DEG/REG en D3, PV, Vue | Identique, profils de base officiels des 5 races (`MH_Rules/Races_*.php`) |
+| Combat | Somme ATT D6 vs somme ESQ D6, dégâts DEG D3 − armure | Identique, avec le détail des jets dans le journal |
+| Talents | Compétence + sortilège réservés par race, 15 % de maîtrise initiale, jet D100 sous le %, progression à l'usage (+1D6 % < 50, +1D3 % < 75, +1 % ensuite), plafonds 90 %/80 %, échec = PA partiellement remboursés | Identique |
+| Magie | Seuil de Résistance basé sur MM vs RM, borné 10–90 % | Identique : jet de résistance des monstres → effets de moitié |
 | Progression | PX → PI à l'entraînement, coût (dés + 1) × coût racial | Identique, avec réduction sur la caractéristique favorite de la race |
 | Niveaux | 10 × N PI pour atteindre le niveau N | Identique |
 | Races | 5 races, chacune avec sort/compétence propre | Les 5 races avec leur capacité signature (voir ci-dessous) |
@@ -47,15 +48,21 @@ Simplifications assumées : les PX sont convertis en PI immédiatement (pas de p
 d'entraînement), la DLA ne dure pas 12 h réelles (sinon la partie durerait trois mois),
 et le Monde Souterrain est généré procéduralement à chaque descente.
 
-## Les 5 races
+## Les 5 races (profils et talents officiels)
 
-| Race | Favori (PI réduits) | Capacité signature |
-|---|---|---|
-| 🟢 Skrim | Attaque | Frappe Double (4 PA) : deux attaques dans le même assaut |
-| 🔴 Kastar | Dégâts | Morsure Vampirique (4 PA) : soigne 50 % des dégâts infligés |
-| 🟤 Durakuir | PV | Peau de Pierre (2 PA) : +3 d'armure jusqu'à la prochaine DLA |
-| 🟡 Tomawak | Vue | Camouflage (3 PA) : invisible jusqu'à la prochaine DLA |
-| 🟣 Darkling | Régénération | Siphon d'Âme (3 PA) : 2D6 dégâts magiques MM vs RM, ignore l'armure, soigne la moitié |
+Profils de base repris des pages officielles, compétence (🥋 2 PA) et sortilège
+(🔮 4 PA) réservés avec les effets décrits sur la Mountypedia, adaptés à la grille :
+
+| Race | Profil de base | 🥋 Compétence | 🔮 Sortilège |
+|---|---|---|---|
+| 🟢 Skrim | ATT 4D6 · ESQ 3D6 · DEG 3D3 · REG 1D3 · PV 30 · Vue 3 | **Botte Secrète** : attaque bonus 1/DLA (2D6 par 3 dés d'ATT, 1D3 par 2 dés d'ATT) | **Hypnotisme** : esquive ÷2 + la cible perd son tour |
+| 🟤 Durakuir | ATT 3D6 · ESQ 3D6 · DEG 3D3 · REG 1D3 · PV 40 · Vue 3 | **Régénération Accrue** : +1D3 PV par tranche de 15 PV max | **Rafale Psychique** : imparable, 1D3 par dé de DEG, ignore l'armure |
+| 🔴 Kastar | ATT 3D6 · ESQ 3D6 · DEG 4D3 · REG 1D3 · PV 30 · Vue 3 | **Accélération du Métabolisme** : sacrifie des PV (fatigue croissante) pour +4 PA | **Vampirisme** : dégâts magiques + vol de 50 % des dégâts |
+| 🟡 Tomawak | ATT 3D6 · ESQ 3D6 · DEG 3D3 · REG 1D3 · PV 30 · Vue 4 | **Camouflage** : invisible, jet sous 75 % de la maîtrise à chaque pas | **Projectile Magique** : à distance (portée = Vue), bonus de proximité |
+| 🟣 Darkling | ATT 3D6 · ESQ 3D6 · DEG 3D3 · REG 2D3 · PV 30 · Vue 3 | **Balayage** : déstabilise (la cible perd son tour) | **Siphon des Âmes** : 1D3 par dé de REG, ignore toute armure, nécrose −ATT |
+
+Le coût en PI reste réduit sur la caractéristique favorite de chaque race
+(ATT Skrim, PV Durakuir, DEG Kastar, Vue Tomawak, REG Darkling).
 
 ## Contrôles
 
@@ -121,6 +128,10 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **1.3.0** (2026-06-11) — Races fidèles aux règles officielles : profils de base
+  exacts, dégâts en D3, compétence + sortilège réservés par race avec maîtrise en %
+  progressant à l'usage, jets de résistance des monstres, statuts (à terre, hypnose,
+  nécrose), fatigue du Kastar, camouflage persistant du Tomawak.
 - **1.2.0** (2026-06-11) — Portes 🚪 entre niveaux (campagnes multi-niveaux, troll
   conservé), édition post-publication avec clé d'auteur (`PUT` + localStorage),
   section « Mes niveaux publiés », objectifs de victoire affinés.

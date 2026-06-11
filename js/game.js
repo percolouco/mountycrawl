@@ -13,22 +13,37 @@ function rollDice(n, faces) {
 }
 
 /* Jet d'attaque MountyHall : somme de ATT D6 contre somme de ESQ D6.
- * Si l'attaque dépasse l'esquive, dégâts = DEG D6 (+ bonus d'arme) − armure. */
+ * Si l'attaque dépasse l'esquive, dégâts = DEG D3 (+ bonus d'arme) − armure.
+ * (Les dégâts sont en D3 comme dans les profils officiels des races.) */
 function resolveAttack(attacker, defender, opts = {}) {
   const att = rollDice(attacker.att, 6);
   const esq = rollDice(defender.esq, 6);
   const result = {
     attRoll: att.total, esqRoll: esq.total,
     attDice: attacker.att, esqDice: defender.esq,
-    hit: att.total > esq.total, damage: 0, rawDamage: 0,
+    hit: opts.autoHit || att.total > esq.total, damage: 0, rawDamage: 0,
   };
   if (result.hit) {
-    const deg = rollDice(attacker.deg, 6);
+    const deg = rollDice(attacker.deg, 3);
     result.rawDamage = deg.total + (attacker.degBonus || 0);
     const armor = opts.ignoreArmor ? 0 : (defender.armor || 0);
     result.damage = Math.max(1, result.rawDamage - armor);
   }
   return result;
+}
+
+/* Maîtrise d'un talent (compétence ou sortilège) : jet D100 sous le pourcentage.
+ * En cas de réussite, la maîtrise progresse comme à MountyHall :
+ * +1D6 % jusqu'à 50 %, +1D3 % jusqu'à 75 %, +1 % ensuite, plafond `cap`. */
+function masteryRoll(talent, cap) {
+  const roll = 1 + Math.floor(Math.random() * 100);
+  const success = roll <= talent.pct;
+  let gain = 0;
+  if (success) {
+    gain = talent.pct < 50 ? rollDice(1, 6).total : talent.pct < 75 ? rollDice(1, 3).total : 1;
+    talent.pct = Math.min(cap, talent.pct + gain);
+  }
+  return { roll, success, gain };
 }
 
 /* Sortilège façon MM vs RM : Seuil de Résistance borné à [10, 90] %. */
@@ -57,52 +72,60 @@ function levelFromTotalPI(totalPI) {
 
 /* ================= Les 5 races ================= */
 
+/* Profils de base officiels (mountyhall.com/MH_Rules/Races_*.php) :
+ * chaque race a sa compétence et son sortilège réservés, démarrés à 15 % de maîtrise. */
 const RACES = {
   Skrim: {
     emoji: "🟢", favored: "att",
-    desc: "Rapides et précis, ils frappent deux fois là où d'autres hésitent.",
-    ability: "Frappe Double (4 PA) : deux attaques dans le même assaut.",
-    stats: { att: 4, esq: 4, deg: 1, reg: 2, pvMax: 35, vue: 3 },
-  },
-  Kastar: {
-    emoji: "🔴", favored: "deg",
-    desc: "Les vampires du Hall : leurs coups les nourrissent.",
-    ability: "Morsure Vampirique (4 PA) : attaque qui soigne 50 % des dégâts infligés.",
-    stats: { att: 3, esq: 3, deg: 3, reg: 1, pvMax: 40, vue: 2 },
+    desc: "Simplicité et vitesse : ils frappent plus souvent que leur ombre.",
+    stats: { att: 4, esq: 3, deg: 3, reg: 1, pvMax: 30, vue: 3 },
+    comp: { name: "Botte Secrète", cost: 2, desc: "Une attaque supplémentaire (1/DLA) : 2D6 par tranche de 3 dés d'ATT, dégâts 1D3 par tranche de 2 dés d'ATT." },
+    sort: { name: "Hypnotisme", cost: 4, desc: "Cible adjacente : esquive divisée par 2 et perd son prochain tour (résistance : effets réduits)." },
   },
   Durakuir: {
     emoji: "🟤", favored: "pv",
     desc: "Les tanks du Hall, durs au mal et infatigables.",
-    ability: "Peau de Pierre (2 PA) : +3 d'armure jusqu'à la prochaine DLA.",
-    stats: { att: 3, esq: 2, deg: 2, reg: 3, pvMax: 55, vue: 2 },
+    stats: { att: 3, esq: 3, deg: 3, reg: 1, pvMax: 40, vue: 3 },
+    comp: { name: "Régénération Accrue", cost: 2, desc: "Soigne immédiatement 1D3 par tranche de 15 PV max." },
+    sort: { name: "Rafale Psychique", cost: 4, desc: "Touche automatiquement (imparable) : 1D3 par dé de DEG, ignore l'armure (résistance : moitié)." },
+  },
+  Kastar: {
+    emoji: "🔴", favored: "deg",
+    desc: "Les vampires du Hall : leurs coups les nourrissent.",
+    stats: { att: 3, esq: 3, deg: 4, reg: 1, pvMax: 30, vue: 3 },
+    comp: { name: "Accélération du Métabolisme", cost: 2, desc: "Sacrifie des PV (1D3 + fatigue) pour regagner 4 PA. La fatigue monte à chaque usage." },
+    sort: { name: "Vampirisme", cost: 4, desc: "Cible adjacente : 2D6 par tranche de 3 dés de DEG vs ESQ, dégâts 1D3 par dé de DEG, ignore l'armure, soigne 50 % (résistance : moitié)." },
   },
   Tomawak: {
     emoji: "🟡", favored: "vue",
     desc: "Trõlls furtifs, chasseurs embusqués aux yeux perçants.",
-    ability: "Camouflage (3 PA) : invisible aux monstres jusqu'à la prochaine DLA.",
-    stats: { att: 3, esq: 3, deg: 2, reg: 2, pvMax: 40, vue: 4 },
+    stats: { att: 3, esq: 3, deg: 3, reg: 1, pvMax: 30, vue: 4 },
+    comp: { name: "Camouflage", cost: 2, desc: "Invisible aux monstres tant que tu n'attaques pas ; à chaque pas, jet sous 75 % de la maîtrise pour rester caché." },
+    sort: { name: "Projectile Magique", cost: 4, desc: "À distance (portée = Vue) : 1D6 par case de Vue + bonus de proximité, dégâts 1D3 par tranche de 2 cases de Vue, ignore l'armure (résistance : moitié)." },
   },
   Darkling: {
     emoji: "🟣", favored: "reg",
     desc: "Mystiques des profondeurs, ils siphonnent l'âme de leurs proies.",
-    ability: "Siphon d'Âme (3 PA) : 2D6 dégâts magiques (MM vs RM, ignore l'armure), soigne la moitié.",
-    stats: { att: 2, esq: 3, deg: 2, reg: 3, pvMax: 38, vue: 3 },
+    stats: { att: 3, esq: 3, deg: 3, reg: 2, pvMax: 30, vue: 3 },
+    comp: { name: "Balayage", cost: 2, desc: "Déstabilise (1/DLA) : 1D6 par dé d'ATT vs 2D6 par tranche de 3 dés d'ESQ de la cible ; à terre, elle perd son prochain tour." },
+    sort: { name: "Siphon des Âmes", cost: 4, desc: "1D6 par dé d'ATT vs ESQ, dégâts 1D3 par dé de REG, ignore toute armure, nécrose : la cible perd des dés d'ATT pendant 2 tours (résistance : moitié)." },
   },
 };
 
 /* ================= Bestiaire ================= */
 
+/* Dégâts des monstres en D3, comme ceux des trolls. */
 const MONSTER_TYPES = [
-  { name: "Gobelin",           emoji: "👺", level: 1, att: 2, esq: 2, deg: 1, pv: 12, armor: 0, vue: 4 },
-  { name: "Champignon Vénéneux", emoji: "🍄", level: 1, att: 3, esq: 1, deg: 2, pv: 10, armor: 0, vue: 1, static: true },
-  { name: "Araignée Géante",   emoji: "🕷️", level: 2, att: 3, esq: 3, deg: 2, pv: 16, armor: 0, vue: 5 },
-  { name: "Gargouille",        emoji: "🦇", level: 3, att: 3, esq: 3, deg: 2, pv: 22, armor: 2, vue: 4 },
-  { name: "Momie",             emoji: "🧟", level: 3, att: 4, esq: 2, deg: 3, pv: 26, armor: 1, vue: 3 },
-  { name: "Sorcière",          emoji: "🧙", level: 4, att: 4, esq: 3, deg: 3, pv: 24, armor: 0, vue: 6 },
-  { name: "Golem de Pierre",   emoji: "🗿", level: 5, att: 4, esq: 1, deg: 4, pv: 40, armor: 4, vue: 3 },
+  { name: "Gobelin",           emoji: "👺", level: 1, att: 2, esq: 2, deg: 2, pv: 12, armor: 0, vue: 4 },
+  { name: "Champignon Vénéneux", emoji: "🍄", level: 1, att: 3, esq: 1, deg: 3, pv: 10, armor: 0, vue: 1, static: true },
+  { name: "Araignée Géante",   emoji: "🕷️", level: 2, att: 3, esq: 3, deg: 3, pv: 16, armor: 0, vue: 5 },
+  { name: "Gargouille",        emoji: "🦇", level: 3, att: 3, esq: 3, deg: 3, pv: 22, armor: 2, vue: 4 },
+  { name: "Momie",             emoji: "🧟", level: 3, att: 4, esq: 2, deg: 4, pv: 26, armor: 1, vue: 3 },
+  { name: "Sorcière",          emoji: "🧙", level: 4, att: 4, esq: 3, deg: 5, pv: 24, armor: 0, vue: 6 },
+  { name: "Golem de Pierre",   emoji: "🗿", level: 5, att: 4, esq: 1, deg: 6, pv: 40, armor: 4, vue: 3 },
 ];
 
-const BOSS = { name: "Béhémoth", emoji: "👹", level: 9, att: 6, esq: 4, deg: 5, pv: 90, armor: 3, vue: 8, boss: true };
+const BOSS = { name: "Béhémoth", emoji: "👹", level: 9, att: 6, esq: 4, deg: 8, pv: 90, armor: 3, vue: 8, boss: true };
 
 /* Gabarits d'âge façon MountyHall : plus on descend, plus les bêtes sont vieilles. */
 const TEMPLATES = [
@@ -269,10 +292,11 @@ function newGame(name, race, customLevel = null) {
       name, race,
       att: s.att, esq: s.esq, deg: s.deg, reg: s.reg,
       pv: s.pvMax, pvMax: s.pvMax, vue: s.vue,
-      degBonus: 0, armor: 0, mm: race === "Darkling" ? 4 : 2,
+      degBonus: 0, armor: 0,
+      comp: { pct: 15 }, sort: { pct: 15 }, fatigue: 0, compUsed: false,
       weapon: null, armorItem: null,
       pa: PA_PER_TURN, pi: 0, totalPI: 0, gold: 0,
-      bag: [], camo: false, stoneSkin: 0, kills: 0, dla: 1,
+      bag: [], camo: false, kills: 0, dla: 1,
     },
     depth: 1, grid: null, monsters: [], items: [], doors: [], stairs: null,
     seen: new Set(), over: false,
@@ -414,6 +438,15 @@ function tryMove(dx, dy) {
   t.x = nx; t.y = ny;
   updateFov();
 
+  // camouflé, chaque pas exige un jet sous 75 % de la maîtrise
+  if (t.camo) {
+    const threshold = Math.floor(t.comp.pct * 0.75);
+    if (1 + Math.floor(Math.random() * 100) > threshold) {
+      t.camo = false;
+      log("Un caillou roule sous ton pied : te voilà repéré !", "bad");
+    }
+  }
+
   if (G.grid[ny][nx] === T_STAIRS) {
     if (G.custom) log("La sortie ! (bouton « Sortir »)", "info");
     else log("Un passage s'enfonce vers les profondeurs… (bouton « Descendre »)", "info");
@@ -427,24 +460,19 @@ function tryMove(dx, dy) {
 function attackMonster(m, opts = {}) {
   const cost = opts.cost ?? COSTS.attack;
   if (!spendPA(cost)) return false;
-  const swings = opts.swings || 1;
-  for (let i = 0; i < swings && m.pv > 0; i++) {
-    const r = resolveAttack(G.troll, m);
-    if (r.hit) {
-      m.pv -= r.damage;
-      G.troll.pi += 1; G.troll.totalPI += 1; // +1 PX par attaque réussie (converti en PI)
-      log(`Tu attaques ${m.name} : ATT ${r.attDice}D6=${r.attRoll} vs ESQ ${r.esqDice}D6=${r.esqRoll} → touché ! ${r.rawDamage} dégâts (−${m.armor} armure) = ${r.damage} PV.`, "combat");
-      if (opts.vampiric) {
-        const heal = Math.ceil(r.damage / 2);
-        G.troll.pv = Math.min(G.troll.pvMax, G.troll.pv + heal);
-        log(`🩸 Morsure Vampirique : tu récupères ${heal} PV.`, "good");
-      }
-      if (m.pv <= 0) killMonster(m);
-    } else {
-      log(`Tu attaques ${m.name} : ATT ${r.attDice}D6=${r.attRoll} vs ESQ ${r.esqDice}D6=${r.esqRoll} → esquivé !`, "combat");
-    }
+  const r = resolveAttack(G.troll, effMonster(m));
+  if (r.hit) {
+    m.pv -= r.damage;
+    G.troll.pi += 1; G.troll.totalPI += 1; // +1 PX par attaque réussie (converti en PI)
+    log(`Tu attaques ${m.name} : ATT ${r.attDice}D6=${r.attRoll} vs ESQ ${r.esqDice}D6=${r.esqRoll} → touché ! ${r.rawDamage} dégâts (−${m.armor} armure) = ${r.damage} PV.`, "combat");
+    if (m.pv <= 0) killMonster(m);
+  } else {
+    log(`Tu attaques ${m.name} : ATT ${r.attDice}D6=${r.attRoll} vs ESQ ${r.esqDice}D6=${r.esqRoll} → esquivé !`, "combat");
   }
-  G.troll.camo = false;
+  if (G.troll.camo) {
+    G.troll.camo = false;
+    log("Ton attaque brise le camouflage.", "info");
+  }
   afterAction();
   return true;
 }
@@ -465,47 +493,194 @@ function killMonster(m) {
   }
 }
 
-function useAbility() {
+/* ----- Compétences et sortilèges réservés (effets d'après la Mountypedia) ----- */
+
+const trollMM = () => levelFromTotalPI(G.troll.totalPI) + 1;
+const monsterRM = m => Math.ceil(m.level / 2);
+
+/* Jet de résistance magique du monstre : s'il résiste, l'effet est de moitié. */
+function resisted(m) {
+  return !resolveSpell(trollMM(), monsterRM(m)).success;
+}
+
+/* Tente le talent : dépense les PA (moitié remboursée en cas d'échec, comme à MH),
+ * jette la maîtrise et journalise. Retourne true si l'effet s'applique. */
+function tryTalent(talent, cap, cost, label) {
+  if (!spendPA(cost)) return false;
+  const r = masteryRoll(talent, cap);
+  if (!r.success) {
+    G.troll.pa += Math.floor(cost / 2);
+    log(`${label} : échec (jet ${r.roll} > ${talent.pct} %). La moitié des PA est remboursée.`, "combat");
+    return false;
+  }
+  G.troll.pi += 1; G.troll.totalPI += 1;
+  if (talent.pct < cap && r.gain) log(`${label} : réussite (jet ${r.roll}) — maîtrise +${r.gain} % → ${talent.pct} %.`, "good");
+  return true;
+}
+
+function useComp() {
   if (G.over) return;
   const t = G.troll;
-  const race = t.race;
-  if (race === "Skrim") {
+  const comp = RACES[t.race].comp;
+
+  if (t.race === "Skrim") { // Botte Secrète : attaque bonus, 1 fois par DLA
+    if (t.compUsed) { log("Botte Secrète déjà utilisée cette DLA.", "info"); return; }
     const m = adjacentMonster();
-    if (!m) { log("Aucun monstre adjacent pour la Frappe Double.", "info"); return; }
-    log("⚡ Frappe Double !", "good");
-    attackMonster(m, { cost: 4, swings: 2 });
-  } else if (race === "Kastar") {
-    const m = adjacentMonster();
-    if (!m) { log("Aucun monstre adjacent pour la Morsure Vampirique.", "info"); return; }
-    attackMonster(m, { cost: 4, vampiric: true });
-  } else if (race === "Durakuir") {
-    if (!spendPA(2)) return;
-    t.stoneSkin = 3;
-    log("🪨 Peau de Pierre : +3 d'armure jusqu'à la prochaine DLA.", "good");
-    afterAction();
-  } else if (race === "Tomawak") {
-    if (!spendPA(3)) return;
+    if (!m) { log("Aucun monstre adjacent.", "info"); return; }
+    if (!tryTalent(t.comp, 90, comp.cost, "🥋 Botte Secrète")) { afterAction(); return; }
+    t.compUsed = true;
+    const pseudo = { att: Math.max(1, Math.floor(t.att * 2 / 3)), deg: Math.max(1, Math.floor(t.att / 2)), degBonus: 0 };
+    const r = resolveAttack(pseudo, effMonster(m));
+    if (r.hit) {
+      m.pv -= r.damage;
+      log(`Botte Secrète : ${r.attDice}D6=${r.attRoll} vs ${r.esqDice}D6=${r.esqRoll} → ${r.damage} dégâts !`, "combat");
+      if (m.pv <= 0) killMonster(m);
+    } else {
+      log(`Botte Secrète esquivée (${r.attRoll} vs ${r.esqRoll}).`, "combat");
+    }
+  } else if (t.race === "Durakuir") { // Régénération Accrue : 1D3 par tranche de 15 PV max
+    if (!tryTalent(t.comp, 90, comp.cost, "🥋 Régénération Accrue")) { afterAction(); return; }
+    const dice = Math.max(1, Math.floor(t.pvMax / 15));
+    const heal = rollDice(dice, 3).total;
+    t.pv = Math.min(t.pvMax, t.pv + heal);
+    log(`Régénération Accrue : ${dice}D3 → +${heal} PV.`, "good");
+  } else if (t.race === "Kastar") { // Accélération du Métabolisme : PV → PA, fatigue croissante
+    if (!tryTalent(t.comp, 90, comp.cost, "🥋 Accélération du Métabolisme")) { afterAction(); return; }
+    const cost = rollDice(1, 3).total + t.fatigue;
+    t.fatigue += 1;
+    t.pv -= cost;
+    t.pa = Math.min(PA_PER_TURN, t.pa + 4);
+    log(`Accélération du Métabolisme : −${cost} PV, +4 PA (fatigue ${t.fatigue}).`, "good");
+    if (t.pv <= 0) { die({ name: "son propre métabolisme" }); return; }
+  } else if (t.race === "Tomawak") { // Camouflage : invisible tant qu'on n'attaque pas
+    if (t.camo) { log("Tu es déjà camouflé.", "info"); return; }
+    if (!tryTalent(t.comp, 90, comp.cost, "🥋 Camouflage")) { afterAction(); return; }
     t.camo = true;
-    log("🌫️ Camouflage : les monstres ne te voient plus jusqu'à la prochaine DLA.", "good");
-    afterAction();
-  } else if (race === "Darkling") {
+    log("🌫️ Camouflage : les monstres ne te voient plus. Chaque pas risque de te dévoiler (75 % de la maîtrise).", "good");
+  } else if (t.race === "Darkling") { // Balayage : déstabilise, la cible perd son tour
+    if (t.compUsed) { log("Balayage déjà utilisé cette DLA.", "info"); return; }
     const m = adjacentMonster();
-    if (!m) { log("Aucun monstre adjacent pour le Siphon d'Âme.", "info"); return; }
-    if (!spendPA(3)) return;
-    const spell = resolveSpell(t.mm, Math.ceil(m.level / 2));
-    if (spell.success) {
-      const dmg = rollDice(2, 6).total;
+    if (!m) { log("Aucun monstre adjacent.", "info"); return; }
+    if (!tryTalent(t.comp, 90, comp.cost, "🥋 Balayage")) { afterAction(); return; }
+    t.compUsed = true;
+    const destab = rollDice(t.att, 6).total;
+    const stab = rollDice(Math.max(1, Math.floor(m.esq * 2 / 3)), 6).total;
+    if (destab > stab) {
+      m.skip = (m.skip || 0) + 1;
+      log(`Balayage : ${destab} vs ${stab} → ${m.name} est à terre et perdra son prochain tour !`, "good");
+    } else {
+      log(`Balayage : ${destab} vs ${stab} → ${m.name} reste stable.`, "combat");
+    }
+  }
+  afterAction();
+}
+
+function useSort() {
+  if (G.over) return;
+  const t = G.troll;
+  const sort = RACES[t.race].sort;
+
+  if (t.race === "Skrim") { // Hypnotisme : esquive /2 + perd son tour
+    const m = adjacentMonster();
+    if (!m) { log("Aucun monstre adjacent.", "info"); return; }
+    if (!tryTalent(t.sort, 80, sort.cost, "🔮 Hypnotisme")) { afterAction(); return; }
+    const res = resisted(m);
+    m.esqHalfTurns = (m.esqHalfTurns || 0) + (res ? 1 : 2);
+    if (!res) m.skip = (m.skip || 0) + 1;
+    log(res
+      ? `Hypnotisme : ${m.name} résiste — esquive réduite 1 tour seulement.`
+      : `Hypnotisme : ${m.name} est hébété ! Esquive divisée par 2 et tour perdu.`, "good");
+  } else if (t.race === "Durakuir") { // Rafale Psychique : imparable, ignore l'armure
+    const m = adjacentMonster();
+    if (!m) { log("Aucun monstre adjacent.", "info"); return; }
+    if (!tryTalent(t.sort, 80, sort.cost, "🔮 Rafale Psychique")) { afterAction(); return; }
+    let dmg = rollDice(t.deg, 3).total;
+    const res = resisted(m);
+    if (res) dmg = Math.max(1, Math.ceil(dmg / 2));
+    m.pv -= dmg;
+    log(`Rafale Psychique : touche automatique, ${dmg} dégâts${res ? " (résisté : moitié)" : ""}, armure ignorée.`, "combat");
+    if (m.pv <= 0) killMonster(m);
+  } else if (t.race === "Kastar") { // Vampirisme : dégâts + vol de vie
+    const m = adjacentMonster();
+    if (!m) { log("Aucun monstre adjacent.", "info"); return; }
+    if (!tryTalent(t.sort, 80, sort.cost, "🔮 Vampirisme")) { afterAction(); return; }
+    const pseudo = { att: Math.max(1, Math.floor(t.deg * 2 / 3)), deg: t.deg, degBonus: 0 };
+    const r = resolveAttack(pseudo, effMonster(m), { ignoreArmor: true });
+    if (r.hit) {
+      let dmg = r.damage;
+      const res = resisted(m);
+      if (res) dmg = Math.max(1, Math.ceil(dmg / 2));
       m.pv -= dmg;
       const heal = Math.ceil(dmg / 2);
       t.pv = Math.min(t.pvMax, t.pv + heal);
-      G.troll.pi += 1; G.troll.totalPI += 1;
-      log(`🔮 Siphon d'Âme (SR ${spell.sr}%, jet ${spell.roll}) : ${dmg} dégâts, tu récupères ${heal} PV.`, "good");
+      log(`Vampirisme : ${dmg} dégâts${res ? " (résisté)" : ""}, tu draines ${heal} PV.`, "good");
       if (m.pv <= 0) killMonster(m);
     } else {
-      log(`🔮 Siphon d'Âme raté (SR ${spell.sr}%, jet ${spell.roll}).`, "combat");
+      log(`Vampirisme esquivé (${r.attRoll} vs ${r.esqRoll}).`, "combat");
     }
-    afterAction();
+  } else if (t.race === "Tomawak") { // Projectile Magique : à distance, portée = Vue
+    const m = nearestVisibleMonster();
+    if (!m) { log("Aucun monstre en vue.", "info"); return; }
+    if (!tryTalent(t.sort, 80, sort.cost, "🔮 Projectile Magique")) { afterAction(); return; }
+    const dist = Math.max(Math.abs(m.x - t.x), Math.abs(m.y - t.y));
+    const proxBonus = Math.max(0, t.vue - dist);
+    const pseudo = { att: t.vue + proxBonus, deg: Math.max(1, Math.floor(t.vue / 2)), degBonus: 0 };
+    const r = resolveAttack(pseudo, effMonster(m), { ignoreArmor: true });
+    if (r.hit) {
+      let dmg = r.damage;
+      const res = resisted(m);
+      if (res) dmg = Math.max(1, Math.ceil(dmg / 2));
+      m.pv -= dmg;
+      log(`Projectile Magique sur ${m.name} (distance ${dist}) : ${dmg} dégâts${res ? " (résisté)" : ""}.`, "combat");
+      if (m.pv <= 0) killMonster(m);
+    } else {
+      log(`Projectile Magique esquivé (${r.attRoll} vs ${r.esqRoll}).`, "combat");
+    }
+    // 25 % de la maîtrise pour conserver le camouflage
+    if (t.camo && 1 + Math.floor(Math.random() * 100) > Math.floor(t.comp.pct * 0.25)) {
+      t.camo = false;
+      log("Ton camouflage se dissipe dans l'éclat du projectile.", "info");
+    }
+  } else if (t.race === "Darkling") { // Siphon des Âmes : dégâts + nécrose (−ATT)
+    const m = adjacentMonster();
+    if (!m) { log("Aucun monstre adjacent.", "info"); return; }
+    if (!tryTalent(t.sort, 80, sort.cost, "🔮 Siphon des Âmes")) { afterAction(); return; }
+    const pseudo = { att: t.att, deg: t.reg, degBonus: 0 };
+    const r = resolveAttack(pseudo, effMonster(m), { ignoreArmor: true });
+    if (r.hit) {
+      let dmg = r.damage;
+      const res = resisted(m);
+      if (res) dmg = Math.max(1, Math.ceil(dmg / 2));
+      m.pv -= dmg;
+      const necrose = res ? Math.max(1, Math.floor(t.reg / 2)) : t.reg;
+      m.attDownDice = (m.attDownDice || 0) + necrose;
+      m.attDownTurns = 2;
+      log(`Siphon des Âmes : ${dmg} dégâts${res ? " (résisté)" : ""}, nécrose −${necrose} dé(s) d'ATT pendant 2 tours.`, "combat");
+      if (m.pv <= 0) killMonster(m);
+    } else {
+      log(`Siphon des Âmes esquivé (${r.attRoll} vs ${r.esqRoll}).`, "combat");
+    }
   }
+  if (!G.over) afterAction();
+}
+
+/* Caractéristiques effectives d'un monstre, statuts compris. */
+function effMonster(m) {
+  return {
+    ...m,
+    att: Math.max(1, m.att - (m.attDownTurns > 0 ? m.attDownDice || 0 : 0)),
+    esq: m.esqHalfTurns > 0 ? Math.max(1, Math.floor(m.esq / 2)) : m.esq,
+  };
+}
+
+function nearestVisibleMonster() {
+  let best = null, bestDist = Infinity;
+  for (const m of G.monsters) {
+    if (!inSight(m)) continue;
+    const d = Math.max(Math.abs(m.x - G.troll.x), Math.abs(m.y - G.troll.y));
+    if (d < bestDist) { best = m; bestDist = d; }
+  }
+  return best;
 }
 
 function adjacentMonster() {
@@ -591,11 +766,16 @@ function passDLA() {
   // Tour des monstres
   for (const m of G.monsters) {
     if (m.pv <= 0) continue;
+    if (m.skip > 0) {
+      m.skip--;
+      log(`${m.emoji} ${m.name} est au sol et perd son tour.`, "good");
+      continue;
+    }
     const dist = Math.max(Math.abs(m.x - t.x), Math.abs(m.y - t.y));
     const seesTroll = !t.camo && dist <= m.vue;
     if (dist <= 1 && !t.camo) {
-      const armorBonus = t.stoneSkin > 0 ? 3 : 0;
-      const r = resolveAttack(m, { ...t, armor: t.armor + armorBonus });
+      const eff = effMonster(m);
+      const r = resolveAttack(eff, t);
       if (r.hit) {
         t.pv -= r.damage;
         log(`${m.emoji} ${m.name} t'attaque : ${r.attDice}D6=${r.attRoll} vs ${r.esqDice}D6=${r.esqRoll} → ${r.damage} dégâts !`, "bad");
@@ -610,6 +790,9 @@ function passDLA() {
       const [dx, dy] = dirs[Math.floor(Math.random() * 4)];
       moveMonster(m, m.x + dx, m.y + dy);
     }
+    // les statuts s'estompent à la fin de l'activation du monstre
+    if (m.esqHalfTurns > 0) m.esqHalfTurns--;
+    if (m.attDownTurns > 0 && --m.attDownTurns === 0) m.attDownDice = 0;
   }
 
   // Régénération (REG D3, comme à MountyHall)
@@ -622,8 +805,8 @@ function passDLA() {
   }
 
   t.pa = PA_PER_TURN;
-  t.camo = false;
-  if (t.stoneSkin > 0) t.stoneSkin--;
+  t.compUsed = false;
+  t.fatigue = Math.floor(t.fatigue / 1.25); // la fatigue du Kastar retombe à chaque DLA
   afterAction();
 }
 
@@ -760,17 +943,21 @@ function renderPanels() {
     <div class="hp-bar-wrap"><div class="hp-bar ${hpClass}" style="width:${pct * 100}%"></div></div>
     <div><span>Attaque</span><span class="stat-val">${t.att}D6</span></div>
     <div><span>Esquive</span><span class="stat-val">${t.esq}D6</span></div>
-    <div><span>Dégâts</span><span class="stat-val">${t.deg}D6${t.degBonus ? "+" + t.degBonus : ""}</span></div>
+    <div><span>Dégâts</span><span class="stat-val">${t.deg}D3${t.degBonus ? "+" + t.degBonus : ""}</span></div>
     <div><span>Régénération</span><span class="stat-val">${t.reg}D3</span></div>
-    <div><span>Armure</span><span class="stat-val">${t.armor + (t.stoneSkin > 0 ? 3 : 0)}</span></div>
+    <div><span>Armure</span><span class="stat-val">${t.armor}</span></div>
     <div><span>Vue</span><span class="stat-val">${t.vue}</span></div>
+    <div><span>${RACES[t.race].comp.name}</span><span class="stat-val">${t.comp.pct} %</span></div>
+    <div><span>${RACES[t.race].sort.name}</span><span class="stat-val">${t.sort.pct} %</span></div>
+    ${t.race === "Kastar" ? `<div><span>Fatigue</span><span class="stat-val">${t.fatigue}</span></div>` : ""}
+    ${t.camo ? '<div><span>🌫️ Camouflé</span><span class="stat-val">oui</span></div>' : ""}
     <div><span>PI</span><span class="stat-val">${t.pi}</span></div>
     <div><span>Mountyzédons</span><span class="stat-val">${t.gold}</span></div>
     <div><span>Monstres tués</span><span class="stat-val">${t.kills}</span></div>`;
 
   const improve = $("improve");
   improve.innerHTML = "";
-  const labels = { att: "Attaque +1D6", esq: "Esquive +1D6", deg: "Dégâts +1D6", reg: "Régén. +1D3", pv: "PV max +5", vue: "Vue +1" };
+  const labels = { att: "Attaque +1D6", esq: "Esquive +1D6", deg: "Dégâts +1D3", reg: "Régén. +1D3", pv: "PV max +5", vue: "Vue +1" };
   for (const stat of Object.keys(labels)) {
     const current = stat === "pv" ? 0 : t[stat];
     const cost = improveCost(stat, current, t.race);
@@ -795,8 +982,9 @@ function renderPanels() {
   };
   const adj = adjacentMonster();
   addBtn(`⚔️ Attaquer (${COSTS.attack} PA)`, () => adj && attackMonster(adj), adj && t.pa >= COSTS.attack);
-  const abilityCost = { Skrim: 4, Kastar: 4, Durakuir: 2, Tomawak: 3, Darkling: 3 }[t.race];
-  addBtn(`✨ ${RACES[t.race].ability.split(" (")[0]} (${abilityCost} PA)`, useAbility, t.pa >= abilityCost);
+  const comp = RACES[t.race].comp, sort = RACES[t.race].sort;
+  addBtn(`🥋 ${comp.name} (${comp.cost} PA · ${t.comp.pct} %)`, useComp, t.pa >= comp.cost);
+  addBtn(`🔮 ${sort.name} (${sort.cost} PA · ${t.sort.pct} %)`, useSort, t.pa >= sort.cost);
   const onItem = G.items.some(i => i.x === t.x && i.y === t.y);
   addBtn(`🖐️ Ramasser (${COSTS.pickup} PA)`, pickup, onItem && t.pa >= COSTS.pickup);
   const onStairs = G.grid[t.y][t.x] === T_STAIRS;
@@ -858,8 +1046,10 @@ function initCreateScreen() {
     card.className = "race-card" + (name === selectedRace ? " selected" : "");
     const s = r.stats;
     card.innerHTML = `<h4>${r.emoji} ${name}</h4>
-      <div class="race-desc">${r.desc}<br><b>${r.ability}</b></div>
-      <div class="race-stats">ATT ${s.att}D6 · ESQ ${s.esq}D6 · DEG ${s.deg}D6 · REG ${s.reg}D3 · PV ${s.pvMax} · VUE ${s.vue}</div>`;
+      <div class="race-desc">${r.desc}<br>
+        <b>🥋 ${r.comp.name}</b> (${r.comp.cost} PA) : ${r.comp.desc}<br>
+        <b>🔮 ${r.sort.name}</b> (${r.sort.cost} PA) : ${r.sort.desc}</div>
+      <div class="race-stats">ATT ${s.att}D6 · ESQ ${s.esq}D6 · DEG ${s.deg}D3 · REG ${s.reg}D3 · PV ${s.pvMax} · VUE ${s.vue}</div>`;
     card.onclick = () => {
       selectedRace = name;
       initCreateScreen();
@@ -923,7 +1113,7 @@ if (typeof document !== "undefined") {
 /* Export pour les tests node */
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
-    rollDice, resolveAttack, resolveSpell, improveCost, levelFromTotalPI,
+    rollDice, resolveAttack, resolveSpell, masteryRoll, improveCost, levelFromTotalPI,
     RACES, MONSTER_TYPES, BOSS, TEMPLATES, makeMonster, monsterFromSpec, itemFromSpec,
     generateCavern, largestRegion,
     MAP_W, MAP_H, T_WALL, T_FLOOR, T_STAIRS,
