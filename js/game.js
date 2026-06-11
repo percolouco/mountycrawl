@@ -274,14 +274,18 @@ function newGame(name, race, customLevel = null) {
       pa: PA_PER_TURN, pi: 0, totalPI: 0, gold: 0,
       bag: [], camo: false, stoneSkin: 0, kills: 0, dla: 1,
     },
-    depth: 1, grid: null, monsters: [], items: [], stairs: null,
+    depth: 1, grid: null, monsters: [], items: [], doors: [], stairs: null,
     seen: new Set(), over: false,
   };
   if (customLevel) buildCustomLevel(customLevel);
   else buildLevel();
   if (customLevel) {
     log(`${name} le ${race} entre dans « ${customLevel.name} », un niveau de ${customLevel.author}.`, "good");
-    log("Objectif : terrasser tous les monstres, ou atteindre la sortie ▼ s'il y en a une.", "info");
+    const hasExitTile = G.grid.some(row => row.includes(T_STAIRS));
+    const hasDoors = G.doors.length > 0;
+    if (hasExitTile) log("Objectif : atteindre la sortie ▼.", "info");
+    else if (hasDoors) log("Objectif : des portes 🚪 mènent vers d'autres niveaux — explore !", "info");
+    else log("Objectif : terrasser tous les monstres.", "info");
   } else {
     log(`${name} le ${race} pénètre dans le Monde Souterrain. Que les Dieux Trõlls te gardent !`, "good");
   }
@@ -302,8 +306,36 @@ function buildCustomLevel(level) {
   G.seen = new Set();
   G.monsters = level.monsters.map(monsterFromSpec);
   G.items = level.items.map(itemFromSpec);
+  G.doors = (level.doors || []).map(d => ({ ...d }));
   G.stairs = null;
   updateFov();
+}
+
+function doorAt(x, y) {
+  return (G.doors || []).find(d => d.x === x && d.y === y);
+}
+
+/* Le niveau custom courant a-t-il encore un objectif au-delà du nettoyage ? */
+function customHasExit() {
+  return G.grid.some(row => row.includes(T_STAIRS)) || (G.doors || []).length > 0;
+}
+
+/* Franchir une porte : charge le niveau cible en conservant le troll (PV, PI, sac…). */
+async function enterDoor() {
+  const door = doorAt(G.troll.x, G.troll.y);
+  if (!door || G.over) return;
+  log("🚪 Tu pousses la lourde porte…", "info");
+  try {
+    const res = await fetch("api/levels/" + door.target);
+    if (!res.ok) throw new Error();
+    const level = await res.json();
+    G.custom = level;
+    buildCustomLevel(level);
+    log(`Tu débouches dans « ${level.name} », un niveau de ${level.author}.`, "good");
+    afterAction();
+  } catch {
+    log("La porte est condamnée : le niveau cible n'existe plus.", "bad");
+  }
 }
 
 function buildLevel() {
@@ -386,6 +418,7 @@ function tryMove(dx, dy) {
     if (G.custom) log("La sortie ! (bouton « Sortir »)", "info");
     else log("Un passage s'enfonce vers les profondeurs… (bouton « Descendre »)", "info");
   }
+  if (doorAt(nx, ny)) log("Une porte massive se dresse là. (bouton « Franchir la porte »)", "info");
   const item = G.items.find(i => i.x === nx && i.y === ny);
   if (item) log(`Tu vois : ${item.emoji} ${item.name}. Ramasse-le pour ${COSTS.pickup} PA.`, "info");
   afterAction();
@@ -423,7 +456,10 @@ function killMonster(m) {
   log(`💀 ${m.name} est terrassé ! +${px} PX (convertis en PI à l'entraînement).`, "good");
   G.monsters = G.monsters.filter(x => x !== m);
   if (G.custom) {
-    if (G.monsters.length === 0) win();
+    if (G.monsters.length === 0) {
+      if (customHasExit()) log("Le niveau est nettoyé… mais l'aventure continue derrière une porte ou une sortie.", "info");
+      else win();
+    }
   } else if (m.boss) {
     win();
   }
@@ -685,6 +721,12 @@ function render() {
     ctx.fillStyle = "#1a140e";
     ctx.fillText(i.emoji, i.x * TILE + TILE / 2, i.y * TILE + TILE / 2 + 1);
   }
+  for (const d of G.doors || []) {
+    if (!G.seen.has(d.y * MAP_W + d.x)) continue;
+    disc(d.x, d.y, "#a06a28");
+    ctx.fillStyle = "#1a140e";
+    ctx.fillText("🚪", d.x * TILE + TILE / 2, d.y * TILE + TILE / 2 + 1);
+  }
   for (const m of G.monsters) {
     if (!inSight(m)) continue;
     disc(m.x, m.y, m.boss ? "#7a2070" : "#8a3030");
@@ -758,7 +800,8 @@ function renderPanels() {
   const onItem = G.items.some(i => i.x === t.x && i.y === t.y);
   addBtn(`🖐️ Ramasser (${COSTS.pickup} PA)`, pickup, onItem && t.pa >= COSTS.pickup);
   const onStairs = G.grid[t.y][t.x] === T_STAIRS;
-  addBtn(G.custom ? "🚪 Sortir" : "⬇️ Descendre", descend, onStairs);
+  addBtn(G.custom ? "🏁 Sortir" : "⬇️ Descendre", descend, onStairs);
+  if (doorAt(t.x, t.y)) addBtn("🚪 Franchir la porte", enterDoor, true);
   addBtn("⏳ Passer la DLA", passDLA, true);
 
   $("equipment").innerHTML =

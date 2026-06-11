@@ -59,7 +59,16 @@ function validateLevel(l) {
     if (!inBounds(i) || tile(l, i) === "#") return "objet hors-sol";
     if (!["potion", "gold", "weapon", "armor"].includes(i.kind)) return "type d'objet invalide";
   }
-  if (l.monsters.length === 0) return "place au moins un monstre, sinon pas de défi !";
+  if (l.doors !== undefined && !Array.isArray(l.doors)) return "portes invalides";
+  const doors = l.doors || [];
+  if (doors.length > 10) return "portes invalides (max 10)";
+  for (const d of doors) {
+    if (!inBounds(d) || tile(l, d) === "#") return "porte hors-sol";
+    if (typeof d.target !== "string" || !/^[a-f0-9]{12}$/.test(d.target)) return "cible de porte invalide";
+  }
+  const hasExit = l.grid.some(row => row.includes(">"));
+  if (l.monsters.length === 0 && doors.length === 0 && !hasExit)
+    return "place au moins un monstre, une porte ou une sortie, sinon pas de défi !";
   return null;
 }
 
@@ -73,13 +82,40 @@ function sendJSON(res, code, data) {
   res.end(JSON.stringify(data));
 }
 
+/* Le secret d'auteur (renvoyé à la publication, gardé côté client) ne sort jamais en GET. */
+function publicLevel(l) {
+  const { secret, ...pub } = l;
+  return pub;
+}
+
+function cleanLevel(level) {
+  return {
+    name: level.name.trim(), author: level.author.trim(),
+    grid: level.grid, start: { x: level.start.x, y: level.start.y },
+    monsters: level.monsters, items: level.items, doors: level.doors || [],
+  };
+}
+
+function readBody(req, res, cb) {
+  let body = "";
+  req.on("data", chunk => {
+    body += chunk;
+    if (body.length > MAX_BODY) { sendJSON(res, 413, { error: "niveau trop gros" }); req.destroy(); }
+  });
+  req.on("end", () => {
+    let data;
+    try { data = JSON.parse(body); } catch { return sendJSON(res, 400, { error: "JSON invalide" }); }
+    cb(data);
+  });
+}
+
 function handleAPI(req, res, url) {
   const idMatch = url.pathname.match(/^\/api\/levels\/([a-f0-9]{12})$/);
 
   if (req.method === "GET" && url.pathname === "/api/levels") {
     const list = loadLevels().map(l => ({
       id: l.id, name: l.name, author: l.author, date: l.date,
-      monsters: l.monsters.length, plays: l.plays || 0,
+      monsters: l.monsters.length, doors: (l.doors || []).length, plays: l.plays || 0,
     }));
     return sendJSON(res, 200, list);
   }
@@ -90,34 +126,42 @@ function handleAPI(req, res, url) {
     if (!level) return sendJSON(res, 404, { error: "niveau introuvable" });
     level.plays = (level.plays || 0) + 1;
     saveLevels(levels);
-    return sendJSON(res, 200, level);
+    return sendJSON(res, 200, publicLevel(level));
   }
 
   if (req.method === "POST" && url.pathname === "/api/levels") {
-    let body = "";
-    req.on("data", chunk => {
-      body += chunk;
-      if (body.length > MAX_BODY) { sendJSON(res, 413, { error: "niveau trop gros" }); req.destroy(); }
-    });
-    req.on("end", () => {
-      let level;
-      try { level = JSON.parse(body); } catch { return sendJSON(res, 400, { error: "JSON invalide" }); }
+    return readBody(req, res, level => {
       const err = validateLevel(level);
       if (err) return sendJSON(res, 400, { error: err });
       const levels = loadLevels();
       if (levels.length >= MAX_LEVELS) return sendJSON(res, 507, { error: "trop de niveaux stockés" });
-      const clean = {
+      const record = {
         id: crypto.randomBytes(6).toString("hex"),
-        name: level.name.trim(), author: level.author.trim(),
+        secret: crypto.randomBytes(16).toString("hex"),
         date: new Date().toISOString().slice(0, 10),
-        grid: level.grid, start: { x: level.start.x, y: level.start.y },
-        monsters: level.monsters, items: level.items, plays: 0,
+        plays: 0,
+        ...cleanLevel(level),
       };
-      levels.push(clean);
+      levels.push(record);
       saveLevels(levels);
-      return sendJSON(res, 201, { id: clean.id });
+      return sendJSON(res, 201, { id: record.id, secret: record.secret });
     });
-    return;
+  }
+
+  if (req.method === "PUT" && idMatch) {
+    return readBody(req, res, level => {
+      const levels = loadLevels();
+      const existing = levels.find(l => l.id === idMatch[1]);
+      if (!existing) return sendJSON(res, 404, { error: "niveau introuvable" });
+      const provided = req.headers["x-level-secret"];
+      if (!existing.secret || !provided || provided !== existing.secret)
+        return sendJSON(res, 403, { error: "clé d'auteur invalide : tu ne peux modifier que tes propres niveaux" });
+      const err = validateLevel(level);
+      if (err) return sendJSON(res, 400, { error: err });
+      Object.assign(existing, cleanLevel(level), { updated: new Date().toISOString().slice(0, 10) });
+      saveLevels(levels);
+      return sendJSON(res, 200, { id: existing.id });
+    });
   }
 
   sendJSON(res, 404, { error: "route inconnue" });

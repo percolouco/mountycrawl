@@ -98,7 +98,16 @@ const goodLevel = {
 };
 assert.strictEqual(srv.validateLevel(goodLevel), null);
 assert(srv.validateLevel({ ...goodLevel, name: "" }), "nom vide refusé");
-assert(srv.validateLevel({ ...goodLevel, monsters: [] }), "niveau sans monstre refusé");
+assert(srv.validateLevel({ ...goodLevel, monsters: [] }), "niveau sans monstre ni porte ni sortie refusé");
+
+// Portes : valides, et suffisantes comme objectif sans monstre
+const door = { x: 4, y: 4, target: "abcdef012345" };
+assert.strictEqual(srv.validateLevel({ ...goodLevel, doors: [door] }), null);
+assert.strictEqual(srv.validateLevel({ ...goodLevel, monsters: [], doors: [door] }), null, "porte = objectif valable");
+assert(srv.validateLevel({ ...goodLevel, doors: [{ x: 4, y: 4, target: "pas-un-id" }] }), "cible de porte invalide refusée");
+assert(srv.validateLevel({ ...goodLevel, doors: [{ x: 0, y: 0, target: "abcdef012345" }] }), "porte dans un mur refusée");
+const gridWithExit = goodGrid.map((r, y) => y === 5 ? r.slice(0, 5) + ">" + r.slice(6) : r);
+assert.strictEqual(srv.validateLevel({ ...goodLevel, monsters: [], grid: gridWithExit }), null, "sortie = objectif valable");
 assert(srv.validateLevel({ ...goodLevel, start: { x: 0, y: 0 } }), "départ dans un mur refusé");
 assert(srv.validateLevel({ ...goodLevel, grid: goodGrid.slice(1) }), "grille tronquée refusée");
 assert(srv.validateLevel({ ...goodLevel, monsters: [{ x: 0, y: 0, type: 0, tpl: 0 }] }), "monstre dans un mur refusé");

@@ -76,19 +76,30 @@ Depuis l'écran d'accueil : **🛠️ Éditeur de niveaux**.
 
 - Peins le terrain à la souris (mur, sol, sortie ▼), place le départ 🧌, les monstres
   (avec gabarit Jeune → Mythique) et les objets. Outils : tout sol / tout mur /
-  caverne aléatoire.
+  caverne aléatoire / nouveau niveau.
+- **🚪 Portes** : une porte téléporte le troll vers un autre niveau publié, en
+  conservant PV, PI et équipement — de quoi chaîner des niveaux en campagne.
 - **▶️ Tester** joue ton niveau immédiatement (retour à l'éditeur après la partie).
 - **🌍 Publier** l'envoie au serveur ; il apparaît dans « Niveaux de la communauté ».
-- Victoire d'un niveau custom : terrasser tous les monstres, ou atteindre la sortie ▼.
+  La publication renvoie une clé d'auteur gardée en localStorage : tes niveaux
+  restent modifiables via la section « Mes niveaux publiés » (bouton devient
+  « Mettre à jour »).
+- Victoire d'un niveau custom : atteindre la sortie ▼ si elle existe, sinon
+  terrasser tous les monstres. Un niveau avec porte(s) sans sortie ne se termine
+  pas sur place : la suite est derrière la porte.
 - Lien partageable : `https://mountycrawl.nas.percolouco.com/?level=<id>`.
 
 ### API
 
 | Route | Description |
 |---|---|
-| `GET /api/levels` | Liste (id, nom, auteur, date, nb monstres, nb parties) |
-| `GET /api/levels/<id>` | Niveau complet (incrémente le compteur de parties) |
-| `POST /api/levels` | Publie un niveau (validation côté serveur : grille 28×20, départ hors mur, 1–60 monstres…) |
+| `GET /api/levels` | Liste (id, nom, auteur, date, nb monstres, nb portes, nb parties) |
+| `GET /api/levels/<id>` | Niveau complet (incrémente le compteur de parties ; la clé d'auteur n'est jamais renvoyée) |
+| `POST /api/levels` | Publie un niveau ; renvoie `{id, secret}` — le `secret` est la clé d'auteur |
+| `PUT /api/levels/<id>` | Met à jour un niveau ; exige l'en-tête `X-Level-Secret` (403 sinon) |
+
+Validation serveur : grille 28×20, départ hors mur, max 60 monstres/objets et
+10 portes (cible = id de niveau), au moins un objectif (monstre, porte ou sortie).
 
 Stockage : `/data/levels.json` dans le volume `/opt/container/mountycrawl/data`.
 
@@ -110,6 +121,9 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **1.2.0** (2026-06-11) — Portes 🚪 entre niveaux (campagnes multi-niveaux, troll
+  conservé), édition post-publication avec clé d'auteur (`PUT` + localStorage),
+  section « Mes niveaux publiés », objectifs de victoire affinés.
 - **1.1.0** (2026-06-11) — Mode création : éditeur de niveaux visuel, publication en
   ligne, écran « Niveaux de la communauté », liens partageables `?level=<id>`,
   backend node sans dépendance (`server.js`) avec validation et stockage JSON.

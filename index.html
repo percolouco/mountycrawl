@@ -51,8 +51,13 @@
       <div id="ed-monsters"></div>
       <h3>Objets</h3>
       <div id="ed-items"></div>
+      <h3>Portes (vers un niveau publié)</h3>
+      <select id="ed-door-target"></select>
+      <div id="ed-doors"></div>
       <h3>Outils</h3>
       <div id="ed-tools"></div>
+      <h3>Mes niveaux publiés</h3>
+      <div id="ed-mine"></div>
     </aside>
     <main id="ed-main">
       <canvas id="ed-map" width="672" height="480"></canvas>
@@ -66,8 +71,9 @@
       </div>
       <div id="ed-status"></div>
       <div class="help" id="ed-help">
-        <p>Clic / glisser : peindre la sélection · Un niveau publiable a un point de départ 🧌 et au moins un monstre.</p>
-        <p>La sortie ▼ est optionnelle : sans elle, il faut terrasser tous les monstres pour gagner.</p>
+        <p>Clic / glisser : peindre la sélection · Un niveau publiable a un point de départ 🧌 et au moins un monstre, une porte ou une sortie.</p>
+        <p>Victoire : atteindre la sortie ▼ si elle existe, sinon terrasser tous les monstres. Les portes 🚪 téléportent vers un autre niveau publié (PV, PI et équipement conservés) — idéal pour chaîner une campagne.</p>
+        <p>Tes niveaux publiés restent modifiables depuis « Mes niveaux publiés » (la clé d'auteur est gardée par ton navigateur).</p>
       </div>
     </main>
   </div>

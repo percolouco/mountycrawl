@@ -7,6 +7,8 @@ const ED = {
   start: null,       // {x, y}
   monsters: [],      // specs {x, y, type, tpl} ou {x, y, boss: true}
   items: [],         // specs {x, y, kind, idx?, gold?}
+  doors: [],         // {x, y, target: id de niveau publié}
+  editing: null,     // {id, secret} quand on modifie un niveau déjà publié
   brush: { mode: "tile", char: "#" },
   painting: false,
 };
@@ -23,6 +25,67 @@ function edReset() {
   ED.start = null;
   ED.monsters = [];
   ED.items = [];
+  ED.doors = [];
+  ED.editing = null;
+  const name = document.getElementById("ed-name");
+  if (name) { name.value = ""; document.getElementById("ed-author").value = ""; }
+  edSyncPublishLabel();
+}
+
+/* ---------- Mes niveaux (clés d'auteur en localStorage) ---------- */
+
+function myLevels() {
+  try { return JSON.parse(localStorage.getItem("mc_myLevels")) || []; }
+  catch { return []; }
+}
+
+function saveMyLevel(entry) {
+  const mine = myLevels().filter(l => l.id !== entry.id);
+  mine.push(entry);
+  localStorage.setItem("mc_myLevels", JSON.stringify(mine));
+}
+
+function edRenderMine() {
+  const div = document.getElementById("ed-mine");
+  div.innerHTML = "";
+  const mine = myLevels();
+  if (mine.length === 0) {
+    div.innerHTML = '<p class="ed-note">Aucun pour l\'instant — publie un niveau et il apparaîtra ici, modifiable à volonté.</p>';
+    return;
+  }
+  for (const entry of mine) {
+    const b = document.createElement("button");
+    b.textContent = `✏️ ${entry.name}`;
+    b.title = "Recharger ce niveau dans l'éditeur pour le modifier";
+    b.onclick = () => edLoadMine(entry);
+    div.appendChild(b);
+  }
+}
+
+async function edLoadMine(entry) {
+  try {
+    const res = await fetch("api/levels/" + entry.id);
+    if (!res.ok) { edFlash("Niveau introuvable sur le serveur.", true); return; }
+    const level = await res.json();
+    ED.grid = level.grid.map(row => row.split(""));
+    ED.start = level.start;
+    ED.monsters = level.monsters;
+    ED.items = level.items;
+    ED.doors = level.doors || [];
+    ED.editing = { id: entry.id, secret: entry.secret };
+    document.getElementById("ed-name").value = level.name;
+    document.getElementById("ed-author").value = level.author;
+    edSyncPublishLabel();
+    edRender();
+    edFlash(`« ${level.name} » chargé — modifie puis « Mettre à jour ».`, false);
+  } catch {
+    edFlash("Impossible de joindre le serveur.", true);
+  }
+}
+
+function edSyncPublishLabel() {
+  const btn = document.getElementById("ed-publish");
+  if (btn) btn.textContent = ED.editing ? "💾 Mettre à jour le niveau" : "🌍 Publier en ligne";
 }
 
 /* ---------- Palette ---------- */
@@ -63,8 +126,16 @@ function edBuildPalette() {
   WEAPONS.forEach((w, i) => edAddBrushBtn(itemsDiv, `${w.emoji} ${w.name} (+${w.bonus})`, { mode: "item", kind: "weapon", idx: i }));
   ARMORS.forEach((a, i) => edAddBrushBtn(itemsDiv, `${a.emoji} ${a.name} (+${a.bonus})`, { mode: "item", kind: "armor", idx: i }));
 
+  const doorsDiv = document.getElementById("ed-doors");
+  doorsDiv.innerHTML = "";
+  edAddBrushBtn(doorsDiv, "🚪 Placer une porte", { mode: "door" });
+
   const toolsDiv = document.getElementById("ed-tools");
   toolsDiv.innerHTML = "";
+  const newBtn = document.createElement("button");
+  newBtn.textContent = "📄 Nouveau niveau (vider)";
+  newBtn.onclick = () => { edReset(); edRender(); };
+  toolsDiv.appendChild(newBtn);
   const fill = (char, label) => {
     const b = document.createElement("button");
     b.textContent = label;
@@ -108,7 +179,24 @@ function edPruneEntities() {
   const onFloor = e => ED.grid[e.y][e.x] !== "#";
   ED.monsters = ED.monsters.filter(onFloor);
   ED.items = ED.items.filter(onFloor);
+  ED.doors = ED.doors.filter(onFloor);
   if (ED.start && !onFloor(ED.start)) ED.start = null;
+}
+
+/* Remplit le sélecteur de cible des portes avec les niveaux publiés. */
+async function edRefreshDoorTargets() {
+  const sel = document.getElementById("ed-door-target");
+  sel.innerHTML = "<option value=''>— choisis le niveau cible —</option>";
+  try {
+    const levels = await (await fetch("api/levels")).json();
+    for (const l of levels) {
+      if (ED.editing && l.id === ED.editing.id) continue; // pas de porte vers soi-même
+      const opt = document.createElement("option");
+      opt.value = l.id;
+      opt.textContent = `${l.name} (par ${l.author})`;
+      sel.appendChild(opt);
+    }
+  } catch { /* hors-ligne : le sélecteur reste vide */ }
 }
 
 /* ---------- Application du pinceau ---------- */
@@ -124,6 +212,7 @@ function edApply(x, y) {
     if (b.char === "#") {
       ED.monsters = ED.monsters.filter(m => m.x !== x || m.y !== y);
       ED.items = ED.items.filter(i => i.x !== x || i.y !== y);
+      ED.doors = ED.doors.filter(d => d.x !== x || d.y !== y);
       if (ED.start && ED.start.x === x && ED.start.y === y) ED.start = null;
     }
   } else if (b.mode === "start") {
@@ -132,7 +221,14 @@ function edApply(x, y) {
   } else if (b.mode === "erase") {
     ED.monsters = ED.monsters.filter(m => m.x !== x || m.y !== y);
     ED.items = ED.items.filter(i => i.x !== x || i.y !== y);
+    ED.doors = ED.doors.filter(d => d.x !== x || d.y !== y);
     if (ED.start && ED.start.x === x && ED.start.y === y) ED.start = null;
+  } else if (b.mode === "door") {
+    if (ED.grid[y][x] === "#") return;
+    const target = document.getElementById("ed-door-target").value;
+    if (!target) { edFlash("Choisis d'abord le niveau cible de la porte dans la liste.", true); return; }
+    ED.doors = ED.doors.filter(d => d.x !== x || d.y !== y);
+    ED.doors.push({ x, y, target });
   } else if (b.mode === "monster") {
     if (ED.grid[y][x] === "#") return;
     ED.monsters = ED.monsters.filter(m => m.x !== x || m.y !== y);
@@ -184,6 +280,11 @@ function edRender() {
       : i.kind === "weapon" ? WEAPONS[i.idx || 0].emoji : ARMORS[i.idx || 0].emoji;
     ctx.fillText(emoji, i.x * TILE + TILE / 2, i.y * TILE + TILE / 2 + 1);
   }
+  for (const d of ED.doors) {
+    disc(d.x, d.y, "#a06a28");
+    ctx.fillStyle = "#1a140e";
+    ctx.fillText("🚪", d.x * TILE + TILE / 2, d.y * TILE + TILE / 2 + 1);
+  }
   for (const m of ED.monsters) {
     disc(m.x, m.y, m.boss ? "#7a2070" : "#8a3030");
     ctx.fillStyle = "#1a140e";
@@ -199,10 +300,15 @@ function edRender() {
   const status = document.getElementById("ed-status");
   const missing = [];
   if (!ED.start) missing.push("un point de départ 🧌");
-  if (ED.monsters.length === 0) missing.push("au moins un monstre");
+  if (ED.monsters.length === 0 && ED.doors.length === 0 && !ED.grid.some(r => r.includes(">")))
+    missing.push("au moins un monstre, une porte ou une sortie");
+  const extras = [
+    ED.doors.length ? `${ED.doors.length} porte(s)` : "",
+    ED.grid.some(r => r.includes(">")) ? "une sortie" : "",
+  ].filter(Boolean).join(", ");
   status.textContent = missing.length
     ? "Il manque : " + missing.join(" et ") + "."
-    : `Prêt : ${ED.monsters.length} monstre(s), ${ED.items.length} objet(s)${ED.grid.some(r => r.includes(">")) ? ", une sortie" : ""}.`;
+    : `Prêt : ${ED.monsters.length} monstre(s), ${ED.items.length} objet(s)${extras ? ", " + extras : ""}.`;
   status.className = missing.length ? "ed-warn" : "ed-ok";
 }
 
@@ -216,12 +322,14 @@ function edToLevel() {
     start: ED.start,
     monsters: ED.monsters,
     items: ED.items,
+    doors: ED.doors,
   };
 }
 
 function edValidate(level) {
   if (!level.start) return "place un point de départ 🧌";
-  if (level.monsters.length === 0) return "place au moins un monstre";
+  if (level.monsters.length === 0 && level.doors.length === 0 && !level.grid.some(r => r.includes(">")))
+    return "place au moins un monstre, une porte ou une sortie";
   return null;
 }
 
@@ -243,14 +351,28 @@ async function edPublish() {
     (!level.author ? "indique ton pseudo d'auteur" : null);
   if (err) { edFlash(err, true); return; }
   try {
-    const res = await fetch("api/levels", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const updating = !!ED.editing;
+    const res = await fetch(updating ? "api/levels/" + ED.editing.id : "api/levels", {
+      method: updating ? "PUT" : "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(updating ? { "X-Level-Secret": ED.editing.secret } : {}),
+      },
       body: JSON.stringify(level),
     });
     const data = await res.json();
     if (!res.ok) { edFlash("Refusé par le serveur : " + data.error, true); return; }
-    edFlash(`🌍 Publié ! « ${level.name} » est maintenant jouable par tous.`, false);
+    if (updating) {
+      saveMyLevel({ id: ED.editing.id, secret: ED.editing.secret, name: level.name });
+      edFlash(`💾 « ${level.name} » mis à jour pour tous les joueurs.`, false);
+    } else {
+      ED.editing = { id: data.id, secret: data.secret };
+      saveMyLevel({ id: data.id, secret: data.secret, name: level.name });
+      edSyncPublishLabel();
+      edFlash(`🌍 Publié ! « ${level.name} » est jouable par tous (id ${data.id}).`, false);
+    }
+    edRenderMine();
+    edRefreshDoorTargets();
   } catch {
     edFlash("Impossible de joindre le serveur.", true);
   }
@@ -280,7 +402,8 @@ async function communityShow() {
     for (const l of levels.slice().reverse()) {
       const row = document.createElement("button");
       row.className = "level-row";
-      row.textContent = `⚔️ ${l.name} — par ${l.author} · ${l.monsters} monstre(s) · joué ${l.plays} fois · ${l.date}`;
+      row.textContent = `⚔️ ${l.name} — par ${l.author} · ${l.monsters} monstre(s)`
+        + (l.doors ? ` · ${l.doors} porte(s)` : "") + ` · joué ${l.plays} fois · ${l.date}`;
       row.onclick = async () => {
         const r = await fetch("api/levels/" + l.id);
         if (!r.ok) return;
@@ -306,6 +429,8 @@ if (typeof document !== "undefined") {
     document.getElementById("btn-editor").onclick = () => {
       document.getElementById("screen-create").classList.add("hidden");
       document.getElementById("screen-editor").classList.remove("hidden");
+      edRefreshDoorTargets();
+      edRenderMine();
       edRender();
     };
     document.getElementById("ed-back").onclick = () => {
