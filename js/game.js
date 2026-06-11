@@ -610,18 +610,31 @@ function render() {
     }
   }
 
+  // pastille de couleur sous chaque entité : lisible même sans police emoji
+  const disc = (x, y, color) => {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x * TILE + TILE / 2, y * TILE + TILE / 2, TILE / 2 - 3, 0, Math.PI * 2);
+    ctx.fill();
+  };
   for (const i of G.items) {
     if (!G.seen.has(i.y * MAP_W + i.x)) continue;
+    disc(i.x, i.y, i.kind === "gold" ? "#caa53d" : i.kind === "potion" ? "#5d8535" : "#7a8db0");
+    ctx.fillStyle = "#1a140e";
     ctx.fillText(i.emoji, i.x * TILE + TILE / 2, i.y * TILE + TILE / 2 + 1);
   }
   for (const m of G.monsters) {
     if (!inSight(m)) continue;
+    disc(m.x, m.y, m.boss ? "#7a2070" : "#8a3030");
+    ctx.fillStyle = "#1a140e";
     ctx.fillText(m.emoji, m.x * TILE + TILE / 2, m.y * TILE + TILE / 2 + 1);
     // barre de vie du monstre
     const w = Math.max(2, Math.round((TILE - 6) * m.pv / m.pvMax));
     ctx.fillStyle = "#b03030";
     ctx.fillRect(m.x * TILE + 3, m.y * TILE + 1, w, 3);
   }
+  disc(G.troll.x, G.troll.y, "#8fbf5a");
+  ctx.fillStyle = "#1a140e";
   ctx.fillText("🧌", G.troll.x * TILE + TILE / 2, G.troll.y * TILE + TILE / 2 + 1);
   if (G.troll.camo) {
     ctx.strokeStyle = "#8fbf5a";
