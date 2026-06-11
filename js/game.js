@@ -603,6 +603,9 @@ function tryTalent(talent, cap, cost, label) {
   cdStart(label);
   const before = talent.pct; // le jet se compare à la maîtrise d'avant progression
   const r = masteryRoll(talent, cap);
+  talent.tries = (talent.tries || 0) + 1;
+  if (r.success) talent.successes = (talent.successes || 0) + 1;
+  talent.lastUse = Date.now();
   cdLine(`Jet de maîtrise : <span class="cd-val">${r.roll}</span> (il fallait ${before} % ou moins)`);
   if (!r.success) {
     G.troll.pa += Math.floor(cost / 2);

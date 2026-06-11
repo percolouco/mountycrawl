@@ -254,6 +254,71 @@ header h1 { font-size: 1.3em; color: #8fbf5a; }
 .ed-warn { color: #e06060; }
 .ed-ok { color: #8fbf5a; }
 .ed-note { font-size: .8em; color: #a89568; }
+
+/* ---------- Règles des talents ---------- */
+.header-right { display: flex; align-items: center; gap: 12px; }
+
+#rules-body {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 10px 16px 40px;
+}
+.rules-race {
+  color: #8fbf5a;
+  border-bottom: 2px solid #4a3a20;
+  margin: 24px 0 12px;
+  font-size: 1.4em;
+}
+.rules-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: 14px;
+}
+.rules-fiche {
+  background: #2a2014;
+  border: 2px solid #6b5430;
+  border-radius: 8px;
+  padding: 14px;
+  font-size: .92em;
+}
+.rules-fiche-title {
+  color: #d8a040;
+  font-weight: bold;
+  font-size: 1.1em;
+  text-align: center;
+  border-bottom: 1px solid #4a3a20;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+}
+.rules-fiche table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+.rules-fiche td { padding: 2px 6px; vertical-align: top; }
+.rules-fiche td:first-child { color: #a89568; width: 45%; }
+.rules-section {
+  color: #8fbf5a;
+  font-weight: bold;
+  margin: 10px 0 4px;
+  letter-spacing: 1px;
+}
+.rules-text { color: #d8c79a; line-height: 1.5; }
+.rules-flavor { font-style: italic; color: #b9a878; }
+.rules-myinfo {
+  background: #1f2a14;
+  border: 2px solid #5d8535;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+.rules-myinfo-title {
+  color: #8fbf5a;
+  font-weight: bold;
+  text-align: center;
+  border-bottom: 1px solid #41551f;
+  padding-bottom: 4px;
+  margin-bottom: 6px;
+}
+.rules-myinfo table { width: 100%; }
+.rules-myinfo td { padding: 2px 6px; }
+.rules-myinfo td:first-child { color: #a89568; width: 45%; }
 #ed-help { max-width: 600px; margin: 0 auto; }
 
 #equipment div, #inventory .empty { font-size: .88em; padding: 2px 0; color: #c9b685; }

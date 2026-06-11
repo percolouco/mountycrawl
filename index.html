@@ -22,6 +22,7 @@
     <div class="menu-row">
       <button id="btn-community" class="menu-btn">🌍 Niveaux de la communauté</button>
       <button id="btn-editor" class="menu-btn">🛠️ Éditeur de niveaux</button>
+      <button id="btn-rules" class="menu-btn">📜 Règles des talents</button>
     </div>
   </div>
 </div>
@@ -83,7 +84,10 @@
 <div id="screen-game" class="screen hidden">
   <header>
     <h1>🧌 MountyCrawl</h1>
-    <div id="depth-label">Profondeur −1</div>
+    <div class="header-right">
+      <div id="depth-label">Profondeur −1</div>
+      <button id="btn-rules-game" class="menu-btn">📜 Règles</button>
+    </div>
   </header>
   <div id="layout">
     <aside id="panel-left">
@@ -120,6 +124,15 @@
   </div>
 </div>
 
+<!-- Écran des règles des talents -->
+<div id="screen-rules" class="screen hidden">
+  <header>
+    <h1>📜 Règles des talents</h1>
+    <button id="rules-back" class="menu-btn">← Retour</button>
+  </header>
+  <div id="rules-body"></div>
+</div>
+
 <!-- Écran de fin -->
 <div id="screen-end" class="screen hidden">
   <div class="create-box">
@@ -131,5 +144,6 @@
 
 <script src="js/game.js"></script>
 <script src="js/editor.js"></script>
+<script src="js/rules.js"></script>
 </body>
 </html>
