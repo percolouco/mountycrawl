@@ -19,6 +19,57 @@
     <input type="text" id="troll-name" placeholder="Nom de ton Trõll" maxlength="20" value="Trõllinet">
     <div id="race-list"></div>
     <button id="btn-start" class="big-btn">⚔️ Descendre dans le Monde Souterrain</button>
+    <div class="menu-row">
+      <button id="btn-community" class="menu-btn">🌍 Niveaux de la communauté</button>
+      <button id="btn-editor" class="menu-btn">🛠️ Éditeur de niveaux</button>
+    </div>
+  </div>
+</div>
+
+<!-- Écran des niveaux communautaires -->
+<div id="screen-community" class="screen hidden">
+  <div class="create-box">
+    <h1>🌍 Niveaux de la communauté</h1>
+    <p class="subtitle">Tu y joueras avec le Trõll configuré sur l'écran d'accueil</p>
+    <div id="level-list"><p class="lore">Chargement…</p></div>
+    <button id="btn-comm-back" class="big-btn">← Retour à la Taverne</button>
+  </div>
+</div>
+
+<!-- Écran éditeur de niveaux -->
+<div id="screen-editor" class="screen hidden">
+  <header>
+    <h1>🛠️ Éditeur de niveaux</h1>
+    <button id="ed-back" class="menu-btn">← Retour à la Taverne</button>
+  </header>
+  <div id="ed-layout">
+    <aside id="ed-palette">
+      <h3>Terrain</h3>
+      <div id="ed-tiles"></div>
+      <h3>Monstres</h3>
+      <select id="ed-tpl"></select>
+      <div id="ed-monsters"></div>
+      <h3>Objets</h3>
+      <div id="ed-items"></div>
+      <h3>Outils</h3>
+      <div id="ed-tools"></div>
+    </aside>
+    <main id="ed-main">
+      <canvas id="ed-map" width="672" height="480"></canvas>
+      <div id="ed-meta">
+        <input id="ed-name" placeholder="Nom du niveau" maxlength="40">
+        <input id="ed-author" placeholder="Ton pseudo d'auteur" maxlength="30">
+      </div>
+      <div id="ed-actions">
+        <button id="ed-test" class="big-btn">▶️ Tester le niveau</button>
+        <button id="ed-publish" class="big-btn">🌍 Publier en ligne</button>
+      </div>
+      <div id="ed-status"></div>
+      <div class="help" id="ed-help">
+        <p>Clic / glisser : peindre la sélection · Un niveau publiable a un point de départ 🧌 et au moins un monstre.</p>
+        <p>La sortie ▼ est optionnelle : sans elle, il faut terrasser tous les monstres pour gagner.</p>
+      </div>
+    </main>
   </div>
 </div>
 
@@ -67,5 +118,6 @@
 </div>
 
 <script src="js/game.js"></script>
+<script src="js/editor.js"></script>
 </body>
 </html>

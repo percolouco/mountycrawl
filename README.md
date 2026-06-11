@@ -9,18 +9,17 @@ de trésors et de PX — jusqu'au Béhémoth qui rôde à la profondeur −5.
 ## Jouer
 
 🎮 **https://mountycrawl.nas.percolouco.com** (déployé via Traefik, compose dans
-`/opt/container/mountycrawl`, image nginx:alpine construite depuis ce repo).
+`/opt/container/mountycrawl`, image node:22-alpine construite depuis ce repo).
 
-En local sans docker :
+En local :
 
 ```bash
-# Directement
-xdg-open index.html
-
-# Ou via un petit serveur
-python3 -m http.server 8080
+PORT=8080 LEVELS_FILE=/tmp/levels.json node server.js
 # → http://localhost:8080
 ```
+
+(Le jeu solo fonctionne aussi en ouvrant `index.html` directement ; seuls l'éditeur
+« Publier » et les niveaux communautaires ont besoin du serveur.)
 
 Après une modification, redéployer avec :
 
@@ -71,6 +70,28 @@ Gobelin, Champignon Vénéneux, Araignée Géante, Gargouille, Momie, Sorcière,
 Pierre — déclinés en gabarits *Jeune / Vieux / Ancien / Mythique* selon la profondeur,
 et le **Béhémoth** comme boss final à la profondeur −5.
 
+## Éditeur de niveaux & partage
+
+Depuis l'écran d'accueil : **🛠️ Éditeur de niveaux**.
+
+- Peins le terrain à la souris (mur, sol, sortie ▼), place le départ 🧌, les monstres
+  (avec gabarit Jeune → Mythique) et les objets. Outils : tout sol / tout mur /
+  caverne aléatoire.
+- **▶️ Tester** joue ton niveau immédiatement (retour à l'éditeur après la partie).
+- **🌍 Publier** l'envoie au serveur ; il apparaît dans « Niveaux de la communauté ».
+- Victoire d'un niveau custom : terrasser tous les monstres, ou atteindre la sortie ▼.
+- Lien partageable : `https://mountycrawl.nas.percolouco.com/?level=<id>`.
+
+### API
+
+| Route | Description |
+|---|---|
+| `GET /api/levels` | Liste (id, nom, auteur, date, nb monstres, nb parties) |
+| `GET /api/levels/<id>` | Niveau complet (incrémente le compteur de parties) |
+| `POST /api/levels` | Publie un niveau (validation côté serveur : grille 28×20, départ hors mur, 1–60 monstres…) |
+
+Stockage : `/data/levels.json` dans le volume `/opt/container/mountycrawl/data`.
+
 ## Tests
 
 ```bash
@@ -89,5 +110,8 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **1.1.0** (2026-06-11) — Mode création : éditeur de niveaux visuel, publication en
+  ligne, écran « Niveaux de la communauté », liens partageables `?level=<id>`,
+  backend node sans dépendance (`server.js`) avec validation et stockage JSON.
 - **1.0.0** (2026-06-11) — Version initiale : 5 races, 5 profondeurs, combat aux dés
   fidèle aux règles MH, progression PI, brouillard de guerre, boss Béhémoth.

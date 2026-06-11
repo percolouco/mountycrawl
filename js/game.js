@@ -113,11 +113,7 @@ const TEMPLATES = [
   { prefix: "Mythique ", mult: 2.0 },
 ];
 
-function makeMonster(depth, x, y) {
-  const pool = MONSTER_TYPES.filter(m => m.level <= depth + 1 && m.level >= Math.max(1, depth - 2));
-  const type = pool[Math.floor(Math.random() * pool.length)];
-  const tplMax = Math.min(TEMPLATES.length - 1, depth - 1);
-  const tpl = TEMPLATES[Math.floor(Math.random() * (tplMax + 1))];
+function applyTemplate(type, tpl, x, y) {
   return {
     name: tpl.prefix + type.name, emoji: type.emoji,
     level: Math.max(1, Math.round(type.level * tpl.mult)),
@@ -128,6 +124,34 @@ function makeMonster(depth, x, y) {
     armor: type.armor, vue: type.vue, static: !!type.static,
     x, y, boss: false,
   };
+}
+
+function makeMonster(depth, x, y) {
+  const pool = MONSTER_TYPES.filter(m => m.level <= depth + 1 && m.level >= Math.max(1, depth - 2));
+  const type = pool[Math.floor(Math.random() * pool.length)];
+  const tplMax = Math.min(TEMPLATES.length - 1, depth - 1);
+  const tpl = TEMPLATES[Math.floor(Math.random() * (tplMax + 1))];
+  return applyTemplate(type, tpl, x, y);
+}
+
+/* Instancie un monstre depuis une spec d'éditeur : {x, y, type, tpl} ou {x, y, boss: true} */
+function monsterFromSpec(spec) {
+  if (spec.boss) return { ...BOSS, pvMax: BOSS.pv, x: spec.x, y: spec.y, boss: true, static: false };
+  const type = MONSTER_TYPES[spec.type % MONSTER_TYPES.length];
+  const tpl = TEMPLATES[spec.tpl % TEMPLATES.length];
+  return applyTemplate(type, tpl, spec.x, spec.y);
+}
+
+/* Instancie un objet depuis une spec d'éditeur : {x, y, kind, idx?, gold?} */
+function itemFromSpec(spec) {
+  const base = { x: spec.x, y: spec.y };
+  if (spec.kind === "potion") return { ...base, kind: "potion", name: "Potion de Vie", emoji: "🧪" };
+  if (spec.kind === "gold") {
+    const gold = spec.gold || 60;
+    return { ...base, kind: "gold", name: `${gold} Mountyzédons`, emoji: "💰", gold };
+  }
+  const list = spec.kind === "weapon" ? WEAPONS : ARMORS;
+  return { ...base, kind: "gear", ...list[(spec.idx || 0) % list.length] };
 }
 
 /* ================= Génération du Monde Souterrain ================= */
@@ -237,9 +261,10 @@ const COSTS = { move: 1, attack: 3, pickup: 1, equip: 2, potion: 1 };
 
 let G = null; // état global de la partie
 
-function newGame(name, race) {
+function newGame(name, race, customLevel = null) {
   const s = RACES[race].stats;
   G = {
+    custom: customLevel,
     troll: {
       name, race,
       att: s.att, esq: s.esq, deg: s.deg, reg: s.reg,
@@ -252,8 +277,33 @@ function newGame(name, race) {
     depth: 1, grid: null, monsters: [], items: [], stairs: null,
     seen: new Set(), over: false,
   };
-  buildLevel();
-  log(`${name} le ${race} pénètre dans le Monde Souterrain. Que les Dieux Trõlls te gardent !`, "good");
+  if (customLevel) buildCustomLevel(customLevel);
+  else buildLevel();
+  if (customLevel) {
+    log(`${name} le ${race} entre dans « ${customLevel.name} », un niveau de ${customLevel.author}.`, "good");
+    log("Objectif : terrasser tous les monstres, ou atteindre la sortie ▼ s'il y en a une.", "info");
+  } else {
+    log(`${name} le ${race} pénètre dans le Monde Souterrain. Que les Dieux Trõlls te gardent !`, "good");
+  }
+}
+
+/* Construit un niveau venu de l'éditeur : grid = tableau de chaînes '#' mur, '.' sol, '>' sortie. */
+function buildCustomLevel(level) {
+  const grid = [];
+  for (let y = 0; y < MAP_H; y++) {
+    grid.push([]);
+    for (let x = 0; x < MAP_W; x++) {
+      const c = level.grid[y][x];
+      grid[y].push(c === "#" ? T_WALL : c === ">" ? T_STAIRS : T_FLOOR);
+    }
+  }
+  G.grid = grid;
+  G.troll.x = level.start.x; G.troll.y = level.start.y;
+  G.seen = new Set();
+  G.monsters = level.monsters.map(monsterFromSpec);
+  G.items = level.items.map(itemFromSpec);
+  G.stairs = null;
+  updateFov();
 }
 
 function buildLevel() {
@@ -333,7 +383,8 @@ function tryMove(dx, dy) {
   updateFov();
 
   if (G.grid[ny][nx] === T_STAIRS) {
-    log("Un passage s'enfonce vers les profondeurs… (bouton « Descendre »)", "info");
+    if (G.custom) log("La sortie ! (bouton « Sortir »)", "info");
+    else log("Un passage s'enfonce vers les profondeurs… (bouton « Descendre »)", "info");
   }
   const item = G.items.find(i => i.x === nx && i.y === ny);
   if (item) log(`Tu vois : ${item.emoji} ${item.name}. Ramasse-le pour ${COSTS.pickup} PA.`, "info");
@@ -371,7 +422,11 @@ function killMonster(m) {
   G.troll.kills++;
   log(`💀 ${m.name} est terrassé ! +${px} PX (convertis en PI à l'entraînement).`, "good");
   G.monsters = G.monsters.filter(x => x !== m);
-  if (m.boss) win();
+  if (G.custom) {
+    if (G.monsters.length === 0) win();
+  } else if (m.boss) {
+    win();
+  }
 }
 
 function useAbility() {
@@ -463,6 +518,12 @@ function useBagItem(idx) {
 
 function descend() {
   if (G.grid[G.troll.y][G.troll.x] !== T_STAIRS) return;
+  if (G.custom) {
+    G.over = true;
+    log("🚪 Tu atteins la sortie, sain et sauf !", "good");
+    showEnd(true);
+    return;
+  }
   G.depth++;
   log(`⬇️ Tu descends. Profondeur −${G.depth}. L'air devient lourd…`, "info");
   if (G.depth === MAX_DEPTH) log("👹 Le sol tremble. Le Béhémoth est proche.", "bad");
@@ -554,7 +615,8 @@ function die(killer) {
 
 function win() {
   G.over = true;
-  log("🏆 Le Béhémoth s'effondre ! Le Trésor de MountyHall est à toi !", "good");
+  if (G.custom) log("🏆 Tous les monstres sont terrassés ! Niveau vaincu !", "good");
+  else log("🏆 Le Béhémoth s'effondre ! Le Trésor de MountyHall est à toi !", "good");
   showEnd(true);
 }
 
@@ -644,7 +706,9 @@ function render() {
 
 function renderPanels() {
   const t = G.troll;
-  $("depth-label").textContent = `Profondeur −${G.depth} · DLA n°${t.dla}`;
+  $("depth-label").textContent = G.custom
+    ? `« ${G.custom.name} » par ${G.custom.author} · DLA n°${t.dla} · ${G.monsters.length} monstre(s) restant(s)`
+    : `Profondeur −${G.depth} · DLA n°${t.dla}`;
   $("troll-title").textContent = `${RACES[t.race].emoji} ${t.name}, ${t.race} niv. ${levelFromTotalPI(t.totalPI)}`;
 
   const pct = Math.max(0, t.pv / t.pvMax);
@@ -694,7 +758,7 @@ function renderPanels() {
   const onItem = G.items.some(i => i.x === t.x && i.y === t.y);
   addBtn(`🖐️ Ramasser (${COSTS.pickup} PA)`, pickup, onItem && t.pa >= COSTS.pickup);
   const onStairs = G.grid[t.y][t.x] === T_STAIRS;
-  addBtn("⬇️ Descendre", descend, onStairs);
+  addBtn(G.custom ? "🚪 Sortir" : "⬇️ Descendre", descend, onStairs);
   addBtn("⏳ Passer la DLA", passDLA, true);
 
   $("equipment").innerHTML =
@@ -714,18 +778,29 @@ function renderPanels() {
   });
 }
 
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
 function showEnd(victory, killer) {
   const t = G.troll;
   $("screen-game").classList.add("hidden");
   $("screen-end").classList.remove("hidden");
   $("end-title").textContent = victory ? "🏆 GLOIRE AU TRÕLL !" : "☠️ MORT DANS LES PROFONDEURS";
   const score = t.gold + t.totalPI * 10 + t.kills * 25 + (victory ? 1000 : 0);
-  $("end-text").innerHTML = victory
-    ? `${t.name} le ${t.race} a terrassé le Béhémoth et rapporte le Trésor de MountyHall à la Taverne !<br><br>
-       Monstres tués : ${t.kills} · Mountyzédons : ${t.gold} · DLA écoulées : ${t.dla}<br><b>Score : ${score}</b>`
-    : `${t.name} le ${t.race} a été terrassé par ${killer ? killer.name : "les profondeurs"} à la profondeur −${G.depth}.<br>
-       À MountyHall on ne meurt jamais vraiment : les Dieux Trõlls te ramèneront à la Taverne.<br><br>
-       Monstres tués : ${t.kills} · Mountyzédons : ${t.gold} · DLA écoulées : ${t.dla}<br><b>Score : ${score}</b>`;
+  const stats = `Monstres tués : ${t.kills} · Mountyzédons : ${t.gold} · DLA écoulées : ${t.dla}<br><b>Score : ${score}</b>`;
+  let text;
+  if (G.custom) {
+    text = victory
+      ? `${esc(t.name)} le ${t.race} a vaincu « ${esc(G.custom.name)} », le niveau de ${esc(G.custom.author)} !`
+      : `${esc(t.name)} le ${t.race} a été terrassé par ${esc(killer ? killer.name : "les profondeurs")} dans « ${esc(G.custom.name)} » (niveau de ${esc(G.custom.author)}).`;
+  } else {
+    text = victory
+      ? `${esc(t.name)} le ${t.race} a terrassé le Béhémoth et rapporte le Trésor de MountyHall à la Taverne !`
+      : `${esc(t.name)} le ${t.race} a été terrassé par ${esc(killer ? killer.name : "les profondeurs")} à la profondeur −${G.depth}.<br>
+         À MountyHall on ne meurt jamais vraiment : les Dieux Trõlls te ramèneront à la Taverne.`;
+  }
+  $("end-text").innerHTML = text + "<br><br>" + stats;
 }
 
 /* ================= Création du personnage ================= */
@@ -750,13 +825,13 @@ function initCreateScreen() {
   }
 }
 
-function startGame() {
+function startGame(customLevel = null) {
   const name = $("troll-name").value.trim() || "Trõllinet";
   $("screen-create").classList.add("hidden");
   $("screen-end").classList.add("hidden");
   $("screen-game").classList.remove("hidden");
   $("log").innerHTML = "";
-  newGame(name, selectedRace);
+  newGame(name, selectedRace, customLevel);
   render();
   renderPanels();
 }
@@ -781,7 +856,7 @@ if (typeof document !== "undefined") {
   document.addEventListener("DOMContentLoaded", () => {
     initCreateScreen();
     bindKeys();
-    $("btn-start").onclick = startGame;
+    $("btn-start").onclick = () => startGame();
     // ?autostart=1&race=Durakuir&name=Grosbill : lance directement une partie
     const params = new URLSearchParams(location.search);
     if (params.get("autostart")) {
@@ -791,8 +866,13 @@ if (typeof document !== "undefined") {
     }
     $("btn-restart").onclick = () => {
       $("screen-end").classList.add("hidden");
-      $("screen-create").classList.remove("hidden");
-      initCreateScreen();
+      if (window.MC_afterEnd === "editor") {
+        window.MC_afterEnd = null;
+        $("screen-editor").classList.remove("hidden");
+      } else {
+        $("screen-create").classList.remove("hidden");
+        initCreateScreen();
+      }
     };
   });
 }
@@ -801,7 +881,8 @@ if (typeof document !== "undefined") {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     rollDice, resolveAttack, resolveSpell, improveCost, levelFromTotalPI,
-    RACES, MONSTER_TYPES, BOSS, makeMonster, generateCavern, largestRegion,
+    RACES, MONSTER_TYPES, BOSS, TEMPLATES, makeMonster, monsterFromSpec, itemFromSpec,
+    generateCavern, largestRegion,
     MAP_W, MAP_H, T_WALL, T_FLOOR, T_STAIRS,
   };
 }

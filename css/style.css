@@ -11,7 +11,7 @@ body {
 .hidden { display: none !important; }
 
 /* ---------- Écrans création / fin ---------- */
-#screen-create, #screen-end {
+#screen-create, #screen-end, #screen-community {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -164,6 +164,96 @@ header h1 { font-size: 1.3em; color: #8fbf5a; }
 #actions button { width: auto; display: inline-block; }
 
 .help p { font-size: .8em; color: #a89568; margin: 3px 0; }
+
+/* ---------- Menu & communauté ---------- */
+.menu-row { margin-top: 14px; display: flex; gap: 10px; justify-content: center; }
+.menu-btn {
+  background: #1f1810;
+  color: #d8c79a;
+  border: 2px solid #6b5430;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-family: inherit;
+  font-size: .95em;
+  cursor: pointer;
+}
+.menu-btn:hover { border-color: #8fbf5a; }
+
+#level-list { margin: 16px 0; text-align: left; max-height: 50vh; overflow-y: auto; }
+.level-row {
+  display: block;
+  width: 100%;
+  margin: 6px 0;
+  padding: 10px 12px;
+  background: #1f1810;
+  border: 2px solid #4a3a20;
+  border-radius: 8px;
+  color: #e8d9b0;
+  font-family: inherit;
+  font-size: .95em;
+  text-align: left;
+  cursor: pointer;
+}
+.level-row:hover { border-color: #8fbf5a; background: #28341c; }
+
+/* ---------- Éditeur ---------- */
+#ed-layout {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  align-items: flex-start;
+}
+#ed-palette {
+  width: 250px;
+  flex-shrink: 0;
+  background: #2a2014;
+  border: 2px solid #6b5430;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: .9em;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+#ed-palette h3 {
+  color: #d8a040;
+  font-size: .95em;
+  margin: 10px 0 6px;
+  border-bottom: 1px solid #4a3a20;
+}
+#ed-palette button, #ed-palette select {
+  display: block;
+  width: 100%;
+  margin: 3px 0;
+  padding: 6px 8px;
+  background: #1f1810;
+  border: 1px solid #6b5430;
+  border-radius: 5px;
+  color: #e8d9b0;
+  font-family: inherit;
+  font-size: .92em;
+  cursor: pointer;
+  text-align: left;
+}
+#ed-palette button:hover { border-color: #8fbf5a; }
+#ed-palette button.selected { border-color: #8fbf5a; background: #28341c; }
+
+#ed-main { flex-grow: 1; text-align: center; }
+#ed-map { cursor: crosshair; }
+#ed-meta { margin: 10px 0; display: flex; gap: 10px; justify-content: center; }
+#ed-meta input {
+  padding: 8px 10px;
+  font-size: 1em;
+  background: #1a140e;
+  border: 2px solid #6b5430;
+  border-radius: 6px;
+  color: #e8d9b0;
+  width: 40%;
+}
+#ed-actions { display: flex; gap: 10px; justify-content: center; }
+#ed-status { margin: 10px 0; min-height: 1.2em; font-size: .95em; }
+.ed-warn { color: #e06060; }
+.ed-ok { color: #8fbf5a; }
+#ed-help { max-width: 600px; margin: 0 auto; }
 
 #equipment div, #inventory .empty { font-size: .88em; padding: 2px 0; color: #c9b685; }
 

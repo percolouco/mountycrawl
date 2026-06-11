@@ -70,4 +70,38 @@ for (let depth = 1; depth <= 5; depth++) {
   }
 }
 
+// Specs d'éditeur → entités de jeu
+const gob = g.monsterFromSpec({ x: 2, y: 3, type: 0, tpl: 2 });
+assert.strictEqual(gob.name, "Vieux Gobelin");
+assert.strictEqual(gob.x, 2);
+const boss = g.monsterFromSpec({ x: 1, y: 1, boss: true });
+assert.strictEqual(boss.name, "Béhémoth");
+assert(boss.pv === boss.pvMax && boss.pv > 0);
+const pot = g.itemFromSpec({ x: 1, y: 1, kind: "potion" });
+assert.strictEqual(pot.kind, "potion");
+const sword = g.itemFromSpec({ x: 1, y: 1, kind: "weapon", idx: 2 });
+assert.strictEqual(sword.kind, "gear");
+assert(sword.bonus > 0);
+
+// Validation serveur des niveaux
+const srv = require("../server.js");
+const goodGrid = [];
+for (let y = 0; y < srv.MAP_H; y++) {
+  const border = y === 0 || y === srv.MAP_H - 1;
+  goodGrid.push(border ? "#".repeat(srv.MAP_W) : "#" + ".".repeat(srv.MAP_W - 2) + "#");
+}
+const goodLevel = {
+  name: "Test", author: "perco", grid: goodGrid,
+  start: { x: 1, y: 1 },
+  monsters: [{ x: 2, y: 2, type: 0, tpl: 1 }],
+  items: [{ x: 3, y: 3, kind: "potion" }],
+};
+assert.strictEqual(srv.validateLevel(goodLevel), null);
+assert(srv.validateLevel({ ...goodLevel, name: "" }), "nom vide refusé");
+assert(srv.validateLevel({ ...goodLevel, monsters: [] }), "niveau sans monstre refusé");
+assert(srv.validateLevel({ ...goodLevel, start: { x: 0, y: 0 } }), "départ dans un mur refusé");
+assert(srv.validateLevel({ ...goodLevel, grid: goodGrid.slice(1) }), "grille tronquée refusée");
+assert(srv.validateLevel({ ...goodLevel, monsters: [{ x: 0, y: 0, type: 0, tpl: 0 }] }), "monstre dans un mur refusé");
+assert(srv.validateLevel({ ...goodLevel, items: [{ x: 3, y: 3, kind: "nawak" }] }), "objet inconnu refusé");
+
 console.log("✅ Tous les tests de fumée passent.");
