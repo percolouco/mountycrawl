@@ -6,6 +6,10 @@
 
 const APP_VERSION = "0.1.5";
 
+/* Alpha : maîtrise initiale haute pour les tests. Remettre 15 % / 15 % à la v1.0 officielle. */
+const START_COMP_PCT = 90;
+const START_SORT_PCT = 80;
+
 /* potions.js est chargé avant ce fichier dans le navigateur ; en node, require explicite. */
 if (typeof module !== "undefined" && module.exports && typeof makeRandomPotion === "undefined") {
   Object.assign(globalThis, require("./potions.js"));
@@ -96,7 +100,7 @@ function killPX(trollLevel, targetLevel) {
 /* ================= Les 5 races ================= */
 
 /* Profils de base officiels (mountyhall.com/MH_Rules/Races_*.php) :
- * chaque race a sa compétence et son sortilège réservés, démarrés à 15 % de maîtrise. */
+ * chaque race a sa compétence et son sortilège réservés (START_COMP_PCT / START_SORT_PCT). */
 const RACES = {
   Skrim: {
     emoji: "🟢", favored: "att",
@@ -317,7 +321,7 @@ function newGame(name, race, customLevel = null) {
       pv: s.pvMax, pvMax: s.pvMax, vue: s.vue,
       degBonus: 0, armor: 0, armorDice: 0,
       bought: { att: 0, esq: 0, deg: 0, reg: 0, pv: 0, vue: 0, armor: 0 },
-      comp: { pct: 15 }, sort: { pct: 15 }, fatigue: 0, compUsed: false,
+      comp: { pct: START_COMP_PCT }, sort: { pct: START_SORT_PCT }, fatigue: 0, compUsed: false,
       compPXTurn: false, sortPXTurn: false,
       weapon: null, armorItem: null,
       pa: PA_PER_TURN, pi: 0, totalPI: 0, gold: 0,
@@ -425,23 +429,44 @@ function buildLevel() {
 
 /* ================= Champ de vision (la Vue du troll) ================= */
 
-function updateFov() {
+/* Portée en cases (Chebyshev), comme pour la Vue des monstres à MH. */
+function tileDist(x, y) {
+  const t = G.troll;
+  return Math.max(Math.abs(x - t.x), Math.abs(y - t.y));
+}
+
+function currentVue() {
+  return effTroll(G.troll).vue;
+}
+
+function inSightAt(x, y) {
+  return tileDist(x, y) <= currentVue();
+}
+
+function inSight(e) {
+  return inSightAt(e.x, e.y);
+}
+
+/* Met à jour le brouillard : retire les cases hors de la Vue actuelle
+ * (ex. quand un bonus de potion expire) puis révèle la zone portée. */
+function refreshFov() {
+  const r = currentVue();
+  for (const key of [...G.seen]) {
+    const tx = key % MAP_W, ty = Math.floor(key / MAP_W);
+    if (tileDist(tx, ty) > r) G.seen.delete(key);
+  }
   const { x, y } = G.troll;
-  const r = effTroll(G.troll).vue;
   for (let dy = -r; dy <= r; dy++) {
     for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) > r) continue;
       const tx = x + dx, ty = y + dy;
       if (tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H) continue;
-      if (dx * dx + dy * dy <= r * r) G.seen.add(ty * MAP_W + tx);
+      G.seen.add(ty * MAP_W + tx);
     }
   }
 }
 
-function inSight(e) {
-  const dx = e.x - G.troll.x, dy = e.y - G.troll.y;
-  const vue = effTroll(G.troll).vue;
-  return dx * dx + dy * dy <= vue * vue;
-}
+const updateFov = refreshFov;
 
 function spellMM() {
   const eff = effTroll(G.troll);
@@ -906,6 +931,7 @@ function useBagItem(idx) {
     if (!spendPA(COSTS.potion)) return;
     if (!drinkPotion(t, item, rollDice, log)) return;
     t.bag.splice(idx, 1);
+    if (countActiveEffects(t) > 0) switchLeftTab("effects");
     updateFov();
   } else if (item.kind === "gear") {
     if (!spendPA(COSTS.equip)) return;
@@ -1013,6 +1039,7 @@ function passDLA() {
   t.compPXTurn = false;
   t.sortPXTurn = false;
   t.fatigue = Math.floor(t.fatigue / 1.25); // la fatigue du Kastar retombe à chaque DLA
+  refreshFov();
   afterAction();
 }
 
@@ -1085,8 +1112,7 @@ function render() {
       const key = y * MAP_W + x;
       const px = x * TILE, py = y * TILE;
       if (!G.seen.has(key)) { ctx.fillStyle = "#0d0a06"; ctx.fillRect(px, py, TILE, TILE); continue; }
-      const vue = effTroll(G.troll).vue;
-      const visible = (x - G.troll.x) ** 2 + (y - G.troll.y) ** 2 <= vue ** vue;
+      const visible = inSightAt(x, y);
       const t = G.grid[y][x];
       if (t === T_WALL) ctx.fillStyle = visible ? "#4a3a22" : "#2c2315";
       else ctx.fillStyle = visible ? "#7a6a45" : "#3d3522";
@@ -1106,13 +1132,13 @@ function render() {
     ctx.fill();
   };
   for (const i of G.items) {
-    if (!G.seen.has(i.y * MAP_W + i.x)) continue;
+    if (!inSightAt(i.x, i.y)) continue;
     disc(i.x, i.y, i.kind === "gold" ? "#caa53d" : i.kind === "potion" ? (i.color || "#5d8535") : "#7a8db0");
     ctx.fillStyle = "#1a140e";
     ctx.fillText(i.emoji, i.x * TILE + TILE / 2, i.y * TILE + TILE / 2 + 1);
   }
   for (const d of G.doors || []) {
-    if (!G.seen.has(d.y * MAP_W + d.x)) continue;
+    if (!inSightAt(d.x, d.y)) continue;
     disc(d.x, d.y, "#a06a28");
     ctx.fillStyle = "#1a140e";
     ctx.fillText("🚪", d.x * TILE + TILE / 2, d.y * TILE + TILE / 2 + 1);
@@ -1144,24 +1170,18 @@ function renderPanels() {
   $("troll-title").textContent = `${RACES[t.race].emoji} ${t.name}, ${t.race} niv. ${levelFromTotalPI(t.totalPI)}`;
 
   const te = effTroll(t);
-  const statFmt = (base, eff, suffix) => {
-    const d = eff - base;
-    return d ? `${eff}${suffix} <small>(${base}${d > 0 ? "+" : ""}${d})</small>` : `${base}${suffix}`;
-  };
   const pct = Math.max(0, t.pv / t.pvMax);
   const hpClass = pct > 0.6 ? "high" : pct > 0.3 ? "mid" : "";
-  const potionLines = describeActiveEffects(t);
   $("stats").innerHTML = `
     <div><span>Tour</span><span class="stat-val">${t.tour}</span></div>
     <div><span>PV</span><span class="stat-val">${t.pv} / ${t.pvMax}</span></div>
     <div class="hp-bar-wrap"><div class="hp-bar ${hpClass}" style="width:${pct * 100}%"></div></div>
-    <div><span>Attaque</span><span class="stat-val">${statFmt(t.att, te.att, "D6")}</span></div>
-    <div><span>Esquive</span><span class="stat-val">${statFmt(t.esq, te.esq, "D6")}</span></div>
-    <div><span>Dégâts</span><span class="stat-val">${statFmt(t.deg, te.deg, "D3")}${te.degBonus ? "+" + te.degBonus : ""}</span></div>
-    <div><span>Régénération</span><span class="stat-val">${statFmt(t.reg, te.reg, "D3")}</span></div>
-    <div><span>Armure</span><span class="stat-val">${statFmt(t.armor, te.armor, "")}${t.armorDice ? "+" + t.armorDice + "D3" : ""}</span></div>
-    <div><span>Vue</span><span class="stat-val">${statFmt(t.vue, te.vue, "")}</span></div>
-    ${potionLines.length ? `<div class="potion-fx"><span>🧪 Effets</span></div>${potionLines.map(l => `<div class="potion-fx-line">${l}</div>`).join("")}` : ""}
+    <div><span>Attaque</span><span class="stat-val">${te.att}D6</span></div>
+    <div><span>Esquive</span><span class="stat-val">${te.esq}D6</span></div>
+    <div><span>Dégâts</span><span class="stat-val">${te.deg}D3${te.degBonus ? "+" + te.degBonus : ""}</span></div>
+    <div><span>Régénération</span><span class="stat-val">${te.reg}D3</span></div>
+    <div><span>Armure</span><span class="stat-val">${te.armor}${t.armorDice ? "+" + t.armorDice + "D3" : ""}</span></div>
+    <div><span>Vue</span><span class="stat-val">${te.vue}</span></div>
     <div><span>${RACES[t.race].comp.name}</span><span class="stat-val">${t.comp.pct} %</span></div>
     <div><span>${RACES[t.race].sort.name}</span><span class="stat-val">${t.sort.pct} %</span></div>
     ${t.race === "Kastar" ? `<div><span>Fatigue</span><span class="stat-val">${t.fatigue}</span></div>` : ""}
@@ -1169,6 +1189,19 @@ function renderPanels() {
     <div><span>PI</span><span class="stat-val">${t.pi}</span></div>
     <div><span>Mountyzédons</span><span class="stat-val">${t.gold}</span></div>
     <div><span>Monstres tués</span><span class="stat-val">${t.kills}</span></div>`;
+
+  const fxCount = countActiveEffects(t);
+  const badge = $("fx-badge");
+  if (badge) {
+    if (fxCount > 0) {
+      badge.textContent = fxCount;
+      badge.classList.remove("hidden");
+    } else {
+      badge.classList.add("hidden");
+    }
+  }
+  const fxPanel = $("effects-panel");
+  if (fxPanel) fxPanel.innerHTML = renderEffectsPanel(t);
 
   const improve = $("improve");
   improve.innerHTML = "";
@@ -1251,6 +1284,21 @@ function showEnd(victory, killer) {
 /* ================= Création du personnage ================= */
 
 let selectedRace = "Skrim";
+let activeLeftTab = "stats";
+
+function switchLeftTab(tab) {
+  activeLeftTab = tab;
+  const statsBtn = $("tab-stats"), fxBtn = $("tab-effects");
+  const statsPanel = $("panel-tab-stats"), fxPanel = $("panel-tab-effects");
+  if (!statsBtn || !fxBtn) return;
+  const isStats = tab === "stats";
+  statsBtn.classList.toggle("active", isStats);
+  fxBtn.classList.toggle("active", !isStats);
+  statsBtn.setAttribute("aria-selected", isStats);
+  fxBtn.setAttribute("aria-selected", !isStats);
+  statsPanel.classList.toggle("hidden", !isStats);
+  fxPanel.classList.toggle("hidden", isStats);
+}
 
 function initCreateScreen() {
   const list = $("race-list");
@@ -1306,6 +1354,8 @@ if (typeof document !== "undefined") {
     if (footer) footer.textContent = `MountyCrawl v${APP_VERSION}`;
     initCreateScreen();
     bindKeys();
+    $("tab-stats")?.addEventListener("click", () => switchLeftTab("stats"));
+    $("tab-effects")?.addEventListener("click", () => switchLeftTab("effects"));
     $("btn-start").onclick = () => startGame();
     // ?autostart=1&race=Durakuir&name=Grosbill : lance directement une partie
     const params = new URLSearchParams(location.search);
@@ -1349,5 +1399,7 @@ if (typeof module !== "undefined" && module.exports) {
     RACES, MONSTER_TYPES, BOSS, TEMPLATES, makeMonster, monsterFromSpec, itemFromSpec,
     generateCavern, largestRegion,
     MAP_W, MAP_H, T_WALL, T_FLOOR, T_STAIRS,
+    newGame, refreshFov, inSightAt,
+    get state() { return G; },
   };
 }

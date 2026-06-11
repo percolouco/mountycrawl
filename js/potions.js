@@ -422,6 +422,32 @@ function tickPotionTurns(troll, logFn) {
   return sumPotionMods(troll.potionEffects).dlaBonusPA;
 }
 
+const EFFECT_MOD_LABELS = {
+  att: ["ATT", "D6"], esq: ["ESQ", "D6"], deg: ["DEG", "D3"], reg: ["REG", "D3"],
+  vue: ["VUE", ""], armor: ["Armure", ""],
+};
+
+function formatEffectMods(effect) {
+  const parts = [];
+  for (const [key, [label, suffix]] of Object.entries(EFFECT_MOD_LABELS)) {
+    const v = effect[key];
+    if (!v) continue;
+    parts.push(`${label} ${v > 0 ? "+" : ""}${v}${suffix}`);
+  }
+  if (effect.mmPct) parts.push(`MM ${effect.mmPct > 0 ? "+" : ""}${effect.mmPct} %`);
+  if (effect.rmPct) parts.push(`RM ${effect.rmPct > 0 ? "+" : ""}${effect.rmPct} %`);
+  if (effect.concentrationPct) parts.push(`Concentration ${effect.concentrationPct > 0 ? "+" : ""}${effect.concentrationPct} %`);
+  if (effect.dlaBonusPA) parts.push(`DLA +${effect.dlaBonusPA} PA/tour`);
+  if (effect.blockCamo) parts.push("Visible — camouflage impossible");
+  return parts;
+}
+
+function countActiveEffects(troll) {
+  let n = (troll.potionEffects || []).length;
+  if (troll.blockCamoTurns > 0 && !(troll.potionEffects || []).some(e => e.blockCamo)) n += 1;
+  return n;
+}
+
 function describeActiveEffects(troll) {
   const lines = [];
   if (troll.blockCamoTurns > 0) {
@@ -434,6 +460,55 @@ function describeActiveEffects(troll) {
   return lines;
 }
 
+function renderEffectsPanel(troll) {
+  const effects = [...(troll.potionEffects || [])];
+  const cards = [];
+
+  if (troll.blockCamoTurns > 0 && !effects.some(e => e.blockCamo)) {
+    cards.push({
+      emoji: "🎨", name: "Pàïntûré", turnsLeft: troll.blockCamoTurns,
+      mods: ["Visible — camouflage impossible"],
+      positive: false,
+    });
+  }
+
+  for (const e of effects) {
+    const mods = formatEffectMods(e);
+    const positive = mods.some(m => m.includes("+") && !m.includes("−"));
+    cards.push({
+      emoji: e.emoji, name: e.name,
+      turnsLeft: e.blockCamo ? troll.blockCamoTurns : e.turnsLeft,
+      mods, positive: mods.length ? positive : null,
+    });
+  }
+
+  if (!cards.length) {
+    return '<p class="fx-empty">Aucun bonus ni malus magique actif.</p>';
+  }
+
+  const total = sumPotionMods(troll.potionEffects);
+  const totalLines = formatEffectMods(total);
+  if (troll.blockCamoTurns > 0) totalLines.push("Camouflage bloqué");
+
+  let html = "";
+  if (totalLines.length) {
+    html += `<div class="fx-total"><div class="fx-total-title">Total des modificateurs</div>`;
+    html += totalLines.map(m => `<span class="fx-mod">${m}</span>`).join("");
+    html += "</div>";
+  }
+
+  for (const c of cards) {
+    const cls = c.positive === true ? "fx-card-buff" : c.positive === false ? "fx-card-debuff" : "fx-card";
+    html += `<div class="fx-card ${cls}">`;
+    html += `<div class="fx-card-head"><span>${c.emoji} ${c.name}</span><span class="fx-turns">${c.turnsLeft} tour(s)</span></div>`;
+    if (c.mods.length) {
+      html += `<div class="fx-card-mods">${c.mods.map(m => `<span class="fx-mod">${m}</span>`).join("")}</div>`;
+    }
+    html += "</div>";
+  }
+  return html;
+}
+
 function talentPctWithPotions(troll, talent, cap) {
   const eff = effTroll(troll);
   return Math.max(0, Math.min(cap, talent.pct + eff.concentrationPct));
@@ -443,6 +518,7 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     POTION_IDS, POTION_DEFS, sumPotionMods, effTroll, formatPotionItem,
     makeRandomPotion, makePotionItem, drinkPotion, tickPotionTurns,
-    describeActiveEffects, talentPctWithPotions, corruptionYZ,
+    describeActiveEffects, renderEffectsPanel, countActiveEffects, formatEffectMods,
+    talentPctWithPotions, corruptionYZ,
   };
 }

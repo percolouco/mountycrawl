@@ -92,9 +92,18 @@
   <div id="layout">
     <aside id="panel-left">
       <h2 id="troll-title"></h2>
-      <div id="stats"></div>
-      <h3>S'améliorer (PI)</h3>
-      <div id="improve"></div>
+      <div class="panel-tabs" role="tablist">
+        <button type="button" id="tab-stats" class="panel-tab active" role="tab" aria-selected="true">Caractéristiques</button>
+        <button type="button" id="tab-effects" class="panel-tab" role="tab" aria-selected="false">Effets <span id="fx-badge" class="fx-badge hidden"></span></button>
+      </div>
+      <div id="panel-tab-stats" role="tabpanel">
+        <div id="stats"></div>
+        <h3>S'améliorer (PI)</h3>
+        <div id="improve"></div>
+      </div>
+      <div id="panel-tab-effects" class="hidden" role="tabpanel">
+        <div id="effects-panel"></div>
+      </div>
     </aside>
     <main id="panel-center">
       <canvas id="map" width="672" height="480"></canvas>

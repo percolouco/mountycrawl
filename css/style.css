@@ -129,11 +129,87 @@ header h1 { font-size: 1.3em; color: #8fbf5a; }
   border-bottom: 1px solid #4a3a20;
 }
 
+.panel-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 8px 0 10px;
+  border-bottom: 1px solid #4a3a20;
+  padding-bottom: 6px;
+}
+.panel-tab {
+  flex: 1;
+  padding: 5px 4px;
+  font-size: 0.78em;
+  font-family: inherit;
+  background: #1f1810;
+  border: 1px solid #4a3a20;
+  border-radius: 5px 5px 0 0;
+  color: #a89568;
+  cursor: pointer;
+}
+.panel-tab:hover { color: #e8d9b0; border-color: #6b5430; }
+.panel-tab.active {
+  background: #28341c;
+  border-color: #8fbf5a;
+  color: #8fbf5a;
+  font-weight: bold;
+}
+.fx-badge {
+  display: inline-block;
+  min-width: 1.1em;
+  padding: 0 4px;
+  margin-left: 2px;
+  border-radius: 8px;
+  background: #8fbf5a;
+  color: #1a140e;
+  font-size: 0.85em;
+  font-weight: bold;
+}
+.fx-badge.hidden { display: none; }
+
 #stats div { display: flex; justify-content: space-between; padding: 2px 0; }
 #stats .stat-val { font-family: monospace; color: #f0e6c0; }
-#stats .stat-val small { color: #8a7a55; font-size: 0.85em; }
-.potion-fx { margin-top: 8px; color: #d8a040; font-size: 0.9em; border-top: 1px solid #4a3a20; padding-top: 6px; }
-.potion-fx-line { font-size: 0.82em; color: #a89568; padding: 1px 0 1px 8px; }
+
+#effects-panel { margin-top: 4px; }
+.fx-empty { color: #8a7a55; font-style: italic; font-size: 0.88em; line-height: 1.4; }
+.fx-total {
+  background: #1f1810;
+  border: 1px solid #4a3a20;
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 10px;
+}
+.fx-total-title { color: #d8a040; font-size: 0.85em; margin-bottom: 6px; font-weight: bold; }
+.fx-card {
+  background: #1f1810;
+  border: 1px solid #4a3a20;
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 8px;
+}
+.fx-card-buff { border-color: #5d8535; }
+.fx-card-debuff { border-color: #a04848; }
+.fx-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  color: #e8d9b0;
+  font-size: 0.88em;
+  margin-bottom: 4px;
+}
+.fx-turns { color: #8a7a55; font-size: 0.9em; white-space: nowrap; }
+.fx-card-mods { display: flex; flex-wrap: wrap; gap: 4px; }
+.fx-mod {
+  display: inline-block;
+  font-size: 0.78em;
+  font-family: monospace;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #2a2014;
+  color: #c9b685;
+}
+.fx-card-buff .fx-mod { color: #8fbf5a; }
+.fx-card-debuff .fx-mod { color: #d88080; }
 
 .hp-bar-wrap { background: #3a2a1a; border-radius: 4px; height: 14px; margin: 6px 0; overflow: hidden; }
 .hp-bar { background: #b03030; height: 100%; transition: width .2s; }
