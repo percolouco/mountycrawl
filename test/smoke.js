@@ -260,9 +260,47 @@ assert.strictEqual(p.corruptionYZ(3).y, 0);
   assert(r.attRoll > 12, "attRoll = somme des D6 + bonus potion");
   assert(r.attRoll <= 12 + 18, "attRoll borné (3D6 max 18 + 12)");
 }
+// Équipement Mountypedia (6 emplacements) + rétrocompat des anciens specs
+const gear = require("../js/gear.js");
 const sword = g.itemFromSpec({ x: 1, y: 1, kind: "weapon", idx: 2 });
 assert.strictEqual(sword.kind, "gear");
-assert(sword.bonus > 0);
+assert.strictEqual(sword.slot, "arme");
+assert.strictEqual(sword.name, "Épée Longue", "ancien idx 2 → Épée Longue");
+assert.strictEqual(g.itemFromSpec({ x: 1, y: 1, kind: "armor", idx: 0 }).name, "Armure de cuir");
+{
+  const t = { att: 3, esq: 3, deg: 3, reg: 1, vue: 3, armor: 0, armorDice: 0, degBonus: 0, pvMax: 30, pv: 20,
+    potionEffects: [], blockCamoTurns: 0, tour: 1, bag: [],
+    equip: { arme: null, armure: null, casque: null, bouclier: null, talisman: null, bottes: null }, gearMods: null };
+  g.equipGear(t, gear.gearItemByName("arme", "Gourdin")); // att +2, esq −2, deg +5
+  g.equipGear(t, gear.gearItemByName("armure", "Armure de cuir")); // esq +3, arm +4, rm +40 %
+  let e = p.effTroll(t);
+  assert.strictEqual(e.att, 5, "Gourdin : ATT 3 + 2 dés");
+  assert.strictEqual(e.deg, 8, "Gourdin : DEG 3 + 5 dés");
+  assert.strictEqual(e.esq, 4, "ESQ 3 − 2 + 3");
+  assert.strictEqual(e.armor, 4, "Armure de cuir : armure +4");
+  assert.strictEqual(e.rmPct, 40, "Armure de cuir : RM +40 %");
+  // PV max d'équipement
+  g.equipGear(t, gear.gearItemByName("bouclier", "Rondache en Bois")); // pv +5
+  assert.strictEqual(t.pvMax, 35, "Rondache : PV max +5");
+  // arme à 2 mains : le bouclier retourne au sac
+  g.equipGear(t, gear.gearItemByName("arme", "Hallebarde"));
+  assert.strictEqual(t.equip.bouclier, null, "Hallebarde : bouclier déséquipé");
+  assert(t.bag.some(i => i.name === "Rondache en Bois"), "le bouclier est dans le sac");
+  assert.strictEqual(t.pvMax, 30, "PV max retombé après déséquipement de la Rondache");
+  assert(t.bag.some(i => i.name === "Gourdin"), "l'ancienne arme est dans le sac");
+  e = p.effTroll(t);
+  assert.strictEqual(e.att, 1, "Hallebarde : ATT 3 − 5 → min 1");
+  assert.strictEqual(e.deg, 15, "Hallebarde : DEG 3 + 12");
+  // rééquiper un bouclier range l'arme à 2 mains
+  g.equipGear(t, gear.gearItemByName("bouclier", "Targe"));
+  assert.strictEqual(t.equip.arme, null, "Targe : la Hallebarde est rangée");
+  // tirage par profondeur : tier ≤ depth + 1
+  for (let i = 0; i < 100; i++) {
+    const it = gear.makeRandomGear(1);
+    const def = gear.GEAR[it.slot][it.gearIdx];
+    assert(def.tier <= 2, "profondeur 1 : tier ≤ 2 (reçu " + def.tier + ")");
+  }
+}
 
 // Validation serveur des niveaux
 const srv = require("../server.js");

@@ -520,3 +520,14 @@ header h1 { font-size: 1.3em; color: #8fbf5a; }
 }
 .tz-good { color: #8fbf5a; }
 .tz-bad { color: #d88080; }
+
+/* ---------- Équipement 6 emplacements ---------- */
+.eq-line { margin-bottom: 6px; line-height: 1.3; }
+.eq-slot {
+  display: inline-block;
+  min-width: 72px;
+  color: #a89568;
+  font-size: .85em;
+}
+.eq-mods { color: #8a7a55; font-size: .78em; margin-left: 72px; }
+.tz-subsection { color: #d8a040; margin: 16px 0 8px; font-size: 1.05em; }

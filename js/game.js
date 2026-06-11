@@ -4,7 +4,7 @@
 
 "use strict";
 
-const APP_VERSION = "1.6.0";
+const APP_VERSION = "1.7.0";
 
 /* Alpha : maîtrise initiale haute pour les tests. Remettre 15 % / 15 % à la v1.0 officielle. */
 const START_COMP_PCT = 90;
@@ -16,6 +16,9 @@ if (typeof module !== "undefined" && module.exports && typeof makeRandomPotion =
 }
 if (typeof module !== "undefined" && module.exports && typeof makeRandomScroll === "undefined") {
   Object.assign(globalThis, require("./scrolls.js"));
+}
+if (typeof module !== "undefined" && module.exports && typeof makeRandomGear === "undefined") {
+  Object.assign(globalThis, require("./gear.js"));
 }
 
 /* ================= Dés & règles de base ================= */
@@ -201,7 +204,9 @@ function monsterFromSpec(spec) {
   return applyTemplate(type, tpl, spec.x, spec.y);
 }
 
-/* Instancie un objet depuis une spec d'éditeur : {x, y, kind, idx?, gold?} */
+/* Instancie un objet depuis une spec d'éditeur : {x, y, kind, slot?, idx?, gold?}.
+ * Les specs « weapon »/« armor » à idx des anciens niveaux publiés sont mappées
+ * vers l'équipement Mountypedia équivalent. */
 function itemFromSpec(spec) {
   const base = { x: spec.x, y: spec.y };
   if (spec.kind === "potion") return { ...base, ...makePotionItem(spec.potionId, spec.power) };
@@ -210,8 +215,13 @@ function itemFromSpec(spec) {
     const gold = spec.gold || 60;
     return { ...base, kind: "gold", name: `${gold} Mountyzédons`, emoji: "💰", gold };
   }
-  const list = spec.kind === "weapon" ? WEAPONS : ARMORS;
-  return { ...base, kind: "gear", ...list[(spec.idx || 0) % list.length] };
+  if (spec.kind === "gear") return { ...base, ...makeRandomGear(5, spec.slot) };
+  if (spec.kind === "weapon") {
+    const name = LEGACY_WEAPON_NAMES[(spec.idx || 0) % LEGACY_WEAPON_NAMES.length];
+    return { ...base, ...gearItemByName("arme", name) };
+  }
+  const name = LEGACY_ARMOR_NAMES[(spec.idx || 0) % LEGACY_ARMOR_NAMES.length];
+  return { ...base, ...gearItemByName("armure", name) };
 }
 
 /* ================= Génération du Monde Souterrain ================= */
@@ -286,30 +296,11 @@ function randomFloor(grid, taken) {
 
 /* ================= Objets ================= */
 
-const WEAPONS = [
-  { name: "Dague Rouillée", emoji: "🗡️", slot: "weapon", bonus: 1 },
-  { name: "Hache de Jet",   emoji: "🪓", slot: "weapon", bonus: 2 },
-  { name: "Épée Longue",    emoji: "⚔️", slot: "weapon", bonus: 3 },
-  { name: "Masse d'Armes",  emoji: "🔨", slot: "weapon", bonus: 4 },
-];
-const ARMORS = [
-  { name: "Armure de Cuir",   emoji: "🦺", slot: "armor", bonus: 1 },
-  { name: "Cotte de Mailles", emoji: "🥋", slot: "armor", bonus: 2 },
-  { name: "Armure de Plates", emoji: "🛡️", slot: "armor", bonus: 3 },
-];
-
 function makeItem(depth) {
   const r = Math.random();
   if (r < 0.3) return makeRandomPotion();
   if (r < 0.42) return makeRandomScroll();
-  if (r < 0.58) {
-    const w = WEAPONS[Math.min(WEAPONS.length - 1, Math.floor(Math.random() * (depth + 1)))];
-    return { kind: "gear", ...w };
-  }
-  if (r < 0.7) {
-    const a = ARMORS[Math.min(ARMORS.length - 1, Math.floor(Math.random() * depth))];
-    return { kind: "gear", ...a };
-  }
+  if (r < 0.7) return makeRandomGear(depth);
   const gold = rollDice(depth, 6).total * 10;
   return { kind: "gold", name: `${gold} Mountyzédons`, emoji: "💰", gold };
 }
@@ -334,7 +325,8 @@ function newGame(name, race, customLevel = null) {
       bought: { att: 0, esq: 0, deg: 0, reg: 0, pv: 0, vue: 0, armor: 0 },
       comp: { pct: START_COMP_PCT }, sort: { pct: START_SORT_PCT }, fatigue: 0, compUsed: false,
       compPXTurn: false, sortPXTurn: false,
-      weapon: null, armorItem: null,
+      equip: { arme: null, armure: null, casque: null, bouclier: null, talisman: null, bottes: null },
+      gearMods: null,
       pa: PA_PER_TURN, pi: 0, totalPI: 0, gold: 0,
       bag: [], camo: false, kills: 0, dla: 1, tour: 1,
       potionEffects: [], blockCamoTurns: 0,
@@ -610,7 +602,7 @@ function attackMonster(m, opts = {}) {
   const cost = opts.cost ?? COSTS.attack;
   if (!spendPA(cost)) return false;
   cdStart(`⚔️ Attaque sur ${m.name}`);
-  cdLine(`Vous avez attaqué <b>${m.name}</b> avec votre ${G.troll.weapon ? G.troll.weapon.name : "Grosse Patte de Trõll"}.`);
+  cdLine(`Vous avez attaqué <b>${m.name}</b> avec votre ${G.troll.equip.arme ? G.troll.equip.arme.name : "Grosse Patte de Trõll"}.`);
   const r = resolveAttack(effTroll(G.troll), effMonster(m));
   cdAttackRolls(r);
   if (r.hit) {
@@ -967,17 +959,41 @@ function useBagItem(idx) {
     updateFov();
   } else if (item.kind === "gear") {
     if (!spendPA(COSTS.equip)) return;
-    if (item.slot === "weapon") {
-      if (t.weapon) t.bag.push(t.weapon);
-      t.weapon = item; t.degBonus = item.bonus;
-    } else {
-      if (t.armorItem) t.bag.push(t.armorItem);
-      t.armorItem = item; t.armor = item.bonus;
-    }
     t.bag.splice(t.bag.indexOf(item), 1);
-    log(`Tu t'équipes : ${item.emoji} ${item.name} (+${item.bonus}).`, "good");
+    equipGear(t, item);
   }
   afterAction();
+}
+
+/* Équipe une pièce : range l'ancienne au sac, gère l'exclusion arme à 2 mains /
+ * bouclier, applique le bonus de PV max et recalcule les modificateurs. */
+function equipGear(t, item) {
+  const unequipTo = (slot) => {
+    const old = t.equip[slot];
+    if (!old) return;
+    t.equip[slot] = null;
+    t.bag.push(old);
+    if (old.mods.pv) t.pvMax = Math.max(1, t.pvMax - old.mods.pv);
+    log(`Tu ranges ${old.emoji} ${old.name} dans ton sac.`, "info");
+  };
+  if (item.slot === "arme" && item.twoHanded && t.equip.bouclier) {
+    unequipTo("bouclier");
+    log("Une arme à deux mains ne laisse pas de place au bouclier.", "info");
+  }
+  if (item.slot === "bouclier" && t.equip.arme && t.equip.arme.twoHanded) {
+    unequipTo("arme");
+    log("Impossible de tenir un bouclier avec une arme à deux mains : tu la ranges.", "info");
+  }
+  unequipTo(item.slot);
+  t.equip[item.slot] = item;
+  if (item.mods.pv) {
+    t.pvMax = Math.max(1, t.pvMax + item.mods.pv);
+    t.pv = Math.max(1, Math.min(t.pv, t.pvMax));
+  }
+  t.gearMods = gearMods(t.equip);
+  const fx = formatGearMods(item.mods);
+  log(`Tu t'équipes : ${item.emoji} ${item.name}${fx ? ` (${fx})` : ""}.`, "good");
+  if (G) updateFov();
 }
 
 /* Effet de zone d'un parchemin : touche tous les monstres à SCROLL_ZONE_RADIUS
@@ -1301,9 +1317,14 @@ function renderPanels() {
   if (doorAt(t.x, t.y)) addBtn("🚪 Franchir la porte", enterDoor, true);
   addBtn("⏳ Passer la DLA", passDLA, true);
 
-  $("equipment").innerHTML =
-    `<div>Arme : ${t.weapon ? t.weapon.emoji + " " + t.weapon.name + " (+" + t.weapon.bonus + ")" : "—"}</div>` +
-    `<div>Armure : ${t.armorItem ? t.armorItem.emoji + " " + t.armorItem.name + " (+" + t.armorItem.bonus + ")" : "—"}</div>`;
+  $("equipment").innerHTML = Object.entries(GEAR_SLOTS).map(([slot, info]) => {
+    const it = t.equip[slot];
+    if (!it) return `<div class="eq-line"><span class="eq-slot">${info.label}</span> —</div>`;
+    const fx = formatGearMods(it.mods);
+    return `<div class="eq-line"><span class="eq-slot">${info.label}</span> ${it.emoji} ${it.name}` +
+      `${it.twoHanded ? " <small>(2 mains)</small>" : ""}` +
+      `${fx ? `<div class="eq-mods">${fx}</div>` : ""}</div>`;
+  }).join("");
 
   const inv = $("inventory");
   inv.innerHTML = "";
@@ -1313,6 +1334,7 @@ function renderPanels() {
     const action = item.kind === "potion" ? `boire (${COSTS.potion} PA)`
       : item.kind === "scroll" ? `lire (${COSTS.scroll} PA)` : `équiper (${COSTS.equip} PA)`;
     b.textContent = `${item.emoji} ${item.name} — ${action}`;
+    if (item.kind === "gear") b.title = formatGearMods(item.mods) + (item.twoHanded ? " · 2 mains" : "");
     b.disabled = G.over;
     b.onclick = () => useBagItem(idx);
     inv.appendChild(b);
@@ -1459,7 +1481,7 @@ if (typeof document !== "undefined") {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     APP_VERSION, rollDice, resolveAttack, resolveSpell, masteryRoll, improveCost, levelFromTotalPI, killPX,
-    RACES, MONSTER_TYPES, BOSS, TEMPLATES, makeMonster, monsterFromSpec, itemFromSpec,
+    RACES, MONSTER_TYPES, BOSS, TEMPLATES, makeMonster, monsterFromSpec, itemFromSpec, equipGear,
     generateCavern, largestRegion,
     MAP_W, MAP_H, T_WALL, T_FLOOR, T_STAIRS,
     newGame, refreshFov, inSightAt,

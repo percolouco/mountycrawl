@@ -124,8 +124,9 @@ function edBuildPalette() {
   edAddBrushBtn(itemsDiv, "🧪 Potion (aléatoire)", { mode: "item", kind: "potion" });
   edAddBrushBtn(itemsDiv, "📜 Parchemin (aléatoire)", { mode: "item", kind: "scroll" });
   edAddBrushBtn(itemsDiv, "💰 Mountyzédons", { mode: "item", kind: "gold" });
-  WEAPONS.forEach((w, i) => edAddBrushBtn(itemsDiv, `${w.emoji} ${w.name} (+${w.bonus})`, { mode: "item", kind: "weapon", idx: i }));
-  ARMORS.forEach((a, i) => edAddBrushBtn(itemsDiv, `${a.emoji} ${a.name} (+${a.bonus})`, { mode: "item", kind: "armor", idx: i }));
+  for (const [slot, info] of Object.entries(GEAR_SLOTS)) {
+    edAddBrushBtn(itemsDiv, `${info.emoji} ${info.label} (aléatoire)`, { mode: "item", kind: "gear", slot });
+  }
 
   const doorsDiv = document.getElementById("ed-doors");
   doorsDiv.innerHTML = "";
@@ -240,6 +241,7 @@ function edApply(x, y) {
     ED.items = ED.items.filter(i => i.x !== x || i.y !== y);
     const spec = { x, y, kind: b.kind };
     if (b.idx !== undefined) spec.idx = b.idx;
+    if (b.slot !== undefined) spec.slot = b.slot;
     if (b.kind === "gold") spec.gold = 60;
     ED.items.push(spec);
   }
@@ -279,7 +281,8 @@ function edRender() {
       : i.kind === "scroll" ? "#d8c890" : "#7a8db0");
     ctx.fillStyle = "#1a140e";
     const emoji = i.kind === "potion" ? "🧪" : i.kind === "scroll" ? "📜" : i.kind === "gold" ? "💰"
-      : i.kind === "weapon" ? WEAPONS[i.idx || 0].emoji : ARMORS[i.idx || 0].emoji;
+      : i.kind === "gear" ? (GEAR_SLOTS[i.slot] || GEAR_SLOTS.arme).emoji
+      : i.kind === "weapon" ? "🗡️" : "🦺";
     ctx.fillText(emoji, i.x * TILE + TILE / 2, i.y * TILE + TILE / 2 + 1);
   }
   for (const d of ED.doors) {

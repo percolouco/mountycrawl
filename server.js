@@ -57,7 +57,7 @@ function validateLevel(l) {
   if (!Array.isArray(l.items) || l.items.length > 60) return "objets invalides (max 60)";
   for (const i of l.items) {
     if (!inBounds(i) || tile(l, i) === "#") return "objet hors-sol";
-    if (!["potion", "scroll", "gold", "weapon", "armor"].includes(i.kind)) return "type d'objet invalide";
+    if (!["potion", "scroll", "gear", "gold", "weapon", "armor"].includes(i.kind)) return "type d'objet invalide";
   }
   if (l.doors !== undefined && !Array.isArray(l.doors)) return "portes invalides";
   const doors = l.doors || [];

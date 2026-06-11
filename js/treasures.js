@@ -80,6 +80,35 @@ function treasuresRender() {
   }
   html += "</div>";
 
+  const gearCount = Object.values(GEAR).reduce((n, list) => n + list.length, 0);
+  html += `<h2 class="tz-section">⚔️ Équipement (${gearCount})</h2>
+    <p class="tz-intro">Six emplacements : ${Object.values(GEAR_SLOTS).map(s => s.label).join(", ")}.
+    Les bonus ATT/ESQ/DEG/REG s'ajoutent en <b>dés</b>, Armure/VUE/PV sont fixes, RM/MM en %.
+    Une arme <b>à 2 mains</b> est incompatible avec un bouclier. S'équiper coûte <b>2 PA</b>.
+    Valeurs de base de la Mountypedia (sans templates) ; les objets puissants ne se trouvent
+    qu'en profondeur.</p>`;
+  for (const [slot, info] of Object.entries(GEAR_SLOTS)) {
+    html += `<h3 class="tz-subsection">${info.emoji} ${info.label}s</h3><div class="tz-grid">`;
+    for (const def of GEAR[slot]) {
+      const fx = [];
+      for (const [key, label, unit] of GEAR_MOD_LABELS) {
+        const v = def.mods[key];
+        if (!v) continue;
+        const cls = v > 0 ? "tz-fx tz-good" : "tz-fx tz-bad";
+        fx.push(`<span class="${cls}">${label} ${v > 0 ? "+" : "−"}${Math.abs(v)}${unit}</span>`);
+      }
+      if (def.twoHanded) fx.push('<span class="tz-fx">2 mains</span>');
+      if (def.note) fx.push(`<span class="tz-fx">${def.note}</span>`);
+      html += `
+        <div class="tz-card" style="--tz-color:#9a8a65">
+          <div class="tz-head"><span class="tz-name">${def.emoji} ${def.name}</span></div>
+          <div class="tz-meta">Profondeur : <b>−${Math.max(1, def.tier - 1)} et au-delà</b></div>
+          <div class="tz-fx-list">${fx.join("")}</div>
+        </div>`;
+    }
+    html += "</div>";
+  }
+
   html += `<p class="tz-note">Effet de Zone : touche le lecteur et tous les monstres à 3 cases
     ou moins. « PV −2D3 ou −4D3 » (Rune des Foins) : la Mountypedia note « -2/4 D3 », interprété
     ici comme un tirage au sort entre 2D3 et 4D3.</p>`;

@@ -152,6 +152,13 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **1.7.0** (2026-06-11) — Équipement Mountypedia complet : 6 emplacements (Arme,
+  Armure, Casque, Bouclier, Talisman, Bottes) et 55 objets dropables aux valeurs
+  de base officielles (ATT/ESQ/DEG/REG en dés, Armure/VUE/PV fixes, RM/MM en %).
+  Armes à 2 mains incompatibles avec un bouclier, PV max d'équipement, tiers de
+  drop par profondeur, pinceaux d'éditeur par emplacement, rétrocompatibilité des
+  anciens niveaux publiés (specs weapon/armor mappées). Section « Équipement »
+  dans la page Trésors.
 - **1.6.0** (2026-06-11) — Parchemins 📜 : les 7 parchemins standards de Mountypedia
   (Rune des Cyclopes, Traité de Clairvoyance, Idées Confuses, Rune Explosive,
   Plan Génial, Yeu'Ki'Pic, Rune des Foins) en trésors à trouver, butin de monstre

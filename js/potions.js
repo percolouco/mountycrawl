@@ -413,24 +413,27 @@ function fmtStatLine(base, eff, faces, flat = 0, extra = 0) {
   return main;
 }
 
+/* Caractéristiques effectives : base + effets magiques (potions, parchemins)
+ * + équipement (troll.gearMods, recalculé par game.js à chaque équipement). */
 function effTroll(troll) {
   const m = sumPotionMods(troll.potionEffects);
+  const g = troll.gearMods || {};
   return {
-    att: Math.max(1, troll.att + m.att),
+    att: Math.max(1, troll.att + m.att + (g.att || 0)),
     attFlat: m.attFlat,
-    esq: Math.max(1, troll.esq + m.esq),
+    esq: Math.max(1, troll.esq + m.esq + (g.esq || 0)),
     esqFlat: m.esqFlat,
-    deg: Math.max(1, troll.deg + m.deg),
+    deg: Math.max(1, troll.deg + m.deg + (g.deg || 0)),
     degFlat: m.degFlat,
-    reg: Math.max(1, troll.reg + m.reg),
+    reg: Math.max(1, troll.reg + m.reg + (g.reg || 0)),
     regFlat: m.regFlat,
-    vue: Math.max(1, troll.vue + m.vue),
-    armor: Math.max(0, troll.armor + m.armor),
+    vue: Math.max(1, troll.vue + m.vue + (g.vue || 0)),
+    armor: Math.max(0, troll.armor + m.armor + (g.arm || 0)),
     armorDice: troll.armorDice,
     degBonus: troll.degBonus || 0,
     pvMax: troll.pvMax,
-    mmPct: m.mmPct,
-    rmPct: m.rmPct,
+    mmPct: m.mmPct + (g.mmPct || 0),
+    rmPct: m.rmPct + (g.rmPct || 0),
     concentrationPct: m.concentrationPct,
     dlaBonusPA: m.dlaBonusPA,
   };
