@@ -152,6 +152,13 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **1.6.0** (2026-06-11) — Parchemins 📜 : les 7 parchemins standards de Mountypedia
+  (Rune des Cyclopes, Traité de Clairvoyance, Idées Confuses, Rune Explosive,
+  Plan Génial, Yeu'Ki'Pic, Rune des Foins) en trésors à trouver, butin de monstre
+  et pinceau d'éditeur. Effets de zone (rayon 3 cases : dégâts ou aveuglement des
+  monstres), TOUR accéléré/ralenti converti en PA (±30 min = ±1 PA, min. 1 PA par
+  tour). Nouvelle page « 🧪 Trésors du Hall » : fiches des 25 potions et des
+  7 parchemins (niveau X, durée, formules), accessible depuis l'accueil et en jeu.
 - **1.5.2** (2026-06-11) — Les bonus/malus DEG et REG des potions sont des valeurs
   fixes ajoutées au jet, plus des dés supplémentaires (seules les notations « X D3 »
   de Mountypedia sont des jets). Concerne Bonne Bouffe, Fertilité, Corruption,

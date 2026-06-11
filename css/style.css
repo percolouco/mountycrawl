@@ -473,3 +473,50 @@ header h1 { font-size: 1.3em; color: #8fbf5a; }
 #log .l-bad { color: #e06060; }
 #log .l-good { color: #8fbf5a; }
 #log .l-info { color: #9a8a65; }
+
+/* ---------- Trésors du Hall (potions & parchemins) ---------- */
+#treasures-body {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 10px 16px 40px;
+}
+.tz-intro, .tz-note {
+  color: #b9a878;
+  line-height: 1.5;
+  font-size: .92em;
+}
+.tz-intro a { color: #d8a040; }
+.tz-note { font-style: italic; margin-top: 18px; }
+.tz-section {
+  color: #8fbf5a;
+  border-bottom: 2px solid #4a3a20;
+  margin: 24px 0 12px;
+  font-size: 1.3em;
+}
+.tz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}
+.tz-card {
+  background: #2a2014;
+  border: 2px solid #6b5430;
+  border-left: 6px solid var(--tz-color, #6b5430);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: .92em;
+}
+.tz-name { color: #d8a040; font-weight: bold; }
+.tz-meta { color: #a89568; font-size: .88em; margin: 4px 0 8px; }
+.tz-meta b { color: #d8c79a; }
+.tz-fx-list { display: flex; flex-wrap: wrap; gap: 4px; }
+.tz-fx {
+  background: #1f1810;
+  border: 1px solid #4a3a20;
+  border-radius: 4px;
+  padding: 2px 7px;
+  color: #d8c79a;
+  font-size: .9em;
+}
+.tz-good { color: #8fbf5a; }
+.tz-bad { color: #d88080; }

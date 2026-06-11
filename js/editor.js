@@ -122,6 +122,7 @@ function edBuildPalette() {
   const itemsDiv = document.getElementById("ed-items");
   itemsDiv.innerHTML = "";
   edAddBrushBtn(itemsDiv, "🧪 Potion (aléatoire)", { mode: "item", kind: "potion" });
+  edAddBrushBtn(itemsDiv, "📜 Parchemin (aléatoire)", { mode: "item", kind: "scroll" });
   edAddBrushBtn(itemsDiv, "💰 Mountyzédons", { mode: "item", kind: "gold" });
   WEAPONS.forEach((w, i) => edAddBrushBtn(itemsDiv, `${w.emoji} ${w.name} (+${w.bonus})`, { mode: "item", kind: "weapon", idx: i }));
   ARMORS.forEach((a, i) => edAddBrushBtn(itemsDiv, `${a.emoji} ${a.name} (+${a.bonus})`, { mode: "item", kind: "armor", idx: i }));
@@ -274,9 +275,10 @@ function edRender() {
     ctx.fill();
   };
   for (const i of ED.items) {
-    disc(i.x, i.y, i.kind === "gold" ? "#caa53d" : i.kind === "potion" ? "#5d8535" : "#7a8db0");
+    disc(i.x, i.y, i.kind === "gold" ? "#caa53d" : i.kind === "potion" ? "#5d8535"
+      : i.kind === "scroll" ? "#d8c890" : "#7a8db0");
     ctx.fillStyle = "#1a140e";
-    const emoji = i.kind === "potion" ? "🧪" : i.kind === "gold" ? "💰"
+    const emoji = i.kind === "potion" ? "🧪" : i.kind === "scroll" ? "📜" : i.kind === "gold" ? "💰"
       : i.kind === "weapon" ? WEAPONS[i.idx || 0].emoji : ARMORS[i.idx || 0].emoji;
     ctx.fillText(emoji, i.x * TILE + TILE / 2, i.y * TILE + TILE / 2 + 1);
   }

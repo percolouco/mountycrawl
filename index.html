@@ -23,6 +23,7 @@
       <button id="btn-community" class="menu-btn">🌍 Niveaux de la communauté</button>
       <button id="btn-editor" class="menu-btn">🛠️ Éditeur de niveaux</button>
       <button id="btn-rules" class="menu-btn">📜 Règles des talents</button>
+      <button id="btn-treasures" class="menu-btn">🧪 Potions &amp; Parchemins</button>
     </div>
   </div>
 </div>
@@ -87,6 +88,7 @@
     <div class="header-right">
       <div id="depth-label">Profondeur −1</div>
       <button id="btn-rules-game" class="menu-btn">📜 Règles</button>
+      <button id="btn-treasures-game" class="menu-btn">🧪 Trésors</button>
     </div>
   </header>
   <div id="layout">
@@ -142,6 +144,15 @@
   <div id="rules-body"></div>
 </div>
 
+<!-- Écran des trésors : potions et parchemins -->
+<div id="screen-treasures" class="screen hidden">
+  <header>
+    <h1>🧪 Trésors du Hall — Potions &amp; Parchemins</h1>
+    <button id="treasures-back" class="menu-btn">← Retour</button>
+  </header>
+  <div id="treasures-body"></div>
+</div>
+
 <!-- Écran de fin -->
 <div id="screen-end" class="screen hidden">
   <div class="create-box">
@@ -154,8 +165,10 @@
 <footer id="app-footer" class="app-footer" aria-label="Version"></footer>
 
 <script src="js/potions.js"></script>
+<script src="js/scrolls.js"></script>
 <script src="js/game.js"></script>
 <script src="js/editor.js"></script>
 <script src="js/rules.js"></script>
+<script src="js/treasures.js"></script>
 </body>
 </html>

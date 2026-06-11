@@ -518,7 +518,7 @@ function formatEffectMods(effect) {
   if (effect.mmPct) parts.push(`MM ${effect.mmPct > 0 ? "+" : ""}${effect.mmPct} %`);
   if (effect.rmPct) parts.push(`RM ${effect.rmPct > 0 ? "+" : ""}${effect.rmPct} %`);
   if (effect.concentrationPct) parts.push(`Concentration ${effect.concentrationPct > 0 ? "+" : ""}${effect.concentrationPct} %`);
-  if (effect.dlaBonusPA) parts.push(`DLA +${effect.dlaBonusPA} PA/tour`);
+  if (effect.dlaBonusPA) parts.push(`DLA ${effect.dlaBonusPA > 0 ? "+" : ""}${effect.dlaBonusPA} PA/tour`);
   if (effect.blockCamo) parts.push("Visible — camouflage impossible");
   return parts;
 }
@@ -581,7 +581,7 @@ function renderEffectsPanel(troll) {
   if (total.mmPct) totalLines.push(`MM ${total.mmPct > 0 ? "+" : ""}${total.mmPct} %`);
   if (total.rmPct) totalLines.push(`RM ${total.rmPct > 0 ? "+" : ""}${total.rmPct} %`);
   if (total.concentrationPct) totalLines.push(`Concentration ${total.concentrationPct > 0 ? "+" : ""}${total.concentrationPct} %`);
-  if (total.dlaBonusPA) totalLines.push(`DLA +${total.dlaBonusPA} PA/tour`);
+  if (total.dlaBonusPA) totalLines.push(`DLA ${total.dlaBonusPA > 0 ? "+" : ""}${total.dlaBonusPA} PA/tour`);
   if (troll.blockCamoTurns > 0) totalLines.push("Camouflage bloqué");
 
   let html = "";
@@ -613,6 +613,6 @@ if (typeof module !== "undefined" && module.exports) {
     POTION_IDS, POTION_DEFS, sumPotionMods, effTroll, formatPotionItem,
     makeRandomPotion, makePotionItem, drinkPotion, tickPotionTurns,
     describeActiveEffects, renderEffectsPanel, countActiveEffects, formatEffectMods,
-    sharedMod, fmtStatLine, talentPctWithPotions, corruptionYZ,
+    sharedMod, makeEffect, fmtStatLine, talentPctWithPotions, corruptionYZ,
   };
 }

@@ -4,15 +4,18 @@
 
 "use strict";
 
-const APP_VERSION = "1.5.2";
+const APP_VERSION = "1.6.0";
 
 /* Alpha : maîtrise initiale haute pour les tests. Remettre 15 % / 15 % à la v1.0 officielle. */
 const START_COMP_PCT = 90;
 const START_SORT_PCT = 80;
 
-/* potions.js est chargé avant ce fichier dans le navigateur ; en node, require explicite. */
+/* potions.js et scrolls.js sont chargés avant ce fichier dans le navigateur ; en node, require explicite. */
 if (typeof module !== "undefined" && module.exports && typeof makeRandomPotion === "undefined") {
   Object.assign(globalThis, require("./potions.js"));
+}
+if (typeof module !== "undefined" && module.exports && typeof makeRandomScroll === "undefined") {
+  Object.assign(globalThis, require("./scrolls.js"));
 }
 
 /* ================= Dés & règles de base ================= */
@@ -202,6 +205,7 @@ function monsterFromSpec(spec) {
 function itemFromSpec(spec) {
   const base = { x: spec.x, y: spec.y };
   if (spec.kind === "potion") return { ...base, ...makePotionItem(spec.potionId, spec.power) };
+  if (spec.kind === "scroll") return { ...base, ...makeScrollItem(spec.scrollId, spec.power) };
   if (spec.kind === "gold") {
     const gold = spec.gold || 60;
     return { ...base, kind: "gold", name: `${gold} Mountyzédons`, emoji: "💰", gold };
@@ -296,8 +300,9 @@ const ARMORS = [
 
 function makeItem(depth) {
   const r = Math.random();
-  if (r < 0.35) return makeRandomPotion();
-  if (r < 0.55) {
+  if (r < 0.3) return makeRandomPotion();
+  if (r < 0.42) return makeRandomScroll();
+  if (r < 0.58) {
     const w = WEAPONS[Math.min(WEAPONS.length - 1, Math.floor(Math.random() * (depth + 1)))];
     return { kind: "gear", ...w };
   }
@@ -313,7 +318,7 @@ function makeItem(depth) {
 
 const MAX_DEPTH = 5;
 const PA_PER_TURN = 6;
-const COSTS = { move: 1, attack: 3, pickup: 1, equip: 2, potion: 1 };
+const COSTS = { move: 1, attack: 3, pickup: 1, equip: 2, potion: 1, scroll: 1 };
 
 let G = null; // état global de la partie
 
@@ -651,9 +656,12 @@ function killMonster(m, source = "attack") {
   }
   // butin : les monstres lâchent parfois un trésor en mourant
   if (Math.random() < 0.4 && !G.items.some(i => i.x === m.x && i.y === m.y)) {
-    const drop = Math.random() < 0.5
+    const lr = Math.random();
+    const drop = lr < 0.4
       ? { ...makeRandomPotion(), x: m.x, y: m.y }
-      : { kind: "gold", gold: m.level * 10, name: `${m.level * 10} Mountyzédons`, emoji: "💰", x: m.x, y: m.y };
+      : lr < 0.65
+        ? { ...makeRandomScroll(), x: m.x, y: m.y }
+        : { kind: "gold", gold: m.level * 10, name: `${m.level * 10} Mountyzédons`, emoji: "💰", x: m.x, y: m.y };
     G.items.push(drop);
     cdLine(`Il a de plus laissé tomber <span class="cd-val">${drop.emoji} ${drop.name}</span>.`);
     log(`${m.name} laisse tomber ${drop.emoji} ${drop.name}.`, "info");
@@ -906,6 +914,7 @@ function effMonster(m) {
     ...m,
     att: Math.max(1, m.att - (m.attDownTurns > 0 ? m.attDownDice || 0 : 0)),
     esq: m.esqHalfTurns > 0 ? Math.max(1, Math.floor(m.esq / 2)) : m.esq,
+    vue: Math.max(1, m.vue - (m.vueMalusTurns > 0 ? m.vueMalus || 0 : 0)),
   };
 }
 
@@ -948,6 +957,14 @@ function useBagItem(idx) {
     t.bag.splice(idx, 1);
     if (countActiveEffects(t) > 0) switchLeftTab("effects");
     updateFov();
+  } else if (item.kind === "scroll") {
+    if (!spendPA(COSTS.scroll)) return;
+    const res = readScroll(t, item, rollDice, log);
+    if (!res) return;
+    t.bag.splice(idx, 1);
+    if (res.zone) applyScrollZone(res.zone);
+    if (countActiveEffects(t) > 0) switchLeftTab("effects");
+    updateFov();
   } else if (item.kind === "gear") {
     if (!spendPA(COSTS.equip)) return;
     if (item.slot === "weapon") {
@@ -961,6 +978,31 @@ function useBagItem(idx) {
     log(`Tu t'équipes : ${item.emoji} ${item.name} (+${item.bonus}).`, "good");
   }
   afterAction();
+}
+
+/* Effet de zone d'un parchemin : touche tous les monstres à SCROLL_ZONE_RADIUS
+ * cases ou moins du troll (le lecteur a déjà subi sa part dans readScroll). */
+function applyScrollZone(zone) {
+  const t = G.troll;
+  const targets = G.monsters.filter(m =>
+    Math.max(Math.abs(m.x - t.x), Math.abs(m.y - t.y)) <= SCROLL_ZONE_RADIUS);
+  if (!targets.length) return;
+  if (zone.type === "damage") {
+    cdStart("💥 Effet de zone");
+    for (const m of targets) {
+      m.pv -= zone.total;
+      cdLine(`${m.emoji} ${m.name} subit <span class="cd-val">${zone.total} points de dégâts</span> (${zone.label}).`);
+      log(`💥 ${m.name} est pris dans l'explosion : −${zone.total} PV.`, "combat");
+      if (m.pv <= 0) killMonster(m, "scroll");
+    }
+    cdFlush();
+  } else if (zone.type === "vue") {
+    for (const m of targets) {
+      m.vueMalus = Math.max(m.vueMalus || 0, zone.malus);
+      m.vueMalusTurns = Math.max(m.vueMalusTurns || 0, zone.turns);
+      log(`🌶️ ${m.name} est aveuglé : VUE −${zone.malus} pendant ${zone.turns} tour(s).`, "good");
+    }
+  }
 }
 
 function descend() {
@@ -1010,7 +1052,7 @@ function passDLA() {
       continue;
     }
     const dist = Math.max(Math.abs(m.x - t.x), Math.abs(m.y - t.y));
-    const seesTroll = !t.camo && dist <= m.vue;
+    const seesTroll = !t.camo && dist <= effMonster(m).vue;
     if (dist <= 1 && !t.camo) {
       const eff = effMonster(m);
       const r = resolveAttack(eff, effTroll(t));
@@ -1037,6 +1079,7 @@ function passDLA() {
     // les statuts s'estompent à la fin de l'activation du monstre
     if (m.esqHalfTurns > 0) m.esqHalfTurns--;
     if (m.attDownTurns > 0 && --m.attDownTurns === 0) m.attDownDice = 0;
+    if (m.vueMalusTurns > 0 && --m.vueMalusTurns === 0) m.vueMalus = 0;
   }
 
   // Régénération (REG D3, comme à MountyHall) — bonus potions pris en compte
@@ -1051,7 +1094,8 @@ function passDLA() {
     log(`💤 Tour n°${t.tour} (DLA n°${t.dla}).`, "info");
   }
 
-  t.pa = Math.min(PA_PER_TURN + 3, PA_PER_TURN + dlaBonusPA);
+  // bonus/malus de PA (potions, parchemins) : entre 1 et PA_PER_TURN + 3
+  t.pa = Math.max(1, Math.min(PA_PER_TURN + 3, PA_PER_TURN + dlaBonusPA));
   t.compUsed = false;
   t.compPXTurn = false;
   t.sortPXTurn = false;
@@ -1150,7 +1194,8 @@ function render() {
   };
   for (const i of G.items) {
     if (!inSightAt(i.x, i.y)) continue;
-    disc(i.x, i.y, i.kind === "gold" ? "#caa53d" : i.kind === "potion" ? (i.color || "#5d8535") : "#7a8db0");
+    disc(i.x, i.y, i.kind === "gold" ? "#caa53d"
+      : i.kind === "potion" || i.kind === "scroll" ? (i.color || "#5d8535") : "#7a8db0");
     ctx.fillStyle = "#1a140e";
     ctx.fillText(i.emoji, i.x * TILE + TILE / 2, i.y * TILE + TILE / 2 + 1);
   }
@@ -1265,7 +1310,8 @@ function renderPanels() {
   if (t.bag.length === 0) inv.innerHTML = '<div class="empty">— vide —</div>';
   t.bag.forEach((item, idx) => {
     const b = document.createElement("button");
-    const action = item.kind === "potion" ? `boire (${COSTS.potion} PA)` : `équiper (${COSTS.equip} PA)`;
+    const action = item.kind === "potion" ? `boire (${COSTS.potion} PA)`
+      : item.kind === "scroll" ? `lire (${COSTS.scroll} PA)` : `équiper (${COSTS.equip} PA)`;
     b.textContent = `${item.emoji} ${item.name} — ${action}`;
     b.disabled = G.over;
     b.onclick = () => useBagItem(idx);

@@ -5,6 +5,7 @@ const assert = require("assert");
 require("../js/potions.js");
 const g = require("../js/game.js");
 const p = require("../js/potions.js");
+const sc = require("../js/scrolls.js");
 
 // Dés
 for (let i = 0; i < 200; i++) {
@@ -211,6 +212,47 @@ assert.strictEqual(p.corruptionYZ(3).y, 0);
   assert.strictEqual(p.effTroll(t).deg, 4, "Fertilité n'ajoute pas de dés de DEG");
   assert.strictEqual(p.effTroll(t).degFlat, 6, "Fertilité : DEG +6 fixe");
 }
+// Parchemins : effets via le système d'effets magiques, un seul jet par parchemin
+{
+  const fixedRoll = () => ({ total: 12, rolls: [4, 4, 4] });
+  const mk = () => ({ att: 3, esq: 3, deg: 3, reg: 1, vue: 3, armor: 0, armorDice: 0, degBonus: 0, pvMax: 30, pv: 20, potionEffects: [], blockCamoTurns: 0, tour: 1 });
+
+  const t1 = mk();
+  const r1 = sc.readScroll(t1, sc.makeScrollItem("runeCyclopes", 3), fixedRoll, () => {});
+  assert(r1 && !r1.zone, "Rune des Cyclopes : pas d'effet de zone");
+  const e1 = p.effTroll(t1);
+  assert.strictEqual(e1.attFlat, 12, "Rune des Cyclopes : ATT +3D3 fixé → +12");
+  assert.strictEqual(e1.degFlat, 3, "Rune des Cyclopes : DEG +3 fixe");
+  assert.strictEqual(e1.vue, 1, "Rune des Cyclopes : VUE 3 − 3 → min 1");
+
+  const t2 = mk();
+  sc.readScroll(t2, sc.makeScrollItem("ideesConfuses", 3), g.rollDice, () => {});
+  assert.strictEqual(p.sumPotionMods(t2.potionEffects).dlaBonusPA, -3, "Idées Confuses : −3 PA/tour");
+  assert(p.effTroll(t2).attFlat <= -3, "Idées Confuses : malus d'ATT");
+
+  const t3 = mk();
+  const r3 = sc.readScroll(t3, sc.makeScrollItem("runeExplosive", 2), fixedRoll, () => {});
+  assert.strictEqual(t3.pv, 8, "Rune Explosive : 20 − 12 PV");
+  assert(r3.zone && r3.zone.type === "damage" && r3.zone.total === 12, "Rune Explosive : zone de dégâts");
+
+  const t4 = mk();
+  const r4 = sc.readScroll(t4, sc.makeScrollItem("yeuKiPic", 2), g.rollDice, () => {});
+  assert(r4.zone && r4.zone.type === "vue" && r4.zone.malus === 6 && r4.zone.turns === 2, "Yeu'Ki'Pic : zone VUE −6, 2 tours");
+
+  const t5 = mk();
+  sc.readScroll(t5, sc.makeScrollItem("clairvoyance", 4), g.rollDice, () => {});
+  const e5 = p.effTroll(t5);
+  assert.strictEqual(e5.vue, 7, "Clairvoyance : VUE +4");
+  assert.strictEqual(e5.dlaBonusPA, 4, "Clairvoyance : +4 PA/tour");
+
+  // item aléatoire et via spec d'éditeur
+  const it = sc.makeRandomScroll();
+  assert.strictEqual(it.kind, "scroll");
+  assert(it.power >= 1 && it.power <= 5);
+  const fromSpec = g.itemFromSpec({ x: 1, y: 1, kind: "scroll" });
+  assert.strictEqual(fromSpec.kind, "scroll");
+}
+
 // Jet d'attaque : bonus potion ajouté au total des D6
 {
   const r = g.resolveAttack({ att: 3, attFlat: 12, deg: 2, degBonus: 0 }, { esq: 1 });
@@ -233,7 +275,7 @@ const goodLevel = {
   name: "Test", author: "perco", grid: goodGrid,
   start: { x: 1, y: 1 },
   monsters: [{ x: 2, y: 2, type: 0, tpl: 1 }],
-  items: [{ x: 3, y: 3, kind: "potion" }],
+  items: [{ x: 3, y: 3, kind: "potion" }, { x: 4, y: 3, kind: "scroll" }],
 };
 assert.strictEqual(srv.validateLevel(goodLevel), null);
 assert(srv.validateLevel({ ...goodLevel, name: "" }), "nom vide refusé");
