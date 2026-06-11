@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MountyCrawl — Le Monde Souterrain</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- Écran de création du troll -->
+<div id="screen-create" class="screen">
+  <div class="create-box">
+    <h1>🧌 MountyCrawl</h1>
+    <p class="subtitle">Le Monde Souterrain — hommage à MountyHall, la Terre des Trõlls</p>
+    <p class="lore">Au 24<sup>e</sup> cycle après Ragnarok, les Trõlls descendent dans le Monde Souterrain
+    en quête de monstres, de trésors et de gloire. Choisis ta race, jeune Trõllinet,
+    et pars affronter le Béhémoth qui rôde dans les profondeurs…</p>
+    <input type="text" id="troll-name" placeholder="Nom de ton Trõll" maxlength="20" value="Trõllinet">
+    <div id="race-list"></div>
+    <button id="btn-start" class="big-btn">⚔️ Descendre dans le Monde Souterrain</button>
+  </div>
+</div>
+
+<!-- Écran de jeu -->
+<div id="screen-game" class="screen hidden">
+  <header>
+    <h1>🧌 MountyCrawl</h1>
+    <div id="depth-label">Profondeur −1</div>
+  </header>
+  <div id="layout">
+    <aside id="panel-left">
+      <h2 id="troll-title"></h2>
+      <div id="stats"></div>
+      <h3>S'améliorer (PI)</h3>
+      <div id="improve"></div>
+    </aside>
+    <main id="panel-center">
+      <canvas id="map" width="672" height="480"></canvas>
+      <div id="pa-bar"></div>
+      <div id="actions"></div>
+    </main>
+    <aside id="panel-right">
+      <h3>Équipement</h3>
+      <div id="equipment"></div>
+      <h3>Sac</h3>
+      <div id="inventory"></div>
+      <h3>Aide</h3>
+      <div class="help">
+        <p>ZQSD / flèches : se déplacer (1 PA)</p>
+        <p>Marcher sur un ennemi : attaquer (3 PA)</p>
+        <p>Espace : passer la DLA</p>
+        <p>La DLA passée, les monstres agissent et tu régénères.</p>
+      </div>
+    </aside>
+  </div>
+  <div id="log"></div>
+</div>
+
+<!-- Écran de fin -->
+<div id="screen-end" class="screen hidden">
+  <div class="create-box">
+    <h1 id="end-title"></h1>
+    <p id="end-text" class="lore"></p>
+    <button id="btn-restart" class="big-btn">🍺 Retour à la Taverne (rejouer)</button>
+  </div>
+</div>
+
+<script src="js/game.js"></script>
+</body>
+</html>
