@@ -6,7 +6,12 @@ de trésors et de PX — jusqu'au Béhémoth qui rôde à la profondeur −5.
 
 100 % vanilla HTML/CSS/JS, aucune dépendance, aucun build. Ouvrir `index.html` et jouer.
 
-## Lancer le jeu
+## Jouer
+
+🎮 **https://mountycrawl.nas.percolouco.com** (déployé via Traefik, compose dans
+`/opt/container/mountycrawl`, image nginx:alpine construite depuis ce repo).
+
+En local sans docker :
 
 ```bash
 # Directement
@@ -15,6 +20,12 @@ xdg-open index.html
 # Ou via un petit serveur
 python3 -m http.server 8080
 # → http://localhost:8080
+```
+
+Après une modification, redéployer avec :
+
+```bash
+cd /opt/container/mountycrawl && docker compose up -d --build
 ```
 
 Paramètres d'URL pratiques : `index.html?autostart=1&race=Durakuir&name=Grosbill`
