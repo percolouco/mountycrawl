@@ -217,6 +217,80 @@ function makeWorld(over = {}) {
   assert(w.monsters.length === w.config.monsterTarget, "monstres régénérés");
 }
 
+// Identité côté serveur : mot de passe, login multi-appareils, unicité du nom
+{
+  const w = makeWorld();
+  const r = mp.newTroll(w, "Perco", "Durakuir", "tr0ll!");
+  assert(r.troll, "troll avec mot de passe créé");
+  assert(!("password" in r.troll), "le mot de passe en clair n'est pas stocké");
+  assert(r.troll.passHash && r.troll.passHash !== "tr0ll!", "hash stocké");
+  assert(mp.newTroll(w, "perco", "Skrim").error, "nom déjà pris (insensible à la casse)");
+  // login depuis « un autre appareil »
+  const l1 = mp.login(w, "Perco", "tr0ll!");
+  assert(l1.troll === r.troll, "login OK → même troll");
+  assert(mp.login(w, "Perco", "mauvais").error, "mauvais mot de passe refusé");
+  assert(mp.login(w, "Inconnu", "x").error, "troll inconnu refusé");
+  // troll sans mot de passe : pas de login possible
+  mp.newTroll(w, "SansPass", "Skrim");
+  assert(mp.login(w, "SansPass", "").error, "pas de login sans mot de passe");
+  // l'état ne fuit ni hash ni sel
+  const st = JSON.stringify(mp.stateFor(w, r.troll));
+  assert(!st.includes(r.troll.passHash) && !st.includes(r.troll.salt), "pas de fuite du hash/sel");
+}
+
+// Tuning admin : bestiaire appliqué aux nouveaux spawns
+{
+  const w = makeWorld({ monsterTarget: 0, itemTarget: 0, worldDepth: 1 });
+  mp.adminSetTuning(w, { monsters: { "Gobelin": { att: 9, pv: 77, armorMag: 3 } } });
+  // spawn forcé jusqu'à obtenir un Gobelin
+  let gob = null;
+  for (let i = 0; i < 300 && !gob; i++) {
+    const m = mp.spawnMonster(w);
+    if (m && m.name.includes("Gobelin")) gob = m;
+  }
+  assert(gob, "un Gobelin a fini par apparaître");
+  // gabarit « Jeune/normal » à depth 1 : mult 0.7 ou 1.0 → att 6 ou 9, pv 54 ou 77
+  assert([6, 9].includes(gob.att), "ATT tunée (×gabarit) : " + gob.att);
+  assert([54, 77].includes(gob.pv), "PV tunés (×gabarit) : " + gob.pv);
+  assert.strictEqual(gob.armorMag, 3, "armure magique tunée (gabarit ne la multiplie pas)");
+  // bornage et noms inconnus ignorés
+  mp.adminSetTuning(w, { monsters: { "Dragon": { att: 5 }, "Gobelin": { att: 5000 } } });
+  assert(!w.tuning.monsters.Dragon, "type inconnu ignoré");
+  assert.strictEqual(w.tuning.monsters.Gobelin.att, 99, "ATT bornée à 99");
+  // retour au vanilla
+  mp.adminSetTuning(w, { monsters: {} });
+  assert.strictEqual(Object.keys(w.tuning.monsters).length, 0, "bestiaire d'origine restauré");
+}
+
+// Tuning admin : puissance des potions/parchemins et bonus d'équipement
+{
+  const w = makeWorld({ monsterTarget: 0, itemTarget: 0 });
+  mp.adminSetTuning(w, {
+    potions: { guerison: [9, 9], nimporte: [1, 2] },
+    scrolls: { runeExplosive: [7, 3] }, // inversé : doit devenir [3, 7]
+    gear: { "arme/Gourdin": { deg: 12 }, "arme/Excalibur": { deg: 99 } },
+  });
+  assert(!w.tuning.potions.nimporte, "potion inconnue ignorée");
+  assert.deepStrictEqual(w.tuning.scrolls.runeExplosive, [3, 7], "fourchette remise dans l'ordre");
+  assert(!w.tuning.gear["arme/Excalibur"], "objet inconnu ignoré");
+  // la puissance tirée respecte l'override
+  for (let i = 0; i < 100; i++) {
+    const it = mp.tunedRandomPotion(w);
+    if (it.potionId === "guerison") assert.strictEqual(it.power, 9, "Guérison forcée à X=9");
+  }
+  // l'équipement tuné garde ses autres mods
+  const gearLib = require("../js/gear.js");
+  const club = mp.applyGearTuning(w, gearLib.gearItemByName("arme", "Gourdin"));
+  assert.strictEqual(club.mods.deg, 12, "DEG du Gourdin tuné");
+  assert.strictEqual(club.mods.att, 2, "ATT du Gourdin inchangée");
+  // les défauts pour l'admin sont complets
+  const defs = mp.adminDefaults();
+  assert.strictEqual(defs.potions.length, 25, "25 potions");
+  assert.strictEqual(defs.scrolls.length, 7, "7 parchemins");
+  assert(defs.gear.length >= 50, "tout l'équipement listé");
+  assert.strictEqual(defs.monsters.length, 8, "7 types + boss");
+}
+
 // Persistance : save + load
 {
   const os = require("os");

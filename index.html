@@ -145,6 +145,17 @@
       <button id="mp-leave" class="menu-btn">← Quitter</button>
     </div>
   </header>
+  <div id="mp-join" class="create-box hidden">
+    <h2>Rejoindre le Monde Souterrain</h2>
+    <p class="lore">Ton troll vit sur le serveur : avec un mot de passe, tu peux
+    le retrouver depuis n'importe quel appareil.</p>
+    <input type="text" id="mp-join-name" placeholder="Nom de ton Trõll" maxlength="20">
+    <input type="password" id="mp-join-pass" placeholder="Mot de passe (conseillé)" maxlength="50">
+    <p class="lore">Race choisie à l'accueil : <b id="mp-join-race"></b></p>
+    <button id="mp-join-create" class="big-btn">⚔️ Créer ce troll</button>
+    <button id="mp-join-login" class="big-btn">🔑 Retrouver mon troll</button>
+    <div id="mp-join-msg"></div>
+  </div>
   <div id="layout">
     <aside id="panel-left">
       <h2 id="mp-troll-title"></h2>

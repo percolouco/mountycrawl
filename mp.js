@@ -51,6 +51,63 @@ const CONFIG_BOUNDS = {
   maxTrolls: [1, 200], logSize: [20, 500],
 };
 
+/* ---------- Tuning : valeurs du bestiaire, de l'équipement et des trésors ----------
+ * world.tuning ne stocke que les écarts à la valeur de base (vanilla). Il
+ * s'applique aux nouveaux spawns/drops du monde partagé — le solo reste vanilla. */
+
+const MONSTER_TUNE_KEYS = ["level", "att", "esq", "deg", "pv", "armor", "armorMag", "vue"];
+const MONSTER_TUNE_BOUNDS = { level: [1, 99], att: [1, 99], esq: [1, 99], deg: [1, 99], pv: [1, 999], armor: [0, 99], armorMag: [0, 99], vue: [1, 30] };
+const GEAR_TUNE_KEYS = ["att", "esq", "deg", "reg", "arm", "vue", "pv", "rmPct", "mmPct"];
+const GEAR_TUNE_BOUNDS = [-100, 100];
+const POWER_BOUNDS = [0, 200];
+
+/* Fourchettes de puissance « niveau X » par défaut (Mountypedia). La Longue-Vue
+ * vanilla tire dans {1,2,3,5,8} : sans override on garde le tirage officiel. */
+const POTION_POWER_DEFAULTS = {
+  biskot: [0, 0], doverPowa: [11, 100], bonneBouffe: [3, 7], corruption: [3, 7],
+  fertilite: [3, 7], feu: [3, 7], longueVue: [1, 8], kouleMann: [1, 5],
+  djhinTonik: [1, 5], glacier: [3, 7], calvok: [2, 6], rhume: [1, 2],
+  grippe: [3, 4], pneumonie: [5, 5], cervelle: [2, 6], chronometre: [1, 5],
+  metomol: [1, 5], guerison: [1, 5], painture: [1, 5], pufPuff: [0, 2],
+  sangToh: [1, 5], sinneKhole: [11, 100], toxine: [1, 5], voiputrin: [1, 5],
+  zetCrak: [1, 5],
+};
+const SCROLL_POWER_DEFAULTS = Object.fromEntries(sc.SCROLL_IDS.map(id => [id, [1, 5]]));
+
+function emptyTuning() {
+  return { monsters: {}, gear: {}, potions: {}, scrolls: {} };
+}
+
+function randRange([min, max]) {
+  const lo = Math.min(min, max), hi = Math.max(min, max);
+  return lo + Math.floor(Math.random() * (hi - lo + 1));
+}
+
+/* Types de monstres avec le tuning admin appliqué (avant gabarit d'âge). */
+function tunedMonsterTypes(world) {
+  const tune = (world.tuning && world.tuning.monsters) || {};
+  return [...g.MONSTER_TYPES, g.BOSS].map(t => tune[t.name] ? { ...t, ...tune[t.name] } : t);
+}
+
+function tunedRandomPotion(world) {
+  const item = p.makeRandomPotion();
+  const range = (world.tuning && world.tuning.potions || {})[item.potionId];
+  return range ? p.makePotionItem(item.potionId, randRange(range)) : item;
+}
+
+function tunedRandomScroll(world) {
+  const item = sc.makeRandomScroll();
+  const range = (world.tuning && world.tuning.scrolls || {})[item.scrollId];
+  return range ? sc.makeScrollItem(item.scrollId, randRange(range)) : item;
+}
+
+function applyGearTuning(world, item) {
+  if (!item || item.kind !== "gear") return item;
+  const tune = (world.tuning && world.tuning.gear || {})[`${item.slot}/${item.name}`];
+  if (tune) item.mods = { ...item.mods, ...tune };
+  return item;
+}
+
 /* ---------- Création du monde ---------- */
 
 function randomFloor(world, taken = null) {
@@ -81,7 +138,16 @@ function monsterDlaMs(config) {
 function spawnMonster(world, now = Date.now()) {
   const pos = randomFloor(world);
   if (!pos) return null;
-  const m = g.makeMonster(world.config.worldDepth, pos.x, pos.y);
+  // même logique que makeMonster (pool par profondeur + gabarit d'âge),
+  // mais sur les types tunés par l'admin
+  const depth = world.config.worldDepth;
+  const types = tunedMonsterTypes(world).filter(t => !t.boss);
+  const pool = types.filter(t => t.level <= depth + 1 && t.level >= Math.max(1, depth - 2));
+  const list = pool.length ? pool : types;
+  const type = list[Math.floor(Math.random() * list.length)];
+  const tplMax = Math.min(g.TEMPLATES.length - 1, depth - 1);
+  const tpl = g.TEMPLATES[Math.floor(Math.random() * (tplMax + 1))];
+  const m = g.applyTemplate(type, tpl, pos.x, pos.y);
   m.id = world.nextId++;
   m.dlaMs = Math.round(monsterDlaMs(world.config));
   m.nextDla = now + m.dlaMs;
@@ -94,9 +160,9 @@ function spawnItem(world) {
   if (!pos) return null;
   const r = Math.random();
   const depth = world.config.worldDepth;
-  const item = r < 0.34 ? p.makeRandomPotion()
-    : r < 0.48 ? sc.makeRandomScroll()
-    : r < 0.78 ? gearLib.makeRandomGear(depth)
+  const item = r < 0.34 ? tunedRandomPotion(world)
+    : r < 0.48 ? tunedRandomScroll(world)
+    : r < 0.78 ? applyGearTuning(world, gearLib.makeRandomGear(depth))
     : { kind: "gold", gold: g.rollDice(depth, 6).total * 10, emoji: "💰" };
   if (item.kind === "gold") item.name = `${item.gold} Mountyzédons`;
   world.items.push({ ...item, x: pos.x, y: pos.y });
@@ -107,6 +173,7 @@ function createWorld(config = {}) {
   const cfg = { ...DEFAULT_CONFIG, ...config };
   const world = {
     config: cfg,
+    tuning: emptyTuning(),
     grid: g.generateCavern(cfg.mapW, cfg.mapH),
     trolls: {},
     monsters: [],
@@ -137,17 +204,28 @@ function privLog(troll, msg, cls = "info") {
 
 /* ---------- Trolls ---------- */
 
-function newTroll(world, name, race, now = Date.now()) {
+function hashPass(salt, password) {
+  return crypto.createHash("sha256").update(`${salt}:${password}`).digest("hex");
+}
+
+/* Le troll vit côté serveur : le mot de passe (optionnel mais conseillé)
+ * permet de le retrouver depuis n'importe quel appareil via login(). */
+function newTroll(world, name, race, password = "", now = Date.now()) {
   if (!g.RACES[race]) return { error: "race inconnue" };
   name = String(name || "").trim().slice(0, 20) || "Trõllinet";
+  password = String(password || "");
+  const taken = Object.values(world.trolls).some(t => t.name.toLowerCase() === name.toLowerCase());
+  if (taken) return { error: "ce nom de troll est déjà pris — choisis-en un autre ou retrouve ton troll avec ton mot de passe" };
   const living = Object.keys(world.trolls).length;
   if (living >= world.config.maxTrolls) return { error: "le Hall est plein (max atteint)" };
   const pos = randomFloor(world);
   if (!pos) return { error: "pas de place dans la caverne" };
+  const salt = crypto.randomBytes(8).toString("hex");
   const s = g.RACES[race].stats;
   const troll = {
     id: crypto.randomBytes(6).toString("hex"),
     secret: crypto.randomBytes(16).toString("hex"),
+    salt, passHash: password ? hashPass(salt, password) : null,
     name, race, x: pos.x, y: pos.y,
     att: s.att, esq: s.esq, deg: s.deg, reg: s.reg,
     pv: s.pvMax, pvMax: s.pvMax, vue: s.vue,
@@ -175,6 +253,18 @@ function authTroll(world, id, secret) {
   if (!t || t.secret !== secret) return null;
   t.lastSeen = Date.now();
   return t;
+}
+
+/* Retrouver son troll par nom + mot de passe (multi-appareils). */
+function login(world, name, password) {
+  name = String(name || "").trim().toLowerCase();
+  password = String(password || "");
+  const t = Object.values(world.trolls).find(t => t.name.toLowerCase() === name);
+  if (!t) return { error: "aucun troll de ce nom" };
+  if (!t.passHash) return { error: "ce troll n'a pas de mot de passe — il n'est accessible que depuis son navigateur d'origine" };
+  if (hashPass(t.salt, password) !== t.passHash) return { error: "mot de passe incorrect" };
+  t.lastSeen = Date.now();
+  return { troll: t };
 }
 
 const chebyshev = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
@@ -342,8 +432,8 @@ function killMonsterMP(world, t, m) {
   worldLog(world, `⚔️ ${t.name} a terrassé ${m.emoji} ${m.name} !`, "combat");
   if (Math.random() < 0.4 && !world.items.some(i => i.x === m.x && i.y === m.y)) {
     const lr = Math.random();
-    const drop = lr < 0.4 ? { ...p.makeRandomPotion(), x: m.x, y: m.y }
-      : lr < 0.65 ? { ...sc.makeRandomScroll(), x: m.x, y: m.y }
+    const drop = lr < 0.4 ? { ...tunedRandomPotion(world), x: m.x, y: m.y }
+      : lr < 0.65 ? { ...tunedRandomScroll(world), x: m.x, y: m.y }
       : { kind: "gold", gold: m.level * 10, name: `${m.level * 10} Mountyzédons`, emoji: "💰", x: m.x, y: m.y };
     world.items.push(drop);
     privLog(t, `${m.name} laisse tomber ${drop.emoji} ${drop.name}.`, "info");
@@ -725,6 +815,8 @@ function adminOverview(world, now = Date.now()) {
   return {
     config: world.config,
     bounds: CONFIG_BOUNDS,
+    tuning: world.tuning || emptyTuning(),
+    defaults: adminDefaults(),
     uptime: now - world.createdAt,
     trolls: Object.values(world.trolls).map(t => ({
       id: t.id, name: t.name, race: t.race, level: g.levelFromTotalPI(t.totalPI),
@@ -766,6 +858,85 @@ function adminSetConfig(world, patch, now = Date.now()) {
   return cfg;
 }
 
+/* Valeurs de base (vanilla) pour construire les formulaires de tuning admin. */
+function adminDefaults() {
+  return {
+    monsters: [...g.MONSTER_TYPES, g.BOSS].map(t => ({
+      name: t.name, emoji: t.emoji, boss: !!t.boss,
+      ...Object.fromEntries(MONSTER_TUNE_KEYS.map(k => [k, t[k] || 0])),
+    })),
+    monsterKeys: MONSTER_TUNE_KEYS,
+    gear: Object.entries(gearLib.GEAR).flatMap(([slot, list]) => list.map(def => ({
+      slot, name: def.name, emoji: def.emoji, twoHanded: !!def.twoHanded,
+      mods: Object.fromEntries(GEAR_TUNE_KEYS.map(k => [k, def.mods[k] || 0])),
+    }))),
+    gearKeys: GEAR_TUNE_KEYS,
+    potions: p.POTION_IDS.map(id => ({
+      id, name: p.POTION_DEFS[id].name, emoji: p.POTION_DEFS[id].emoji,
+      min: POTION_POWER_DEFAULTS[id][0], max: POTION_POWER_DEFAULTS[id][1],
+    })),
+    scrolls: sc.SCROLL_IDS.map(id => ({
+      id, name: sc.SCROLL_DEFS[id].name, emoji: sc.SCROLL_DEFS[id].emoji,
+      min: SCROLL_POWER_DEFAULTS[id][0], max: SCROLL_POWER_DEFAULTS[id][1],
+    })),
+  };
+}
+
+const clampInt = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(v)));
+
+/* Applique un patch de tuning : chaque catégorie fournie remplace l'existante
+ * (l'admin envoie l'ensemble de ses écarts). Tout est validé et borné. */
+function adminSetTuning(world, patch) {
+  world.tuning = world.tuning || emptyTuning();
+  const known = {
+    monsters: new Set([...g.MONSTER_TYPES, g.BOSS].map(t => t.name)),
+    gear: new Set(Object.entries(gearLib.GEAR).flatMap(([slot, list]) => list.map(d => `${slot}/${d.name}`))),
+    potions: new Set(p.POTION_IDS),
+    scrolls: new Set(sc.SCROLL_IDS),
+  };
+  if (patch.monsters && typeof patch.monsters === "object") {
+    const out = {};
+    for (const [name, vals] of Object.entries(patch.monsters)) {
+      if (!known.monsters.has(name) || typeof vals !== "object") continue;
+      const entry = {};
+      for (const k of MONSTER_TUNE_KEYS) {
+        const v = Number(vals[k]);
+        if (Number.isFinite(v)) entry[k] = clampInt(v, MONSTER_TUNE_BOUNDS[k][0], MONSTER_TUNE_BOUNDS[k][1]);
+      }
+      if (Object.keys(entry).length) out[name] = entry;
+    }
+    world.tuning.monsters = out;
+  }
+  if (patch.gear && typeof patch.gear === "object") {
+    const out = {};
+    for (const [key, mods] of Object.entries(patch.gear)) {
+      if (!known.gear.has(key) || typeof mods !== "object") continue;
+      const entry = {};
+      for (const k of GEAR_TUNE_KEYS) {
+        const v = Number(mods[k]);
+        if (Number.isFinite(v)) entry[k] = clampInt(v, GEAR_TUNE_BOUNDS[0], GEAR_TUNE_BOUNDS[1]);
+      }
+      if (Object.keys(entry).length) out[key] = entry;
+    }
+    world.tuning.gear = out;
+  }
+  for (const cat of ["potions", "scrolls"]) {
+    if (!patch[cat] || typeof patch[cat] !== "object") continue;
+    const out = {};
+    for (const [id, range] of Object.entries(patch[cat])) {
+      if (!known[cat].has(id) || !Array.isArray(range)) continue;
+      const lo = Number(range[0]), hi = Number(range[1]);
+      if (!Number.isFinite(lo) || !Number.isFinite(hi)) continue;
+      out[id] = [
+        clampInt(Math.min(lo, hi), POWER_BOUNDS[0], POWER_BOUNDS[1]),
+        clampInt(Math.max(lo, hi), POWER_BOUNDS[0], POWER_BOUNDS[1]),
+      ];
+    }
+    world.tuning[cat] = out;
+  }
+  return world.tuning;
+}
+
 /* Régénère le monde (carte, monstres, trésors) en conservant trolls et config ;
  * les trolls sont replacés. */
 function adminResetWorld(world) {
@@ -799,14 +970,16 @@ function loadWorld(file) {
     const world = JSON.parse(fs.readFileSync(file, "utf8"));
     if (!world || !world.grid || !world.trolls) return null;
     world.config = { ...DEFAULT_CONFIG, ...world.config };
+    world.tuning = { ...emptyTuning(), ...world.tuning };
     return world;
   } catch { return null; }
 }
 
 module.exports = {
   DEFAULT_CONFIG, CONFIG_BOUNDS,
-  createWorld, tick, newTroll, authTroll, action, stateFor,
-  adminOverview, adminSetConfig, adminResetWorld,
+  createWorld, tick, newTroll, authTroll, login, action, stateFor,
+  adminOverview, adminSetConfig, adminSetTuning, adminDefaults, adminResetWorld,
   saveWorld, loadWorld,
   spawnMonster, spawnItem, monsterAct, trollDla, worldLog,
+  tunedRandomPotion, tunedRandomScroll, applyGearTuning,
 };

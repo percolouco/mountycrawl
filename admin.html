@@ -16,6 +16,9 @@
   .admin-field input { width: 80px; padding: 3px; }
   .admin-table { width: 100%; border-collapse: collapse; font-size: 0.82em; }
   .admin-table th, .admin-table td { border: 1px solid #999; padding: 2px 6px; text-align: left; }
+  .admin-table input[type=number] { width: 52px; padding: 1px 2px; border: 1px solid #aaa; background: #fff; }
+  .admin-table input.tuned { background: #fff3b0; border-color: #c90; font-weight: bold; }
+  .tune-slot { margin: 10px 0 4px; font-weight: bold; }
   .admin-log { max-height: 220px; overflow-y: auto; font-size: 0.82em; }
   .admin-msg { font-weight: bold; margin: 8px 0; }
   #admin-login { max-width: 480px; margin: 60px auto; }
@@ -60,6 +63,37 @@
     <div class="admin-card" style="margin-top:16px">
       <h2>👺 Monstres</h2>
       <div id="admin-monsters"></div>
+    </div>
+
+    <div class="admin-card" style="margin-top:16px">
+      <h2>🐗 Tuning du bestiaire</h2>
+      <p><small>Valeurs de base par type (avant gabarit Jeune/Vieux/Ancien/Mythique).
+      Les cases <b>modifiées</b> (fond jaune) s'appliquent aux <b>prochains spawns</b> du monde
+      partagé — le solo reste vanilla. Vider/remettre la valeur d'origine pour annuler.</small></p>
+      <div id="tune-monsters"></div>
+      <button id="tune-monsters-save" class="big-btn">💾 Appliquer le bestiaire</button>
+      <button id="tune-monsters-reset" class="menu-btn">↩️ Tout remettre d'origine</button>
+    </div>
+
+    <div class="admin-card" style="margin-top:16px">
+      <h2>🧪 Tuning des potions &amp; parchemins</h2>
+      <p><small>Fourchette de puissance « niveau X » de chaque trésor (tirée au drop).
+      S'applique aux prochains drops du monde partagé.</small></p>
+      <div class="admin-grid">
+        <div><h3>Potions</h3><div id="tune-potions"></div></div>
+        <div><h3>Parchemins</h3><div id="tune-scrolls"></div></div>
+      </div>
+      <button id="tune-treasures-save" class="big-btn">💾 Appliquer les trésors</button>
+      <button id="tune-treasures-reset" class="menu-btn">↩️ Tout remettre d'origine</button>
+    </div>
+
+    <div class="admin-card" style="margin-top:16px">
+      <h2>⚔️ Tuning de l'équipement</h2>
+      <p><small>Bonus/malus de chaque objet (physiques, fixes sur les jets ; RM/MM en %).
+      S'applique aux prochains drops du monde partagé.</small></p>
+      <div id="tune-gear"></div>
+      <button id="tune-gear-save" class="big-btn">💾 Appliquer l'équipement</button>
+      <button id="tune-gear-reset" class="menu-btn">↩️ Tout remettre d'origine</button>
     </div>
   </div>
 </div>
@@ -140,9 +174,98 @@ function renderOverview(ov) {
     </tr>`).join("")}</table>`;
 }
 
+/* ---------- Tuning : bestiaire, trésors, équipement ---------- */
+
+const MONSTER_LABELS = { level: "Niv.", att: "ATT", esq: "ESQ", deg: "DEG", pv: "PV", armor: "Arm. phy", armorMag: "Arm. mag", vue: "VUE" };
+const GEAR_LABELS = { att: "ATT", esq: "ESQ", deg: "DEG", reg: "REG", arm: "Arm. phy", vue: "VUE", pv: "PV", rmPct: "RM %", mmPct: "MM %" };
+
+function tuneInput(cat, id, key, def, cur) {
+  const tuned = cur !== undefined && Number(cur) !== Number(def);
+  return `<input type="number" class="${tuned ? "tuned" : ""}" data-cat="${cat}" data-id="${id}" data-key="${key}" data-def="${def}" value="${cur !== undefined ? cur : def}">`;
+}
+
+function markTuned(e) {
+  if (e.target.dataset.def === undefined) return;
+  e.target.classList.toggle("tuned", Number(e.target.value) !== Number(e.target.dataset.def));
+}
+
+function renderTuning(defaults, tuning) {
+  const mKeys = defaults.monsterKeys;
+  document.getElementById("tune-monsters").innerHTML = `<table class="admin-table">
+    <tr><th>Type</th>${mKeys.map(k => `<th>${MONSTER_LABELS[k]}</th>`).join("")}</tr>
+    ${defaults.monsters.map(m => `<tr><td>${m.emoji} ${m.name}${m.boss ? " (boss)" : ""}</td>` +
+      mKeys.map(k => `<td>${tuneInput("monsters", m.name, k, m[k], (tuning.monsters[m.name] || {})[k])}</td>`).join("") +
+    `</tr>`).join("")}</table>`;
+
+  const treasureTable = (cat, list) => `<table class="admin-table">
+    <tr><th>Trésor</th><th>X min</th><th>X max</th></tr>
+    ${list.map(t => {
+      const cur = tuning[cat][t.id] || [];
+      return `<tr><td>${t.emoji} ${t.name}</td>
+        <td>${tuneInput(cat, t.id, "min", t.min, cur[0])}</td>
+        <td>${tuneInput(cat, t.id, "max", t.max, cur[1])}</td></tr>`;
+    }).join("")}</table>`;
+  document.getElementById("tune-potions").innerHTML = treasureTable("potions", defaults.potions);
+  document.getElementById("tune-scrolls").innerHTML = treasureTable("scrolls", defaults.scrolls);
+
+  const slots = {};
+  for (const it of defaults.gear) (slots[it.slot] = slots[it.slot] || []).push(it);
+  document.getElementById("tune-gear").innerHTML = Object.entries(slots).map(([slot, list]) => `
+    <div class="tune-slot">${slot.charAt(0).toUpperCase() + slot.slice(1)}s</div>
+    <table class="admin-table">
+      <tr><th>Objet</th>${defaults.gearKeys.map(k => `<th>${GEAR_LABELS[k]}</th>`).join("")}</tr>
+      ${list.map(it => {
+        const id = `${it.slot}/${it.name}`;
+        const cur = tuning.gear[id] || {};
+        return `<tr><td>${it.emoji} ${it.name}${it.twoHanded ? " (2 mains)" : ""}</td>` +
+          defaults.gearKeys.map(k => `<td>${tuneInput("gear", id, k, it.mods[k], cur[k])}</td>`).join("") + `</tr>`;
+      }).join("")}</table>`).join("");
+
+  for (const input of document.querySelectorAll("#tune-monsters input, #tune-potions input, #tune-scrolls input, #tune-gear input")) {
+    input.addEventListener("input", markTuned);
+  }
+}
+
+/* Collecte les écarts à la valeur d'origine d'une catégorie. */
+function collectTuning(cat) {
+  const out = {};
+  for (const input of document.querySelectorAll(`input[data-cat="${cat}"]`)) {
+    const v = Number(input.value), def = Number(input.dataset.def);
+    if (!Number.isFinite(v) || v === def) continue;
+    const id = input.dataset.id, key = input.dataset.key;
+    (out[id] = out[id] || {})[key] = v;
+  }
+  return out;
+}
+
+/* Potions/parchemins : chaque entrée doit devenir [min, max] complet. */
+function collectTreasureTuning(cat, defaults) {
+  const deltas = collectTuning(cat);
+  const out = {};
+  for (const [id, vals] of Object.entries(deltas)) {
+    const def = defaults.find(t => t.id === id);
+    out[id] = [vals.min !== undefined ? vals.min : def.min, vals.max !== undefined ? vals.max : def.max];
+  }
+  return out;
+}
+
+async function saveTuning(patch, label) {
+  try {
+    await api("PUT", "api/mp/admin/tuning", patch);
+    $("admin-msg").textContent = `✅ ${label} appliqué à chaud.`;
+    await refresh(true);
+  } catch (e) { $("admin-msg").textContent = "⚠️ " + e.message; }
+}
+
+let LAST_OV = null;
+
 async function refresh(withForm = false) {
   const ov = await api("GET", "api/mp/admin");
-  if (withForm) renderForm(ov.config, ov.bounds);
+  LAST_OV = ov;
+  if (withForm) {
+    renderForm(ov.config, ov.bounds);
+    renderTuning(ov.defaults, ov.tuning);
+  }
   renderOverview(ov);
 }
 
@@ -172,6 +295,15 @@ document.addEventListener("DOMContentLoaded", () => {
       await refresh(true);
     } catch (e) { $("admin-msg").textContent = "⚠️ " + e.message; }
   };
+  $("tune-monsters-save").onclick = () => saveTuning({ monsters: collectTuning("monsters") }, "Bestiaire");
+  $("tune-monsters-reset").onclick = () => saveTuning({ monsters: {} }, "Bestiaire d'origine");
+  $("tune-treasures-save").onclick = () => saveTuning({
+    potions: collectTreasureTuning("potions", LAST_OV.defaults.potions),
+    scrolls: collectTreasureTuning("scrolls", LAST_OV.defaults.scrolls),
+  }, "Trésors");
+  $("tune-treasures-reset").onclick = () => saveTuning({ potions: {}, scrolls: {} }, "Trésors d'origine");
+  $("tune-gear-save").onclick = () => saveTuning({ gear: collectTuning("gear") }, "Équipement");
+  $("tune-gear-reset").onclick = () => saveTuning({ gear: {} }, "Équipement d'origine");
   $("admin-reset").onclick = async () => {
     if (!confirm("Régénérer la carte, les monstres et les trésors ? (les trolls sont conservés et replacés)")) return;
     try {

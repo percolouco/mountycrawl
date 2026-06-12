@@ -161,10 +161,21 @@ function handleMP(req, res, url) {
 
   if (req.method === "POST" && url.pathname === "/api/mp/join") {
     return readBody(req, res, body => {
-      const r = mp.newTroll(WORLD, body.name, body.race);
+      const r = mp.newTroll(WORLD, body.name, body.race, body.password);
       if (r.error) return sendJSON(res, 400, { error: r.error });
       worldDirty = true;
       return sendJSON(res, 201, {
+        id: r.troll.id, secret: r.troll.secret,
+        state: mp.stateFor(WORLD, r.troll),
+      });
+    });
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/mp/login") {
+    return readBody(req, res, body => {
+      const r = mp.login(WORLD, body.name, body.password);
+      if (r.error) return sendJSON(res, 403, { error: r.error });
+      return sendJSON(res, 200, {
         id: r.troll.id, secret: r.troll.secret,
         state: mp.stateFor(WORLD, r.troll),
       });
@@ -209,6 +220,14 @@ function handleMP(req, res, url) {
         worldDirty = true;
         mp.worldLog(WORLD, "⚙️ Les Dieux Trõlls ont ajusté les lois du monde.");
         return sendJSON(res, 200, cfg);
+      });
+    }
+    if (req.method === "PUT" && url.pathname === "/api/mp/admin/tuning") {
+      return readBody(req, res, body => {
+        const tuning = mp.adminSetTuning(WORLD, body);
+        worldDirty = true;
+        mp.worldLog(WORLD, "⚗️ Les Dieux Trõlls ont retouché bêtes et trésors.");
+        return sendJSON(res, 200, tuning);
       });
     }
     if (req.method === "POST" && url.pathname === "/api/mp/admin/reset") {

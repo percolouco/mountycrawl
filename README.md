@@ -117,8 +117,12 @@ commun à tous les joueurs, autoritaire côté serveur (`mp.js`) :
   sortilège de race, potions, parchemins, équipement, entraînement en PI.
 - **À MountyHall on ne meurt jamais vraiment** : un troll terrassé réapparaît
   après un délai paramétrable, PV pleins, en conservant tout son avoir.
-- L'identité du troll (id + clé secrète) est gardée par le navigateur
-  (localStorage) : on retrouve son personnage d'une session à l'autre.
+- **Connexion multi-appareils** : le troll vit côté serveur. À la création on
+  choisit un mot de passe (conseillé) ; « 🔑 Retrouver mon troll » permet ensuite
+  de le récupérer depuis n'importe quel appareil avec nom + mot de passe (les
+  noms sont uniques, le mot de passe est stocké hashé+salé). Sans mot de passe,
+  l'identité (id + clé secrète) reste gardée par le navigateur d'origine
+  (localStorage), comme avant.
 - Le client se rafraîchit par **polling** (intervalle conseillé par le serveur,
   paramétrable) ; les autres trolls visibles apparaissent en bleu avec leur nom,
   les camouflés sont invisibles.
@@ -137,15 +141,31 @@ de trolls. Plus : vue d'ensemble (trolls avec dernière activité, monstres avec
 leur DLA individuelle et leur prochaine action), derniers échos du monde, et
 bouton « Régénérer le monde » (trolls conservés et replacés).
 
+L'admin peut aussi **retoucher les règles du monde partagé**, à chaud (les
+nouveaux spawns/drops utilisent les valeurs retouchées ; le solo reste vanilla) :
+
+- **Tuning du bestiaire** : tableau éditable par type de monstre (niveau, ATT,
+  ESQ, DEG, PV, armure physique/magique, VUE) — valeurs de base, avant gabarit
+  d'âge (Jeune/Vieux/Ancien/Mythique).
+- **Tuning de l'équipement** : les 55 objets avec tous leurs bonus modifiables
+  (ATT/ESQ/DEG/REG/armure/VUE/PV fixes, RM/MM en %).
+- **Tuning des potions & parchemins** : fourchette de puissance « niveau X »
+  (min/max) tirée à chaque drop, par trésor.
+
+Les cases modifiées sont surlignées ; seuls les écarts au vanilla sont stockés
+(`world.tuning`), et chaque catégorie se remet d'origine d'un clic.
+
 ### API multijoueur
 
-- `POST /api/mp/join` `{name, race}` → `{id, secret, state}`
+- `POST /api/mp/join` `{name, race, password}` → `{id, secret, state}`
+- `POST /api/mp/login` `{name, password}` → `{id, secret, state}` (retrouver
+  son troll depuis un autre appareil)
 - `GET /api/mp/state?id=&secret=` → état visible (vue du troll)
 - `POST /api/mp/action` `{id, secret, action}` — `move`, `attack`, `comp`,
   `sort`, `pickup`, `use`, `train`
 - `GET /api/mp/info` → compteurs publics (trolls en ligne…)
-- `GET /api/mp/admin` · `PUT /api/mp/admin/config` · `POST /api/mp/admin/reset`
-  (header `X-Admin-Token`)
+- `GET /api/mp/admin` · `PUT /api/mp/admin/config` · `PUT /api/mp/admin/tuning`
+  · `POST /api/mp/admin/reset` (header `X-Admin-Token`)
 
 ## Éditeur de niveaux & partage
 
@@ -201,6 +221,18 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.1.0** (2026-06-12) — **Connexion multi-appareils** : à la création du troll
+  on choisit un mot de passe (stocké hashé+salé, jamais en clair) ; « 🔑 Retrouver
+  mon troll » (`POST /api/mp/login`) permet de récupérer son troll depuis
+  n'importe quel appareil avec nom + mot de passe. Les noms de troll deviennent
+  uniques (insensible à la casse). Structure prête pour une vraie inscription
+  plus tard. **Admin enrichie** (`PUT /api/mp/admin/tuning`, appliqué à chaud
+  aux nouveaux spawns/drops du monde partagé, solo vanilla) : bestiaire éditable
+  par type (niveau, ATT, ESQ, DEG, PV, armures phy/mag, VUE), les 55 objets
+  d'équipement avec tous leurs bonus modifiables, fourchette de puissance
+  « niveau X » min/max par potion et parchemin. Seuls les écarts au vanilla sont
+  stockés (`world.tuning`, persisté), cases modifiées surlignées, remise
+  d'origine par catégorie.
 - **2.0.0** (2026-06-12) — **Multijoueur** : monde souterrain partagé et persistant,
   autoritaire côté serveur (`mp.js`, node pur). Le monde vit en continu : chaque
   monstre agit à sa propre DLA paramétrable (fourchette min/max), erre ou attaque

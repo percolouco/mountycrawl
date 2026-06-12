@@ -29,11 +29,22 @@ function mpSaveIdentity(id, secret) {
 
 /* ---------- Réseau ---------- */
 
-async function mpJoin() {
-  const name = document.getElementById("troll-name").value.trim() || "Trõllinet";
+async function mpJoin(name, password) {
   const res = await fetch("api/mp/join", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, race: selectedRace }),
+    body: JSON.stringify({ name, race: selectedRace, password }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "connexion refusée");
+  MP.id = data.id; MP.secret = data.secret;
+  mpSaveIdentity(data.id, data.secret);
+  return data.state;
+}
+
+async function mpLogin(name, password) {
+  const res = await fetch("api/mp/login", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, password }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "connexion refusée");
@@ -74,6 +85,18 @@ function mpToast(msg) {
 
 /* ---------- Entrée / sortie de l'écran ---------- */
 
+function mpShowJoin(show) {
+  document.getElementById("mp-join").classList.toggle("hidden", !show);
+  // #layout et #bottom-row existent aussi dans l'écran solo : on scope au multi
+  document.querySelector("#screen-mp #layout").classList.toggle("hidden", show);
+  document.querySelector("#screen-mp #bottom-row").classList.toggle("hidden", show);
+  if (show) {
+    document.getElementById("mp-join-name").value = document.getElementById("troll-name").value.trim() || "Trõllinet";
+    document.getElementById("mp-join-race").textContent = `${RACES[selectedRace].emoji} ${selectedRace}`;
+    document.getElementById("mp-join-msg").textContent = "";
+  }
+}
+
 async function mpEnter() {
   document.getElementById("screen-create").classList.add("hidden");
   document.getElementById("screen-mp").classList.remove("hidden");
@@ -84,12 +107,29 @@ async function mpEnter() {
       MP.id = saved.id; MP.secret = saved.secret;
       MP.state = await mpFetchState();
     }
-    if (!MP.state) MP.state = await mpJoin();
+    if (!MP.state) { mpShowJoin(true); return; } // pas d'identité valable : créer ou retrouver
+    mpShowJoin(false);
     mpRender();
     mpSchedule();
   } catch (e) {
     mpToast(e.message || "connexion impossible");
     setTimeout(mpLeave, 2500);
+  }
+}
+
+/* Création ou reconnexion depuis le panneau « Rejoindre ». */
+async function mpJoinSubmit(isLogin) {
+  const name = document.getElementById("mp-join-name").value.trim() || "Trõllinet";
+  const password = document.getElementById("mp-join-pass").value;
+  const msg = document.getElementById("mp-join-msg");
+  try {
+    MP.state = isLogin ? await mpLogin(name, password) : await mpJoin(name, password);
+    MP.seen = new Set();
+    mpShowJoin(false);
+    mpRender();
+    mpSchedule();
+  } catch (e) {
+    msg.textContent = `⚠️ ${e.message}`;
   }
 }
 
@@ -106,12 +146,13 @@ function mpSchedule() {
     if (document.getElementById("screen-mp").classList.contains("hidden")) return;
     try {
       const st = await mpFetchState();
-      if (!st) { // identité refusée : on retente une création
+      if (!st) { // identité refusée (reset serveur ?) : repasser par le panneau
         localStorage.removeItem(MP_KEY);
-        MP.state = await mpJoin();
-      } else {
-        MP.state = st;
+        MP.state = null;
+        mpShowJoin(true);
+        return;
       }
+      MP.state = st;
       mpRender();
     } catch { /* on retentera au prochain tour */ }
     mpSchedule();
@@ -316,6 +357,8 @@ if (typeof document !== "undefined") {
     const btn = document.getElementById("btn-mp");
     if (btn) btn.onclick = mpEnter;
     document.getElementById("mp-leave").onclick = mpLeave;
+    document.getElementById("mp-join-create").onclick = () => mpJoinSubmit(false);
+    document.getElementById("mp-join-login").onclick = () => mpJoinSubmit(true);
 
     document.addEventListener("keydown", e => {
       if (document.getElementById("screen-mp").classList.contains("hidden")) return;
