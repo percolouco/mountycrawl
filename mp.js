@@ -716,6 +716,36 @@ function action(world, t, act) {
     return { ok: true };
   }
 
+  if (act.type === "unequip") {
+    if (!t.equip[act.slot]) return { error: "rien d'équipé à cet emplacement" };
+    if (!spendPA(t, g.COSTS.unequip)) return { error: "pas assez de PA" };
+    g.unequipToBag(t, act.slot, (msg, cls) => privLog(t, msg, cls));
+    t.gearMods = gearLib.gearMods(t.equip);
+    return { ok: true };
+  }
+
+  if (act.type === "eat") {
+    const item = t.bag[act.idx];
+    if (!item || item.kind !== "gear") return { error: "seul l'équipement se goinfre" };
+    if (!spendPA(t, g.COSTS.eat)) return { error: "pas assez de PA" };
+    t.bag.splice(act.idx, 1);
+    const r = p.goinfreItem(t, g.rollDice);
+    privLog(t, `🍴 Tu goinfres ${item.emoji} ${item.name} : « ${r.cry} » ${r.effect}.`, "good");
+    privLog(t, r.flavor, "info");
+    return { ok: true };
+  }
+
+  if (act.type === "drop") {
+    const item = t.bag[act.idx];
+    if (!item) return { error: "objet introuvable dans le sac" };
+    if (world.items.some(i => i.x === t.x && i.y === t.y)) return { error: "il y a déjà quelque chose à terre ici" };
+    if (!spendPA(t, g.COSTS.drop)) return { error: "pas assez de PA" };
+    t.bag.splice(act.idx, 1);
+    world.items.push({ ...item, x: t.x, y: t.y });
+    privLog(t, `Tu jettes ${item.emoji} ${item.name} à terre.`, "info");
+    return { ok: true };
+  }
+
   if (act.type === "train") {
     const stat = act.stat;
     if (!["att", "esq", "deg", "reg", "pv", "vue", "armor"].includes(stat)) return { error: "caractéristique inconnue" };

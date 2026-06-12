@@ -319,6 +319,55 @@ function makeWorld(over = {}) {
   assert(!mp.newTroll(w, "Banni", "Skrim").error, "son nom redevient libre");
 }
 
+// Sac : déséquiper, goinfrer, jeter
+{
+  const gearLib = require("../js/gear.js");
+  const w = makeWorld({ monsterTarget: 0, itemTarget: 0 });
+  const { troll: t } = mp.newTroll(w, "Sakatrõll", "Durakuir");
+  t.pa = 6;
+  const armure = gearLib.gearItemByName("armure", "Armure de bois"); // arm +6, pv +15
+  t.bag.push(armure);
+  // équiper puis déséquiper : l'objet revient au sac, PV max restaurés
+  const basePvMax = t.pvMax;
+  mp.action(w, t, { type: "use", idx: 0 });
+  assert.strictEqual(t.pvMax, basePvMax + 15, "PV max d'équipement appliqués");
+  assert(t.equip.armure, "armure équipée");
+  let r = mp.action(w, t, { type: "unequip", slot: "armure" });
+  assert(r.ok, "déséquipement accepté");
+  assert(!t.equip.armure, "emplacement vidé");
+  assert.strictEqual(t.bag.length, 1, "l'objet est revenu dans le sac");
+  assert.strictEqual(t.pvMax, basePvMax, "PV max restaurés");
+  assert.strictEqual(t.gearMods.arm, 0, "modificateurs recalculés");
+  assert(mp.action(w, t, { type: "unequip", slot: "casque" }).error, "emplacement vide refusé");
+  // jeter : l'objet se retrouve au sol sur la case du troll
+  r = mp.action(w, t, { type: "drop", idx: 0 });
+  assert(r.ok, "jet accepté");
+  assert.strictEqual(t.bag.length, 0, "sac vidé");
+  const ground = w.items.find(i => i.x === t.x && i.y === t.y);
+  assert(ground && ground.name === "Armure de bois", "l'objet est à terre");
+  // case occupée : on ne peut pas jeter par-dessus
+  t.bag.push(gearLib.gearItemByName("arme", "Torche"));
+  assert(mp.action(w, t, { type: "drop", idx: 0 }).error, "case occupée refusée");
+  // on peut le re-ramasser
+  r = mp.action(w, t, { type: "pickup" });
+  assert(r.ok && t.bag.some(i => i.name === "Armure de bois"), "objet re-ramassé");
+  // goinfrer : objet détruit, un des trois effets appliqué
+  t.pa = 6;
+  t.pv = 1; // pour voir un éventuel soin MIAM
+  const before = t.bag.length;
+  const idxTorche = t.bag.findIndex(i => i.name === "Torche");
+  r = mp.action(w, t, { type: "eat", idx: idxTorche });
+  assert(r.ok, "goinfre accepté");
+  assert.strictEqual(t.bag.length, before - 1, "objet détruit");
+  const fed = t.pv > 1 || (t.potionEffects || []).some(e => e.name.includes("Goinfre"));
+  assert(fed, "un effet MIAM/CLONK/GRRROUAR s'est appliqué");
+  const lastLogs = t.privLog.slice(-2).map(l => l.msg).join(" ");
+  assert(/MIAM|CLONK|GRRROUAR/.test(lastLogs), "cri du goinfre dans le rapport");
+  // on ne goinfre pas une potion
+  t.bag.push(require("../js/potions.js").makePotionItem("guerison", 3));
+  assert(mp.action(w, t, { type: "eat", idx: t.bag.length - 1 }).error, "potion non goinfrable");
+}
+
 // Base de référence : les retouches survivent au redémarrage (seed non destructif)
 {
   const os = require("os");

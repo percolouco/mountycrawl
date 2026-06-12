@@ -316,25 +316,27 @@ function mpRenderPanels(st) {
   const onItem = st.items.some(i => i.x === you.x && i.y === you.y);
   addBtn(`🖐️ Ramasser (1 PA)`, () => mpAction({ type: "pickup" }), onItem && you.pa >= 1);
 
-  document.getElementById("mp-equipment").innerHTML = Object.entries(GEAR_SLOTS).map(([slot, info]) => {
+  const equipEl = document.getElementById("mp-equipment");
+  equipEl.innerHTML = Object.entries(GEAR_SLOTS).map(([slot, info]) => {
     const it = you.equip[slot];
     if (!it) return `<div class="eq-line"><span class="eq-slot">${info.label}</span> —</div>`;
     const fxs = formatGearMods(it.mods);
-    return `<div class="eq-line"><span class="eq-slot">${info.label}</span> ${it.emoji} ${it.name}` +
-      `${it.twoHanded ? " <small>(2 mains)</small>" : ""}${fxs ? `<div class="eq-mods">${fxs}</div>` : ""}</div>`;
+    return `<div class="eq-line"><span class="eq-slot">${info.label}</span> ${it.emoji} ${esc(it.name)}` +
+      `${it.twoHanded ? " <small>(2 mains)</small>" : ""}` +
+      ` <button class="unequip-btn" data-slot="${slot}" title="Déséquiper (${COSTS.unequip} PA) : revient dans le sac">↩️</button>` +
+      `${fxs ? `<div class="eq-mods">${fxs}</div>` : ""}</div>`;
   }).join("");
+  for (const b of equipEl.querySelectorAll(".unequip-btn")) {
+    b.disabled = you.dead || you.pa < COSTS.unequip;
+    b.onclick = () => mpAction({ type: "unequip", slot: b.dataset.slot });
+  }
 
-  const inv = document.getElementById("mp-inventory");
-  inv.innerHTML = "";
-  if (!you.bag.length) inv.innerHTML = '<div class="empty">— vide —</div>';
-  you.bag.forEach((item, idx) => {
-    const b = document.createElement("button");
-    const action = item.kind === "potion" ? "boire (1 PA)" : item.kind === "scroll" ? "lire (1 PA)" : "équiper (2 PA)";
-    b.textContent = `${item.emoji} ${item.name} — ${action}`;
-    if (item.kind === "gear") b.title = formatGearMods(item.mods) + (item.twoHanded ? " · 2 mains" : "");
-    b.disabled = you.dead;
-    b.onclick = () => mpAction({ type: "use", idx });
-    inv.appendChild(b);
+  renderBag(document.getElementById("mp-inventory"), you.bag, {
+    disabled: you.dead,
+    pa: you.pa,
+    onUse: idx => mpAction({ type: "use", idx }),
+    onEat: idx => mpAction({ type: "eat", idx }),
+    onDrop: idx => mpAction({ type: "drop", idx }),
   });
 }
 

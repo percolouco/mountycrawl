@@ -238,7 +238,8 @@ header h1 { font-size: 1.3em; color: #FFFFCC; text-shadow: 1px 1px 2px #000; }
 .hp-bar.high { background: #008040; }
 .hp-bar.mid { background: #CC9900; }
 
-#improve button, #inventory button, #actions button {
+#improve button, #inventory button, #actions button,
+#mp-improve button, #mp-inventory button, #mp-actions button {
   display: block;
   width: 100%;
   margin: 4px 0;
@@ -258,11 +259,18 @@ header h1 { font-size: 1.3em; color: #FFFFCC; text-shadow: 1px 1px 2px #000; }
 }
 #improve button:hover:not(:disabled),
 #inventory button:hover:not(:disabled),
-#actions button:hover:not(:disabled) { background: #7a7a3d; }
+#actions button:hover:not(:disabled),
+#mp-improve button:hover:not(:disabled),
+#mp-inventory button:hover:not(:disabled),
+#mp-actions button:hover:not(:disabled) { background: #7a7a3d; }
 #improve button:active:not(:disabled),
 #inventory button:active:not(:disabled),
-#actions button:active:not(:disabled) { border-style: inset; }
-#improve button:disabled, #inventory button:disabled, #actions button:disabled {
+#actions button:active:not(:disabled),
+#mp-improve button:active:not(:disabled),
+#mp-inventory button:active:not(:disabled),
+#mp-actions button:active:not(:disabled) { border-style: inset; }
+#improve button:disabled, #inventory button:disabled, #actions button:disabled,
+#mp-improve button:disabled, #mp-inventory button:disabled, #mp-actions button:disabled {
   opacity: .45; cursor: default;
 }
 
@@ -284,7 +292,7 @@ header h1 { font-size: 1.3em; color: #FFFFCC; text-shadow: 1px 1px 2px #000; }
   gap: 6px;
   justify-content: center;
 }
-#actions button { width: auto; display: inline-block; }
+#actions button, #mp-actions button { width: auto; display: inline-block; }
 
 .help p { font-size: .8em; color: #666633; margin: 3px 0; }
 
@@ -588,6 +596,35 @@ header h1 { font-size: 1.3em; color: #FFFFCC; text-shadow: 1px 1px 2px #000; }
 }
 .tz-good { color: #008040; }
 .tz-bad { color: #990000; }
+
+/* ---------- Sac groupé par type + actions par objet ---------- */
+.bag-group {
+  font-weight: bold;
+  color: #333300;
+  border-bottom: 1px solid #666633;
+  margin: 8px 0 3px;
+  font-size: .85em;
+}
+.bag-item { padding: 3px 0 5px; border-bottom: 1px dotted #99996a; }
+.bag-name { font-size: .9em; color: #000000; }
+.bag-item .eq-mods { margin-left: 0; }
+.bag-actions { display: flex; gap: 4px; margin-top: 3px; }
+#inventory .bag-actions button, #mp-inventory .bag-actions button {
+  display: inline-block;
+  width: auto;
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 3px 6px;
+  font-size: .78em;
+}
+.unequip-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: .85em;
+  padding: 0 2px;
+}
+.unequip-btn:disabled { opacity: .35; cursor: default; }
 
 /* ---------- Équipement 6 emplacements ---------- */
 .eq-line { margin-bottom: 6px; line-height: 1.3; }

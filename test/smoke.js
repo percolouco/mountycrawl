@@ -400,6 +400,43 @@ assert.strictEqual(g.itemFromSpec({ x: 1, y: 1, kind: "armor", idx: 0 }).name, "
   }
 }
 
+// Goinfre : les trois issues existent, X borné 1-3, effets temporaires posés
+{
+  const counts = { MIAM: 0, CLONK: 0, GRRROUAR: 0 };
+  for (let i = 0; i < 300; i++) {
+    const t = { pv: 10, pvMax: 100, potionEffects: [] };
+    const r = p.goinfreItem(t, g.rollDice);
+    counts[r.cry]++;
+    if (r.cry === "MIAM") {
+      assert(t.pv > 10 && t.pv <= 10 + 9, "MIAM soigne entre 1 et 3D3");
+    } else {
+      const fx = t.potionEffects[0];
+      assert(fx && fx.turnsLeft >= 1 && fx.turnsLeft <= 3, "effet de 1 à 3 tours");
+      if (r.cry === "CLONK") assert(fx.armor >= 1 && fx.armor <= 3, "CLONK : armure +1 à +3");
+      if (r.cry === "GRRROUAR") assert(fx.degFlat >= 1 && fx.degFlat <= 3, "GRRROUAR : DEG +1 à +3");
+    }
+  }
+  assert(counts.MIAM && counts.CLONK && counts.GRRROUAR, "les trois cris sortent : " + JSON.stringify(counts));
+}
+
+// Déséquiper : retour au sac, PV max et modificateurs recalculés
+{
+  const gearLib = require("../js/gear.js");
+  const t = { att: 3, esq: 3, deg: 3, reg: 1, vue: 3, armor: 0, armorDice: 0, degBonus: 0, pvMax: 30, pv: 30,
+    potionEffects: [], blockCamoTurns: 0, tour: 1, bag: [],
+    equip: { arme: null, armure: null, casque: null, bouclier: null, talisman: null, bottes: null }, gearMods: null };
+  g.equipGear(t, gearLib.gearItemByName("armure", "Armure de bois")); // arm +6, pv +15
+  assert.strictEqual(t.pvMax, 45, "PV max +15");
+  t.pv = 45;
+  const old = g.unequipToBag(t, "armure", () => {});
+  t.gearMods = gearLib.gearMods(t.equip);
+  assert.strictEqual(old.name, "Armure de bois", "pièce retirée");
+  assert.strictEqual(t.bag.length, 1, "revenue au sac");
+  assert.strictEqual(t.pvMax, 30, "PV max restaurés");
+  assert.strictEqual(t.pv, 30, "PV bornés au nouveau max");
+  assert.strictEqual(t.gearMods.arm, 0, "modificateurs recalculés");
+}
+
 // Validation serveur des niveaux
 const srv = require("../server.js");
 const goodGrid = [];

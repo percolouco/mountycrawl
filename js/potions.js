@@ -488,6 +488,37 @@ function makePotionItem(potionId, power) {
   return formatPotionItem(potionId, power != null ? power : def.rollPower());
 }
 
+/* « Goinfrer » : le troll dévore une pièce d'équipement (détruite) et en tire
+ * un petit bénéfice aléatoire, X = 1 à 3 :
+ *   « MIAM »     +X D3 PV immédiats
+ *   « CLONK »    +X en armure pendant X tours
+ *   « GRRROUAR » +X en dégâts pendant X tours */
+function goinfreItem(troll, rollDice) {
+  const x = 1 + Math.floor(Math.random() * 3);
+  const r = Math.random();
+  troll.potionEffects = troll.potionEffects || [];
+  if (r < 1 / 3) {
+    const heal = rollDice(x, 3).total;
+    troll.pv = Math.min(troll.pvMax, troll.pv + heal);
+    return {
+      cry: "MIAM", effect: `+${x}D3 points de vie (+${heal} PV)`,
+      flavor: "Excellent ce petit en-cas. Foi de Troll, il y avait longtemps que je n'avais aussi bien mangé.",
+    };
+  }
+  if (r < 2 / 3) {
+    troll.potionEffects.push(makeEffect("Goinfre « CLONK »", "🦷", x, { armor: x }, [`Armure +${x}`]));
+    return {
+      cry: "CLONK", effect: `+${x} en armure pendant ${x} tour(s)`,
+      flavor: "Un peu dur mais cela renforce les dents. Ce qui ne nous tue pas nous rend plus fort.",
+    };
+  }
+  troll.potionEffects.push(makeEffect("Goinfre « GRRROUAR »", "🍴", x, { degFlat: x }, [`DEG +${x}`]));
+  return {
+    cry: "GRRROUAR", effect: `+${x} en dégâts pendant ${x} tour(s)`,
+    flavor: "Il faut que je mange encore quelque chose, ce petit en-cas m'a mis en appétit.",
+  };
+}
+
 function drinkPotion(troll, item, rollDice, logFn) {
   const def = POTION_DEFS[item.potionId];
   if (!def) {
@@ -638,7 +669,7 @@ function talentPctWithPotions(troll, talent, cap) {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     POTION_IDS, POTION_DEFS, sumPotionMods, effTroll, formatPotionItem,
-    makeRandomPotion, makePotionItem, drinkPotion, tickPotionTurns,
+    makeRandomPotion, makePotionItem, drinkPotion, goinfreItem, tickPotionTurns,
     describeActiveEffects, renderEffectsPanel, countActiveEffects, formatEffectMods,
     sharedMod, makeEffect, fmtStatLine, talentPctWithPotions, corruptionYZ,
   };

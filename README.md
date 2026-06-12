@@ -175,7 +175,7 @@ L'état vivant du monde (trolls, monstres actifs, objets au sol) reste dans
   son troll depuis un autre appareil)
 - `GET /api/mp/state?id=&secret=` → état visible (vue du troll)
 - `POST /api/mp/action` `{id, secret, action}` — `move`, `attack`, `comp`,
-  `sort`, `pickup`, `use`, `train`
+  `sort`, `pickup`, `use`, `unequip`, `eat`, `drop`, `train`
 - `GET /api/mp/info` → compteurs publics (trolls en ligne…)
 - `GET /api/mp/admin` · `PUT /api/mp/admin/config` · `PUT /api/mp/admin/tuning`
   · `POST /api/mp/admin/reset` (header `X-Admin-Token`)
@@ -234,6 +234,19 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.4.0** (2026-06-12) — Gestion du sac, en solo comme en multi :
+  **déséquiper** (↩️, 1 PA : la pièce revient au sac, PV max et bonus recalculés),
+  **jeter à terre** (🗑️, 1 PA : l'objet tombe sur la case du troll et peut être
+  ramassé — une seule chose à terre par case), et **goinfrer** l'équipement
+  (🍴, 1 PA : l'objet est dévoré et détruit contre un petit bonus aléatoire,
+  X = 1 à 3 — « MIAM » +XD3 PV immédiats, « CLONK » +X en armure pendant
+  X tours, « GRRROUAR » +X en dégâts pendant X tours, avec les textes
+  d'ambiance qui vont bien). Le sac est désormais **classé par type**
+  (potions, parchemins, puis l'équipement par emplacement) et chaque objet
+  affiche **ses effets** : formule du trésor avec son niveau X et sa durée
+  pour les potions/parchemins, bonus complets pour l'équipement.
+  Actions API : `unequip`, `eat`, `drop`. Les boutons du monde partagé
+  reprennent le style olive du pack parchemin.
 - **2.3.0** (2026-06-12) — Les valeurs de référence du monde partagé passent dans
   une **base SQLite** (`db.js`, module natif `node:sqlite` — toujours zéro
   dépendance npm) : tables `monsters` (bestiaire), `gear` (55 objets),

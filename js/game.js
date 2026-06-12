@@ -4,7 +4,7 @@
 
 "use strict";
 
-const APP_VERSION = "2.3.0";
+const APP_VERSION = "2.4.0";
 
 /* Alpha : maîtrise initiale haute pour les tests. Remettre 15 % / 15 % à la v1.0 officielle. */
 const START_COMP_PCT = 90;
@@ -334,7 +334,7 @@ function makeItem(depth) {
 
 const MAX_DEPTH = 5;
 const PA_PER_TURN = 6;
-const COSTS = { move: 1, attack: 3, pickup: 1, equip: 2, potion: 1, scroll: 1 };
+const COSTS = { move: 1, attack: 3, pickup: 1, equip: 2, potion: 1, scroll: 1, unequip: 1, eat: 1, drop: 1 };
 
 let G = null; // état global de la partie
 
@@ -987,17 +987,112 @@ function useBagItem(idx) {
   afterAction();
 }
 
+/* Déséquipe une pièce : elle revient dans le sac. */
+function unequipSlot(slot) {
+  const t = G.troll;
+  if (!t.equip[slot]) return;
+  if (!spendPA(COSTS.unequip)) return;
+  unequipToBag(t, slot);
+  t.gearMods = gearMods(t.equip);
+  updateFov();
+  afterAction();
+}
+
+/* « Goinfrer » une pièce d'équipement du sac : détruite, petit bonus aléatoire. */
+function eatBagItem(idx) {
+  const t = G.troll;
+  const item = t.bag[idx];
+  if (!item || item.kind !== "gear") return;
+  if (!spendPA(COSTS.eat)) return;
+  t.bag.splice(idx, 1);
+  const r = goinfreItem(t, rollDice);
+  cdStart(`🍴 Goinfre : ${item.emoji} ${item.name}`);
+  cdLine(`<b>« ${r.cry} »</b> ${r.effect}.`);
+  cdLine(`<i>${r.flavor}</i>`);
+  cdFlush();
+  log(`🍴 Tu goinfres ${item.name} : « ${r.cry} » ${r.effect}.`, "good");
+  if (countActiveEffects(t) > 0) switchLeftTab("effects");
+  afterAction();
+}
+
+/* Jette un objet du sac à terre (sur la case du troll). */
+function dropBagItem(idx) {
+  const t = G.troll;
+  const item = t.bag[idx];
+  if (!item) return;
+  if (G.items.some(i => i.x === t.x && i.y === t.y)) {
+    log("Il y a déjà quelque chose à terre ici.", "info");
+    return;
+  }
+  if (!spendPA(COSTS.drop)) return;
+  t.bag.splice(idx, 1);
+  G.items.push({ ...item, x: t.x, y: t.y });
+  log(`Tu jettes ${item.emoji} ${item.name} à terre.`, "info");
+  afterAction();
+}
+
+/* ---------- Sac : tri par type et effets des objets ---------- */
+
+/* Groupes d'affichage du sac, dans l'ordre : potions, parchemins, puis
+ * l'équipement par emplacement. Retourne [{label, entries: [{item, idx}]}]. */
+function bagGroups(bag) {
+  const groups = [
+    { key: "potion", label: "🧪 Potions", match: i => i.kind === "potion" },
+    { key: "scroll", label: "📜 Parchemins", match: i => i.kind === "scroll" },
+    ...Object.entries(GEAR_SLOTS).map(([slot, info]) => ({
+      key: slot,
+      label: `${info.emoji} ${info.label.endsWith("s") ? info.label : info.label + "s"}`,
+      match: i => i.kind === "gear" && i.slot === slot,
+    })),
+  ];
+  const out = [];
+  for (const grp of groups) {
+    const entries = bag.map((item, idx) => ({ item, idx })).filter(e => grp.match(e.item));
+    if (entries.length) out.push({ label: grp.label, entries });
+  }
+  // sécurité : tout objet d'un type inattendu reste visible
+  const known = new Set(out.flatMap(grp => grp.entries.map(e => e.idx)));
+  const rest = bag.map((item, idx) => ({ item, idx })).filter(e => !known.has(e.idx));
+  if (rest.length) out.push({ label: "❓ Divers", entries: rest });
+  return out;
+}
+
+/* Lignes d'effets d'un objet du sac (X remplacé par le niveau du trésor). */
+function itemEffectLines(item) {
+  const fromTable = (table, idField) => {
+    const row = (table || []).find(r => r[0] === item[idField]);
+    if (!row) return [];
+    const [, , duration, lines] = row;
+    return [lines.map(l => l.replace(/\bX\b/g, item.power)).join(" · ") + ` (${duration})`];
+  };
+  if (item.kind === "potion") return fromTable(typeof TREASURE_POTIONS !== "undefined" ? TREASURE_POTIONS : null, "potionId");
+  if (item.kind === "scroll") return fromTable(typeof TREASURE_SCROLLS !== "undefined" ? TREASURE_SCROLLS : null, "scrollId");
+  if (item.kind === "gear") {
+    const fx = formatGearMods(item.mods);
+    return [(fx || "aucun bonus") + (item.twoHanded ? " · 2 mains" : "")];
+  }
+  return [];
+}
+
+/* Range une pièce équipée dans le sac (retire son bonus de PV max).
+ * Ne recalcule PAS gearMods : l'appelant s'en charge. */
+function unequipToBag(t, slot, logFn = log) {
+  const old = t.equip[slot];
+  if (!old) return null;
+  t.equip[slot] = null;
+  t.bag.push(old);
+  if (old.mods.pv) {
+    t.pvMax = Math.max(1, t.pvMax - old.mods.pv);
+    t.pv = Math.max(1, Math.min(t.pv, t.pvMax));
+  }
+  logFn(`Tu ranges ${old.emoji} ${old.name} dans ton sac.`, "info");
+  return old;
+}
+
 /* Équipe une pièce : range l'ancienne au sac, gère l'exclusion arme à 2 mains /
  * bouclier, applique le bonus de PV max et recalcule les modificateurs. */
 function equipGear(t, item) {
-  const unequipTo = (slot) => {
-    const old = t.equip[slot];
-    if (!old) return;
-    t.equip[slot] = null;
-    t.bag.push(old);
-    if (old.mods.pv) t.pvMax = Math.max(1, t.pvMax - old.mods.pv);
-    log(`Tu ranges ${old.emoji} ${old.name} dans ton sac.`, "info");
-  };
+  const unequipTo = (slot) => unequipToBag(t, slot);
   if (item.slot === "arme" && item.twoHanded && t.equip.bouclier) {
     unequipTo("bouclier");
     log("Une arme à deux mains ne laisse pas de place au bouclier.", "info");
@@ -1345,28 +1440,66 @@ function renderPanels() {
   if (doorAt(t.x, t.y)) addBtn("🚪 Franchir la porte", enterDoor, true);
   addBtn("⏳ Passer la DLA", passDLA, true);
 
-  $("equipment").innerHTML = Object.entries(GEAR_SLOTS).map(([slot, info]) => {
+  const equipEl = $("equipment");
+  equipEl.innerHTML = Object.entries(GEAR_SLOTS).map(([slot, info]) => {
     const it = t.equip[slot];
     if (!it) return `<div class="eq-line"><span class="eq-slot">${info.label}</span> —</div>`;
     const fx = formatGearMods(it.mods);
-    return `<div class="eq-line"><span class="eq-slot">${info.label}</span> ${it.emoji} ${it.name}` +
+    return `<div class="eq-line"><span class="eq-slot">${info.label}</span> ${it.emoji} ${esc(it.name)}` +
       `${it.twoHanded ? " <small>(2 mains)</small>" : ""}` +
+      ` <button class="unequip-btn" data-slot="${slot}" title="Déséquiper (${COSTS.unequip} PA) : revient dans le sac">↩️</button>` +
       `${fx ? `<div class="eq-mods">${fx}</div>` : ""}</div>`;
   }).join("");
+  for (const b of equipEl.querySelectorAll(".unequip-btn")) {
+    b.disabled = G.over || t.pa < COSTS.unequip;
+    b.onclick = () => unequipSlot(b.dataset.slot);
+  }
 
-  const inv = $("inventory");
-  inv.innerHTML = "";
-  if (t.bag.length === 0) inv.innerHTML = '<div class="empty">— vide —</div>';
-  t.bag.forEach((item, idx) => {
-    const b = document.createElement("button");
-    const action = item.kind === "potion" ? `boire (${COSTS.potion} PA)`
-      : item.kind === "scroll" ? `lire (${COSTS.scroll} PA)` : `équiper (${COSTS.equip} PA)`;
-    b.textContent = `${item.emoji} ${item.name} — ${action}`;
-    if (item.kind === "gear") b.title = formatGearMods(item.mods) + (item.twoHanded ? " · 2 mains" : "");
-    b.disabled = G.over;
-    b.onclick = () => useBagItem(idx);
-    inv.appendChild(b);
+  renderBag($("inventory"), t.bag, {
+    disabled: G.over,
+    pa: t.pa,
+    onUse: useBagItem, onEat: eatBagItem, onDrop: dropBagItem,
   });
+}
+
+/* Rendu partagé du sac (solo et multi) : groupé par type, effets visibles,
+ * actions utiliser / goinfrer / jeter. */
+function renderBag(inv, bag, opts) {
+  inv.innerHTML = "";
+  if (!bag.length) { inv.innerHTML = '<div class="empty">— vide —</div>'; return; }
+  for (const grp of bagGroups(bag)) {
+    const head = document.createElement("div");
+    head.className = "bag-group";
+    head.textContent = grp.label;
+    inv.appendChild(head);
+    for (const { item, idx } of grp.entries) {
+      const row = document.createElement("div");
+      row.className = "bag-item";
+      const fx = itemEffectLines(item).join(" · ");
+      const useLabel = item.kind === "potion" ? `🥤 boire (${COSTS.potion} PA)`
+        : item.kind === "scroll" ? `👁️ lire (${COSTS.scroll} PA)` : `🛡️ équiper (${COSTS.equip} PA)`;
+      row.innerHTML = `<div class="bag-name">${item.emoji} ${esc(item.name)}</div>` +
+        (fx ? `<div class="eq-mods">${esc(fx)}</div>` : "") +
+        `<div class="bag-actions"></div>`;
+      const actions = row.querySelector(".bag-actions");
+      const addBtn = (label, title, fn, enabled) => {
+        const b = document.createElement("button");
+        b.textContent = label;
+        b.title = title;
+        b.disabled = opts.disabled || !enabled;
+        b.onclick = fn;
+        actions.appendChild(b);
+      };
+      addBtn(useLabel, "", () => opts.onUse(idx), opts.pa >= (item.kind === "gear" ? COSTS.equip : 1));
+      if (item.kind === "gear") {
+        addBtn(`🍴 goinfrer (${COSTS.eat} PA)`, "Dévorer l'objet (détruit) : petit bonus aléatoire MIAM / CLONK / GRRROUAR",
+          () => opts.onEat(idx), opts.pa >= COSTS.eat);
+      }
+      addBtn(`🗑️ jeter (${COSTS.drop} PA)`, "Jeter l'objet à terre sur ta case",
+        () => opts.onDrop(idx), opts.pa >= COSTS.drop);
+      inv.appendChild(row);
+    }
+  }
 }
 
 function esc(s) {
@@ -1491,6 +1624,20 @@ if (typeof document !== "undefined") {
           if (G.monsters.includes(m)) useSort();
         }
       }
+      // ?demo=sac : remplit le sac et équipe deux pièces (captures du sac trié)
+      if (params.get("demo") === "sac") {
+        const t = G.troll;
+        equipGear(t, gearItemByName("arme", "Gourdin"));
+        equipGear(t, gearItemByName("armure", "Armure de cuir"));
+        t.bag.push(
+          makePotionItem("guerison", 3), makePotionItem("feu", 5),
+          formatScrollItem("runeExplosive", 2),
+          gearItemByName("arme", "Épée Courte"), gearItemByName("casque", "Casque à Cornes"),
+          gearItemByName("bottes", GEAR.bottes[0].name),
+        );
+        render();
+        renderPanels();
+      }
     }
     $("btn-restart").onclick = () => {
       $("screen-end").classList.add("hidden");
@@ -1509,7 +1656,7 @@ if (typeof document !== "undefined") {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     APP_VERSION, rollDice, resolveAttack, resolveSpell, masteryRoll, improveCost, levelFromTotalPI, killPX,
-    RACES, MONSTER_TYPES, BOSS, TEMPLATES, applyTemplate, makeMonster, monsterFromSpec, itemFromSpec, equipGear,
+    RACES, MONSTER_TYPES, BOSS, TEMPLATES, applyTemplate, makeMonster, monsterFromSpec, itemFromSpec, equipGear, unequipToBag,
     generateCavern, largestRegion,
     MAP_W, MAP_H, T_WALL, T_FLOOR, T_STAIRS,
     COSTS, PA_PER_TURN, START_COMP_PCT, START_SORT_PCT,
