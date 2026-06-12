@@ -2,6 +2,8 @@
  * https://mountypedia.mountyhall.com/Mountyhall/{Arme,Armure,Casque,Bouclier,Talisman,Bottes}
  * Valeurs de base (sans templates) : TOUS les bonus sont fixes — ATT/ESQ/DEG/REG
  * s'ajoutent aux jets (jamais en dés), ARM/VUE/PV sont fixes, RM/MM en %.
+ * Les bonus/malus d'équipement sont PHYSIQUES (dont l'armure, sauf exceptions
+ * à venir) — les bonus magiques viennent des potions et parchemins.
  * `tier` (1-5) borne la profondeur de drop.
  * Les armes à deux mains (twoHanded) sont incompatibles avec un bouclier. */
 
@@ -92,7 +94,7 @@ const LEGACY_ARMOR_NAMES = ["Armure de cuir", "Haubert de mailles", "Armure de p
 
 const GEAR_MOD_LABELS = [
   ["att", "ATT", ""], ["esq", "ESQ", ""], ["deg", "DEG", ""],
-  ["reg", "REG", ""], ["arm", "Armure", ""], ["vue", "VUE", ""], ["pv", "PV", ""],
+  ["reg", "REG", ""], ["arm", "Armure phy.", ""], ["vue", "VUE", ""], ["pv", "PV", ""],
   ["rmPct", "RM", " %"], ["mmPct", "MM", " %"],
 ];
 

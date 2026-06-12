@@ -400,37 +400,52 @@ function sumPotionMods(effects) {
   return m;
 }
 
-/* Affichage caractéristique : valeur effective + rappel de la base si modifiée. */
-function fmtStatLine(base, eff, faces, flat = 0, extra = 0) {
+/* Affichage caractéristique : valeur effective + rappel de la base si modifiée.
+ * `split` ({ phys, mag }) détaille l'origine du bonus fixe : P = physique
+ * (équipement), M = magique (potions, parchemins). */
+function fmtStatLine(base, eff, faces, flat = 0, extra = 0, split = null) {
   const diceDelta = eff - base;
   const jetBonus = (flat || 0) + (extra || 0);
   let main = `${eff}D${faces}`;
   if (jetBonus) main += jetBonus > 0 ? ` +${jetBonus}` : ` ${jetBonus}`;
+  const hints = [];
+  if (split && split.phys && split.mag) {
+    const f = v => `${v > 0 ? "+" : ""}${v}`;
+    hints.push(`P ${f(split.phys)} · M ${f(split.mag)}`);
+  }
   if (diceDelta !== 0) {
     const sign = diceDelta > 0 ? "+" : "";
-    return `${main} <small class="stat-hint">(${base}D${faces} ${sign}${diceDelta})</small>`;
+    hints.push(`${base}D${faces} ${sign}${diceDelta}`);
   }
+  if (hints.length) return `${main} <small class="stat-hint">(${hints.join(" · ")})</small>`;
   return main;
 }
 
 /* Caractéristiques effectives : base + effets magiques (potions, parchemins)
  * + équipement (troll.gearMods, recalculé par game.js à chaque équipement).
  * Les bonus ATT/ESQ/DEG/REG de l'équipement sont des bonus FIXES sur les jets,
- * jamais des dés supplémentaires. */
+ * jamais des dés supplémentaires.
+ * Bonus/malus PHYSIQUES (équipement) et MAGIQUES (potions, parchemins) sont
+ * décomposés (xxxFlatPhys / xxxFlatMag) ; de même pour l'armure :
+ * armorPhys = base + naturelle + équipement, armorMag = effets magiques.
+ * Les dégâts physiques sont réduits par l'armure totale, les dégâts magiques
+ * par la seule armure magique. */
 function effTroll(troll) {
-  const m = sumPotionMods(troll.potionEffects);
-  const g = troll.gearMods || {};
+  const m = sumPotionMods(troll.potionEffects); // magique
+  const g = troll.gearMods || {};               // physique
   return {
     att: Math.max(1, troll.att + m.att),
-    attFlat: m.attFlat + (g.att || 0),
+    attFlat: m.attFlat + (g.att || 0), attFlatPhys: g.att || 0, attFlatMag: m.attFlat,
     esq: Math.max(1, troll.esq + m.esq),
-    esqFlat: m.esqFlat + (g.esq || 0),
+    esqFlat: m.esqFlat + (g.esq || 0), esqFlatPhys: g.esq || 0, esqFlatMag: m.esqFlat,
     deg: Math.max(1, troll.deg + m.deg),
-    degFlat: m.degFlat + (g.deg || 0),
+    degFlat: m.degFlat + (g.deg || 0), degFlatPhys: g.deg || 0, degFlatMag: m.degFlat,
     reg: Math.max(1, troll.reg + m.reg),
-    regFlat: m.regFlat + (g.reg || 0),
+    regFlat: m.regFlat + (g.reg || 0), regFlatPhys: g.reg || 0, regFlatMag: m.regFlat,
     vue: Math.max(1, troll.vue + m.vue + (g.vue || 0)),
     armor: Math.max(0, troll.armor + m.armor + (g.arm || 0)),
+    armorPhys: Math.max(0, troll.armor + (g.arm || 0)),
+    armorMag: m.armor,
     armorDice: troll.armorDice,
     degBonus: troll.degBonus || 0,
     pvMax: troll.pvMax,
@@ -504,8 +519,10 @@ function tickPotionTurns(troll, logFn) {
   return sumPotionMods(troll.potionEffects).dlaBonusPA;
 }
 
+/* Les effets de potions/parchemins sont MAGIQUES : leur armure est de
+ * l'armure magique (seule à réduire les dégâts magiques). */
 const EFFECT_MOD_LABELS = {
-  att: "ATT", esq: "ESQ", deg: "DEG", reg: "REG", vue: "VUE", armor: "Armure",
+  att: "ATT", esq: "ESQ", deg: "DEG", reg: "REG", vue: "VUE", armor: "Armure mag.",
 };
 
 function formatEffectMods(effect) {

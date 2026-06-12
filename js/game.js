@@ -4,7 +4,7 @@
 
 "use strict";
 
-const APP_VERSION = "1.8.0";
+const APP_VERSION = "1.9.0";
 
 /* Alpha : maîtrise initiale haute pour les tests. Remettre 15 % / 15 % à la v1.0 officielle. */
 const START_COMP_PCT = 90;
@@ -31,7 +31,10 @@ function rollDice(n, faces) {
 
 /* Jet d'attaque MountyHall : somme de ATT D6 contre somme de ESQ D6.
  * Si l'attaque dépasse l'esquive, dégâts = DEG D3 (+ bonus d'arme) − armure.
- * (Les dégâts sont en D3 comme dans les profils officiels des races.) */
+ * (Les dégâts sont en D3 comme dans les profils officiels des races.)
+ * Armure façon MH : les dégâts PHYSIQUES sont réduits par l'armure totale
+ * (physique + magique) ; les dégâts MAGIQUES (opts.magic) par la seule armure
+ * magique ; opts.ignoreArmor ignore tout (Siphon des Âmes). */
 function resolveAttack(attacker, defender, opts = {}) {
   const att = rollDice(attacker.att, 6);
   const esq = rollDice(defender.esq, 6);
@@ -50,9 +53,16 @@ function resolveAttack(attacker, defender, opts = {}) {
     const deg = rollDice(attacker.deg, 3);
     const degFlat = attacker.degFlat || 0;
     result.rawDamage = (deg.total + (attacker.degBonus || 0) + degFlat) * (result.critical ? 2 : 1);
-    // armure : réduction fixe (équipement) + armure naturelle en D3 (achetée en PI)
-    const armor = opts.ignoreArmor ? 0
-      : (defender.armor || 0) + (defender.armorDice ? rollDice(defender.armorDice, 3).total : 0);
+    // armure physique : fixe (base + équipement) + naturelle en D3 (achetée en PI)
+    // armure magique : effets de potions/parchemins (armorMag, peut être négative)
+    let armor = 0;
+    if (!opts.ignoreArmor) {
+      const phys = (defender.armorPhys != null ? defender.armorPhys : defender.armor || 0)
+        + (defender.armorDice ? rollDice(defender.armorDice, 3).total : 0);
+      const mag = defender.armorMag || 0;
+      armor = Math.max(0, opts.magic ? mag : phys + mag);
+    }
+    result.armorReduction = armor;
     result.damage = Math.max(1, result.rawDamage - armor);
   }
   return result;
@@ -126,21 +136,21 @@ const RACES = {
     desc: "Les tanks du Hall, durs au mal et infatigables.",
     stats: { att: 3, esq: 3, deg: 3, reg: 1, pvMax: 40, vue: 3 },
     comp: { name: "Régénération Accrue", cost: 2, desc: "Soigne immédiatement 1D3 par tranche de 15 PV max." },
-    sort: { name: "Rafale Psychique", cost: 4, desc: "Touche automatiquement (imparable) : 1D3 par dé de DEG, ignore l'armure (résistance : moitié)." },
+    sort: { name: "Rafale Psychique", cost: 4, desc: "Touche automatiquement (imparable) : 1D3 par dé de DEG, ignore l'armure physique (résistance : moitié)." },
   },
   Kastar: {
     emoji: "🔴", favored: "deg",
     desc: "Les vampires du Hall : leurs coups les nourrissent.",
     stats: { att: 3, esq: 3, deg: 4, reg: 1, pvMax: 30, vue: 3 },
     comp: { name: "Accélération du Métabolisme", cost: 2, desc: "Sacrifie des PV (1D3 + fatigue) pour regagner 4 PA. La fatigue monte à chaque usage." },
-    sort: { name: "Vampirisme", cost: 4, desc: "Cible adjacente : 2D6 par tranche de 3 dés de DEG vs ESQ, dégâts 1D3 par dé de DEG, ignore l'armure, soigne 50 % (résistance : moitié)." },
+    sort: { name: "Vampirisme", cost: 4, desc: "Cible adjacente : 2D6 par tranche de 3 dés de DEG vs ESQ, dégâts 1D3 par dé de DEG, ignore l'armure physique, soigne 50 % (résistance : moitié)." },
   },
   Tomawak: {
     emoji: "🟡", favored: "vue",
     desc: "Trõlls furtifs, chasseurs embusqués aux yeux perçants.",
     stats: { att: 3, esq: 3, deg: 3, reg: 1, pvMax: 30, vue: 4 },
     comp: { name: "Camouflage", cost: 2, desc: "Invisible aux monstres tant que tu n'attaques pas ; à chaque pas, jet sous 75 % de la maîtrise pour rester caché." },
-    sort: { name: "Projectile Magique", cost: 4, desc: "À distance (portée = Vue) : 1D6 par case de Vue + bonus de proximité, dégâts 1D3 par tranche de 2 cases de Vue, ignore l'armure (résistance : moitié)." },
+    sort: { name: "Projectile Magique", cost: 4, desc: "À distance (portée = Vue) : 1D6 par case de Vue + bonus de proximité, dégâts 1D3 par tranche de 2 cases de Vue, ignore l'armure physique (résistance : moitié)." },
   },
   Darkling: {
     emoji: "🟣", favored: "reg",
@@ -153,18 +163,21 @@ const RACES = {
 
 /* ================= Bestiaire ================= */
 
-/* Dégâts des monstres en D3, comme ceux des trolls. */
+/* Dégâts des monstres en D3, comme ceux des trolls.
+ * `armor` = armure physique, `armorMag` = armure magique (réduit seule les
+ * dégâts magiques). Valeurs provisoires à 0 — le bestiaire sera mis à jour
+ * avec les vraies valeurs une fois le système validé. */
 const MONSTER_TYPES = [
-  { name: "Gobelin",           emoji: "👺", level: 1, att: 2, esq: 2, deg: 2, pv: 12, armor: 0, vue: 4 },
-  { name: "Champignon Vénéneux", emoji: "🍄", level: 1, att: 3, esq: 1, deg: 3, pv: 10, armor: 0, vue: 1, static: true },
-  { name: "Araignée Géante",   emoji: "🕷️", level: 2, att: 3, esq: 3, deg: 3, pv: 16, armor: 0, vue: 5 },
-  { name: "Gargouille",        emoji: "🦇", level: 3, att: 3, esq: 3, deg: 3, pv: 22, armor: 2, vue: 4 },
-  { name: "Momie",             emoji: "🧟", level: 3, att: 4, esq: 2, deg: 4, pv: 26, armor: 1, vue: 3 },
-  { name: "Sorcière",          emoji: "🧙", level: 4, att: 4, esq: 3, deg: 5, pv: 24, armor: 0, vue: 6 },
-  { name: "Golem de Pierre",   emoji: "🗿", level: 5, att: 4, esq: 1, deg: 6, pv: 40, armor: 4, vue: 3 },
+  { name: "Gobelin",           emoji: "👺", level: 1, att: 2, esq: 2, deg: 2, pv: 12, armor: 0, armorMag: 0, vue: 4 },
+  { name: "Champignon Vénéneux", emoji: "🍄", level: 1, att: 3, esq: 1, deg: 3, pv: 10, armor: 0, armorMag: 0, vue: 1, static: true },
+  { name: "Araignée Géante",   emoji: "🕷️", level: 2, att: 3, esq: 3, deg: 3, pv: 16, armor: 0, armorMag: 0, vue: 5 },
+  { name: "Gargouille",        emoji: "🦇", level: 3, att: 3, esq: 3, deg: 3, pv: 22, armor: 2, armorMag: 0, vue: 4 },
+  { name: "Momie",             emoji: "🧟", level: 3, att: 4, esq: 2, deg: 4, pv: 26, armor: 1, armorMag: 0, vue: 3 },
+  { name: "Sorcière",          emoji: "🧙", level: 4, att: 4, esq: 3, deg: 5, pv: 24, armor: 0, armorMag: 0, vue: 6 },
+  { name: "Golem de Pierre",   emoji: "🗿", level: 5, att: 4, esq: 1, deg: 6, pv: 40, armor: 4, armorMag: 0, vue: 3 },
 ];
 
-const BOSS = { name: "Béhémoth", emoji: "👹", level: 9, att: 6, esq: 4, deg: 8, pv: 90, armor: 3, vue: 8, boss: true };
+const BOSS = { name: "Béhémoth", emoji: "👹", level: 9, att: 6, esq: 4, deg: 8, pv: 90, armor: 3, armorMag: 0, vue: 8, boss: true };
 
 /* Gabarits d'âge façon MountyHall : plus on descend, plus les bêtes sont vieilles. */
 const TEMPLATES = [
@@ -183,7 +196,7 @@ function applyTemplate(type, tpl, x, y) {
     esq: Math.max(1, Math.round(type.esq * tpl.mult)),
     deg: Math.max(1, Math.round(type.deg * tpl.mult)),
     pv: Math.round(type.pv * tpl.mult), pvMax: Math.round(type.pv * tpl.mult),
-    armor: type.armor, vue: type.vue, static: !!type.static,
+    armor: type.armor, armorMag: type.armorMag || 0, vue: type.vue, static: !!type.static,
     x, y, boss: false,
   };
 }
@@ -608,7 +621,7 @@ function attackMonster(m, opts = {}) {
   if (r.hit) {
     m.pv -= r.damage;
     gainPX(1); // +1 PX par attaque réussie (converti en PI)
-    cdLine(`Vous lui avez infligé <span class="cd-val">${r.damage} points de dégâts</span>.`);
+    cdLine(`Vous lui avez infligé <span class="cd-val">${r.damage} points de dégâts</span>${r.armorReduction ? ` (son armure a absorbé ${r.armorReduction} point(s))` : ""}.`);
     log(`Tu attaques ${m.name} : ATT ${r.attRoll} vs ESQ ${r.esqRoll} → ${r.critical ? "CRITIQUE ! " : "touché ! "}${r.damage} dégâts.`, "combat");
     if (m.pv <= 0) killMonster(m, "attack");
   } else {
@@ -813,12 +826,13 @@ function useSort() {
     if (!tryTalent(t.sort, 80, sort.cost, "🔮 Rafale Psychique", "sort")) { cdFlush(); afterAction(); return; }
     cdLine(`Vous avez attaqué <b>${m.name}</b> grâce à un sortilège.`);
     cdLine(`Votre jet d'Attaque est : <span class="cd-good">automatiquement réussi</span> (imparable).`);
-    let dmg = rollDice(te.deg, 3).total;
+    const armMag = Math.max(0, effMonster(m).armorMag);
+    let dmg = Math.max(1, rollDice(te.deg, 3).total - armMag);
     const res = resistInfo(m);
     if (res) dmg = Math.max(1, Math.ceil(dmg / 2));
     m.pv -= dmg;
-    cdLine(`Vous lui avez infligé <span class="cd-val">${dmg} points de dégâts</span> (armure ignorée).`);
-    log(`Rafale Psychique : touche automatique, ${dmg} dégâts${res ? " (résisté : moitié)" : ""}, armure ignorée.`, "combat");
+    cdLine(`Vous lui avez infligé <span class="cd-val">${dmg} points de dégâts</span> (armure physique ignorée${armMag ? `, armure magique −${armMag}` : ""}).`);
+    log(`Rafale Psychique : touche automatique, ${dmg} dégâts${res ? " (résisté : moitié)" : ""}, armure physique ignorée.`, "combat");
     if (m.pv <= 0) killMonster(m, "sort");
   } else if (t.race === "Kastar") { // Vampirisme : dégâts + vol de vie
     const m = adjacentMonster();
@@ -829,7 +843,7 @@ function useSort() {
       att: Math.max(1, Math.floor(te.deg * 2 / 3)), deg: te.deg,
       degBonus: te.degBonus, attFlat: te.attFlat, degFlat: te.degFlat,
     };
-    const r = resolveAttack(pseudo, effMonster(m), { ignoreArmor: true });
+    const r = resolveAttack(pseudo, effMonster(m), { magic: true });
     cdAttackRolls(r);
     if (r.hit) {
       let dmg = r.damage;
@@ -838,7 +852,7 @@ function useSort() {
       m.pv -= dmg;
       const heal = Math.ceil(dmg / 2);
       t.pv = Math.min(t.pvMax, t.pv + heal);
-      cdLine(`Vous lui avez infligé <span class="cd-val">${dmg} points de dégâts</span> (armure ignorée).`);
+      cdLine(`Vous lui avez infligé <span class="cd-val">${dmg} points de dégâts</span> (armure physique ignorée${r.armorReduction ? `, armure magique −${r.armorReduction}` : ""}).`);
       cdLine(`Vous avez également gagné <span class="cd-good">${heal} points de Vie</span> grâce au Vampirisme.`);
       log(`Vampirisme : ${dmg} dégâts${res ? " (résisté)" : ""}, tu draines ${heal} PV.`, "good");
       if (m.pv <= 0) killMonster(m, "sort");
@@ -853,14 +867,14 @@ function useSort() {
     const proxBonus = Math.max(0, te.vue - dist);
     cdLine(`Vous avez attaqué <b>${m.name}</b> grâce à un sortilège (distance ${dist}, bonus de proximité +${proxBonus}D6).`);
     const pseudo = { att: te.vue + proxBonus, deg: Math.max(1, Math.floor(te.vue / 2)), degBonus: 0 };
-    const r = resolveAttack(pseudo, effMonster(m), { ignoreArmor: true });
+    const r = resolveAttack(pseudo, effMonster(m), { magic: true });
     cdAttackRolls(r);
     if (r.hit) {
       let dmg = r.damage;
       const res = resistInfo(m);
       if (res) dmg = Math.max(1, Math.ceil(dmg / 2));
       m.pv -= dmg;
-      cdLine(`Vous lui avez infligé <span class="cd-val">${dmg} points de dégâts</span> (armure ignorée).`);
+      cdLine(`Vous lui avez infligé <span class="cd-val">${dmg} points de dégâts</span> (armure physique ignorée${r.armorReduction ? `, armure magique −${r.armorReduction}` : ""}).`);
       log(`Projectile Magique sur ${m.name} (distance ${dist}) : ${dmg} dégâts${res ? " (résisté)" : ""}.`, "combat");
       if (m.pv <= 0) killMonster(m, "sort");
     } else {
@@ -907,6 +921,8 @@ function effMonster(m) {
     att: Math.max(1, m.att - (m.attDownTurns > 0 ? m.attDownDice || 0 : 0)),
     esq: m.esqHalfTurns > 0 ? Math.max(1, Math.floor(m.esq / 2)) : m.esq,
     vue: Math.max(1, m.vue - (m.vueMalusTurns > 0 ? m.vueMalus || 0 : 0)),
+    armorPhys: m.armor || 0,
+    armorMag: m.armorMag || 0,
   };
 }
 
@@ -1006,9 +1022,12 @@ function applyScrollZone(zone) {
   if (zone.type === "damage") {
     cdStart("💥 Effet de zone");
     for (const m of targets) {
-      m.pv -= zone.total;
-      cdLine(`${m.emoji} ${m.name} subit <span class="cd-val">${zone.total} points de dégâts</span> (${zone.label}).`);
-      log(`💥 ${m.name} est pris dans l'explosion : −${zone.total} PV.`, "combat");
+      // dégâts magiques : seule l'armure magique du monstre les réduit
+      const armMag = Math.max(0, m.armorMag || 0);
+      const dmg = Math.max(1, zone.total - armMag);
+      m.pv -= dmg;
+      cdLine(`${m.emoji} ${m.name} subit <span class="cd-val">${dmg} points de dégâts</span> (${zone.label}${armMag ? `, armure magique −${armMag}` : ""}).`);
+      log(`💥 ${m.name} est pris dans l'explosion : −${dmg} PV.`, "combat");
       if (m.pv <= 0) killMonster(m, "scroll");
     }
     cdFlush();
@@ -1077,7 +1096,7 @@ function passDLA() {
       cdLine(`Votre jet d'Esquive est de : <span class="cd-val">${r.esqRoll}</span> (${r.esqDice}D6)`);
       if (r.hit) {
         t.pv -= r.damage;
-        cdLine(`Il vous a <span class="cd-bad">TOUCHÉ</span>${r.critical ? ` d'un <span class="cd-bad">coup critique</span>` : ""} et vous a infligé <span class="cd-bad">${r.damage} points de dégâts</span>.`);
+        cdLine(`Il vous a <span class="cd-bad">TOUCHÉ</span>${r.critical ? ` d'un <span class="cd-bad">coup critique</span>` : ""} et vous a infligé <span class="cd-bad">${r.damage} points de dégâts</span>${r.armorReduction ? ` (votre armure a absorbé ${r.armorReduction} point(s))` : ""}.`);
         log(`${m.emoji} ${m.name} t'attaque : ${r.attRoll} vs ${r.esqRoll} → ${r.damage} dégâts !`, "bad");
         if (t.pv <= 0) { cdLine(`Il vous a <span class="cd-bad">TERRASSÉ</span>…`); cdFlush(); die(m); return; }
       } else {
@@ -1254,11 +1273,12 @@ function renderPanels() {
     <div><span>Tour</span><span class="stat-val">${t.tour}</span></div>
     <div><span>PV</span><span class="stat-val">${t.pv} / ${t.pvMax}</span></div>
     <div class="hp-bar-wrap"><div class="hp-bar ${hpClass}" style="width:${pct * 100}%"></div></div>
-    <div><span>Attaque</span><span class="stat-val">${fmtStatLine(t.att, te.att, 6, te.attFlat)}</span></div>
-    <div><span>Esquive</span><span class="stat-val">${fmtStatLine(t.esq, te.esq, 6, te.esqFlat)}</span></div>
-    <div><span>Dégâts</span><span class="stat-val">${fmtStatLine(t.deg, te.deg, 3, te.degFlat, te.degBonus)}</span></div>
-    <div><span>Régénération</span><span class="stat-val">${fmtStatLine(t.reg, te.reg, 3, te.regFlat)}</span></div>
-    <div><span>Armure</span><span class="stat-val">${te.armor}${t.armorDice ? "+" + t.armorDice + "D3" : ""}</span></div>
+    <div><span>Attaque</span><span class="stat-val">${fmtStatLine(t.att, te.att, 6, te.attFlat, 0, { phys: te.attFlatPhys, mag: te.attFlatMag })}</span></div>
+    <div><span>Esquive</span><span class="stat-val">${fmtStatLine(t.esq, te.esq, 6, te.esqFlat, 0, { phys: te.esqFlatPhys, mag: te.esqFlatMag })}</span></div>
+    <div><span>Dégâts</span><span class="stat-val">${fmtStatLine(t.deg, te.deg, 3, te.degFlat, te.degBonus, { phys: te.degFlatPhys, mag: te.degFlatMag })}</span></div>
+    <div><span>Régénération</span><span class="stat-val">${fmtStatLine(t.reg, te.reg, 3, te.regFlat, 0, { phys: te.regFlatPhys, mag: te.regFlatMag })}</span></div>
+    <div><span>Armure phy.</span><span class="stat-val">${te.armorPhys}${t.armorDice ? "+" + t.armorDice + "D3" : ""}</span></div>
+    <div><span>Armure mag.</span><span class="stat-val">${te.armorMag > 0 ? "+" : ""}${te.armorMag}</span></div>
     <div><span>Vue</span><span class="stat-val">${te.vue}</span></div>
     <div><span>${RACES[t.race].comp.name}</span><span class="stat-val">${t.comp.pct} %</span></div>
     <div><span>${RACES[t.race].sort.name}</span><span class="stat-val">${t.sort.pct} %</span></div>
@@ -1283,7 +1303,7 @@ function renderPanels() {
 
   const improve = $("improve");
   improve.innerHTML = "";
-  const labels = { att: "Attaque +1D6", esq: "Esquive +1D6", deg: "Dégâts +1D3", reg: "Régén. +1D3", pv: "PV max +10", vue: "Vue +1", armor: "Armure +1D3" };
+  const labels = { att: "Attaque +1D6", esq: "Esquive +1D6", deg: "Dégâts +1D3", reg: "Régén. +1D3", pv: "PV max +10", vue: "Vue +1", armor: "Armure phy. +1D3" };
   for (const stat of Object.keys(labels)) {
     const cost = improveCost(stat, t.bought[stat], t.race);
     const btn = document.createElement("button");

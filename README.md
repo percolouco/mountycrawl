@@ -39,6 +39,8 @@ lance directement une partie (utilisé pour les captures d'écran et les tests).
 | Combat | Somme ATT D6 vs somme ESQ D6, dégâts DEG D3 − armure, coup critique (attaque ≥ 2 × esquive) aux dégâts doublés | Identique, avec un panneau « Détail du combat » au format des rapports MH (jets, Seuil de Résistance, jet de Résistance, maîtrise, butin, PX) à droite du journal |
 | Talents | Compétence + sortilège réservés par race, 15 % de maîtrise initiale, jet D100 sous le %, progression à l'usage (+1D6 % < 50, +1D3 % < 75, +1 % ensuite ; sous 50 %, un échec donne quand même +1 %), plafonds 90 % compétences / 80 % sortilèges, échec = PA partiellement remboursés | Identique |
 | Magie | Seuil de Résistance basé sur MM vs RM, borné 10–90 % | Identique : jet de résistance des monstres → effets de moitié |
+| Bonus/malus | Physiques (équipement) et magiques (potions, sortilèges…) distincts | Identique : équipement = physique (exceptions à venir), potions/parchemins = magique ; décomposition « P/M » affichée dans le profil |
+| Armure | L'armure réduit les dégâts physiques ; seule sa composante magique réduit les dégâts magiques | Identique : armure physique (naturelle en D3 + équipement) + armure magique (potions/parchemins) — troll et monstres |
 | Progression | PX → PI, le N-ième achat coûte N × coût de base racial (table de Rules_3.php) | Identique : 16 PI de base (12 pour la caractéristique favorite), REG 30 (Darkling 22), Armure naturelle 30 pour tous, PV par tranche de 10 |
 | Niveaux | 10 × N PI pour atteindre le niveau N | Identique |
 | Races | 5 races, chacune avec sort/compétence propre | Les 5 races avec leur capacité signature (voir ci-dessous) |
@@ -152,6 +154,17 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **1.9.0** (2026-06-12) — Bonus/malus **physiques** et **magiques** distincts, comme
+  à MountyHall : l'équipement donne des bonus physiques (exceptions à venir), les
+  potions et parchemins des bonus magiques. L'armure est scindée en **armure
+  physique** (base + naturelle en D3 + équipement) et **armure magique** (effets
+  de potions/parchemins, ex. Extrait du Glacier) : les dégâts physiques sont
+  réduits par l'armure totale, les dégâts magiques (Rafale Psychique, Vampirisme,
+  Projectile Magique, Rune Explosive) par la seule armure magique — le Siphon des
+  Âmes continue d'ignorer toute armure. Les monstres ont eux aussi une armure
+  physique et une armure magique distinctes (valeurs du bestiaire à venir).
+  Affichage : Armure phy./mag. séparées dans le profil, décomposition « P/M » des
+  bonus fixes, absorption d'armure détaillée dans les rapports de combat.
 - **1.8.0** (2026-06-12) — Habillage « pack parchemin » officiel de MountyHall
   (https://www.mountyhall.com/MH_Pack/packMH_parchemin/) : fond lin, tableaux
   crème à bordure noire (tableau1/2.jpg), liens rouge sombre #990000, boutons

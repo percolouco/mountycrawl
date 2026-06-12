@@ -12,17 +12,17 @@ const TREASURE_POTIONS = [
   ["calvok",      "2 à 6",            "1 tour",   ["Concentration −5·X %"]],
   ["cervelle",    "2 à 6",            "1 tour",   ["Concentration +5·X %"]],
   ["chronometre", "1 à 5",            "3 tours",  ["TOUR accéléré : +X PA par tour"]],
-  ["corruption",  "3 à 7",            "5 tours",  ["ATT +X D3", "ESQ −X D3", "DEG +X", "REG −X", "VUE −X", "Armure +X", "RM −Y %, MM −Z % (selon X)"]],
+  ["corruption",  "3 à 7",            "5 tours",  ["ATT +X D3", "ESQ −X D3", "DEG +X", "REG −X", "VUE −X", "Armure mag. +X", "RM −Y %, MM −Z % (selon X)"]],
   ["djhinTonik",  "1 à 5",            "4 tours",  ["DEG +X", "REG +X", "PV +2D3 (immédiat)"]],
   ["doverPowa",   "11 à 100",         "2 tours",  ["MM +Y %", "RM −X %"]],
   ["fertilite",   "3 à 7",            "5 tours",  ["ATT +X D3", "DEG +X"]],
   ["feu",         "3 à 7",            "5 tours",  ["ESQ +X D3", "VUE +X"]],
-  ["glacier",     "3 à 7",            "5 tours",  ["REG +X", "Armure +X"]],
+  ["glacier",     "3 à 7",            "5 tours",  ["REG +X", "Armure mag. +X"]],
   ["grippe",      "3 à 4",            "3 tours",  ["ATT −X D3", "ESQ −X D3", "DEG −X", "REG −X"]],
   ["guerison",    "1 à 5",            "immédiat", ["PV +2·X D3"]],
   ["kouleMann",   "1 à 5",            "4 tours",  ["REG +X", "VUE +X", "PV +(X/2) D3 (immédiat)"]],
   ["longueVue",   "1, 2, 3, 5 ou 8",  "3 tours",  ["VUE +X"]],
-  ["metomol",     "1 à 5",            "2 tours",  ["TOUR accéléré : +X PA par tour", "Armure −2·X"]],
+  ["metomol",     "1 à 5",            "2 tours",  ["TOUR accéléré : +X PA par tour", "Armure mag. −2·X"]],
   ["painture",    "1 à 5",            "X tours",  ["Visible — camouflage impossible"]],
   ["pneumonie",   "5 (fixe)",         "3 tours",  ["ATT −5 D3", "ESQ −5 D3", "DEG −5", "REG −5"]],
   ["pufPuff",     "0 à 2",            "3 tours",  ["ATT −X D3", "ESQ −X D3", "VUE −(X+1)", "PV −2D3 si X ≥ 2", "Effet de Zone"]],
@@ -66,6 +66,8 @@ function treasuresRender() {
     <a href="https://mountypedia.mountyhall.com/Mountyhall/Potion" target="_blank" rel="noopener">Mountypedia</a>.
     Un trésor ne fait qu'<b>un seul jet de dés</b> : une formule « X D3 » donne le même total
     partout où elle s'applique. Les bonus « +X » sont des valeurs fixes ajoutées aux jets.
+    Tous les bonus/malus des potions et parchemins sont <b>magiques</b> — leur armure est de
+    l'<b>armure magique</b>, seule à réduire les dégâts magiques.
     1 tour = 1 DLA. Boire une potion ou lire un parchemin coûte <b>1 PA</b>.</p>`;
 
   html += `<h2 class="tz-section">🧪 Potions (${TREASURE_POTIONS.length})</h2><div class="tz-grid">`;
@@ -83,8 +85,9 @@ function treasuresRender() {
   const gearCount = Object.values(GEAR).reduce((n, list) => n + list.length, 0);
   html += `<h2 class="tz-section">⚔️ Équipement (${gearCount})</h2>
     <p class="tz-intro">Six emplacements : ${Object.values(GEAR_SLOTS).map(s => s.label).join(", ")}.
-    Tous les bonus d'équipement sont <b>fixes</b> : ATT/ESQ/DEG/REG s'ajoutent aux jets
-    (jamais en dés), Armure/VUE/PV aussi, RM/MM en %.
+    Tous les bonus d'équipement sont <b>fixes</b> et <b>physiques</b> : ATT/ESQ/DEG/REG
+    s'ajoutent aux jets (jamais en dés), Armure physique/VUE/PV aussi, RM/MM en %.
+    L'armure d'équipement réduit les dégâts physiques mais pas les dégâts magiques.
     Une arme <b>à 2 mains</b> est incompatible avec un bouclier. S'équiper coûte <b>2 PA</b>.
     Valeurs de base de la Mountypedia (sans templates) ; les objets puissants ne se trouvent
     qu'en profondeur.</p>`;

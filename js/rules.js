@@ -52,7 +52,8 @@ const TALENT_RULES = {
     effect: `La Rafale Psychique est la seule attaque <b>imparable</b> du jeu :<br>
       • Jet d'Attaque : <b>automatiquement réussi</b> (aucune esquive possible) ;<br>
       • Jet de Dégâts : <b>1 D3 par D3 de Dégâts</b> ;<br>
-      • l'<b>armure physique est ignorée</b>.<br><br>
+      • l'<b>armure physique est ignorée</b> (seule l'armure magique de la cible
+      réduit les dégâts).<br><br>
       Un Jet de Résistance réussi de la part de la cible lui permet de ne subir
       que la moitié des dégâts.`,
     flavor: `Le Durakuir fronce les sourcils — un exploit en soi — et une onde de
@@ -87,7 +88,8 @@ const TALENT_RULES = {
       L'attaque par Vampirisme a les caractéristiques suivantes :<br>
       • Jet d'Attaque : <b>2 D6 par 3 D3 de Dégâts</b> ;<br>
       • Jet de Dégâts : <b>1 D3 par D3 de Dégâts</b> ;<br>
-      • l'<b>armure physique est ignorée</b> ;<br>
+      • l'<b>armure physique est ignorée</b> (seule l'armure magique de la cible
+      réduit les dégâts) ;<br>
       • Vampirisme : <b>50 % des dégâts infligés</b> rendus en PV.<br><br>
       Un Jet de Résistance réussi de la part de la cible lui permet de ne subir que
       la moitié des dégâts (et réduit d'autant le gain de PV). Si la cible est tuée,
@@ -126,7 +128,8 @@ const TALENT_RULES = {
       • Jet d'Attaque : <b>1 D6 par case de Vue + 1 D6 par case de proximité</b>
       (bonus quand la cible est plus proche que la portée maximale) ;<br>
       • Jet de Dégâts : <b>1 D3 par 2 cases de Vue</b> ;<br>
-      • l'<b>armure physique est ignorée</b>.<br><br>
+      • l'<b>armure physique est ignorée</b> (seule l'armure magique de la cible
+      réduit les dégâts).<br><br>
       Un Jet de Résistance réussi de la part de la cible lui permet de ne subir
       que la moitié des dégâts.`,
     flavor: `Une bille de lumière verte file entre les stalactites et explose en

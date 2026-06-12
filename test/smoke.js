@@ -76,6 +76,61 @@ assert.strictEqual(g.improveCost("reg", 0, "Skrim"), 30, "REG non favorisée = 3
 assert.strictEqual(g.improveCost("armor", 0, "Durakuir"), 30, "Armure = 30 PI pour tous");
 assert.strictEqual(g.improveCost("esq", 1, "Tomawak"), 32, "2e dé d'ESQ = 32 PI");
 
+// Armure physique vs magique : les dégâts physiques sont réduits par l'armure
+// totale ; les dégâts magiques (opts.magic) par la seule armure magique ;
+// opts.ignoreArmor ignore tout (Siphon des Âmes).
+{
+  const fort = { att: 50, deg: 10 }; // touche toujours, dégâts élevés
+  for (let i = 0; i < 200; i++) {
+    const cible = { esq: 1, armorPhys: 5, armorMag: 3 };
+    const phy = g.resolveAttack(fort, cible);
+    assert.strictEqual(phy.armorReduction, 8, "attaque physique : armure totale 5+3");
+    const mag = g.resolveAttack(fort, cible, { magic: true });
+    assert.strictEqual(mag.armorReduction, 3, "attaque magique : armure magique seule");
+    const tout = g.resolveAttack(fort, cible, { ignoreArmor: true });
+    assert.strictEqual(tout.armorReduction, 0, "ignoreArmor : aucune réduction");
+  }
+  // armure magique négative (Métomol) : réduit l'armure totale, jamais sous 0
+  const r1 = g.resolveAttack(fort, { esq: 1, armorPhys: 2, armorMag: -5 });
+  assert.strictEqual(r1.armorReduction, 0, "armure totale plancher 0");
+  const r2 = g.resolveAttack(fort, { esq: 1, armorPhys: 0, armorMag: -4 }, { magic: true });
+  assert.strictEqual(r2.armorReduction, 0, "armure magique plancher 0");
+  // rétrocompat : un défenseur avec seulement `armor` = armure physique
+  const r3 = g.resolveAttack(fort, { esq: 1, armor: 4 });
+  assert.strictEqual(r3.armorReduction, 4, "fallback armor = physique");
+}
+
+// effTroll : équipement → armure physique, potions → armure magique
+{
+  const gearLib = require("../js/gear.js");
+  const t = { att: 3, esq: 3, deg: 3, reg: 1, vue: 3, armor: 0, armorDice: 0, degBonus: 0, pvMax: 30, pv: 20,
+    potionEffects: [], blockCamoTurns: 0, tour: 1, bag: [],
+    equip: { arme: null, armure: null, casque: null, bouclier: null, talisman: null, bottes: null }, gearMods: null };
+  g.equipGear(t, gearLib.gearItemByName("armure", "Armure de cuir")); // arm +4 (physique)
+  p.drinkPotion(t, p.makePotionItem("glacier", 5), g.rollDice, () => {}); // Armure mag. +5
+  const e = p.effTroll(t);
+  assert.strictEqual(e.armorPhys, 4, "Armure de cuir : armure physique +4");
+  assert.strictEqual(e.armorMag, 5, "Extrait du Glacier : armure magique +5");
+  assert.strictEqual(e.armor, 9, "armure totale = physique + magique");
+  // décomposition des bonus fixes : équipement = physique, potion = magique
+  g.equipGear(t, gearLib.gearItemByName("arme", "Gourdin")); // att +2 (physique)
+  p.drinkPotion(t, p.makePotionItem("bonneBouffe", 5), g.rollDice, () => {}); // DEG +5 (magique)
+  const e2 = p.effTroll(t);
+  assert.strictEqual(e2.attFlatPhys, 2, "Gourdin : ATT +2 physique");
+  assert.strictEqual(e2.attFlatMag, 0, "aucun bonus magique d'ATT");
+  assert.strictEqual(e2.degFlatPhys, 5, "Gourdin : DEG +5 physique");
+  assert.strictEqual(e2.degFlatMag, 5, "Bonne Bouffe : DEG +5 magique");
+  assert.strictEqual(e2.degFlat, 10, "total = physique + magique");
+}
+
+// Monstres : armure physique et magique distinctes
+{
+  const m = g.makeMonster(3, 1, 1);
+  assert(typeof m.armorMag === "number", "monstre : armorMag présent");
+  const boss = g.monsterFromSpec({ x: 1, y: 1, boss: true });
+  assert(typeof boss.armorMag === "number", "Béhémoth : armorMag présent");
+}
+
 // L'armure naturelle en D3 réduit bien les dégâts
 {
   let withArmor = 0, without = 0;
