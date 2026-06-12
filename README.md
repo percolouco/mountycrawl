@@ -158,8 +158,15 @@ nouveaux spawns/drops utilisent les valeurs retouchées ; le solo reste vanilla)
 - **Tuning des potions & parchemins** : fourchette de puissance « niveau X »
   (min/max) tirée à chaque drop, par trésor.
 
-Les cases modifiées sont surlignées ; seuls les écarts au vanilla sont stockés
-(`world.tuning`), et chaque catégorie se remet d'origine d'un clic.
+Les cases modifiées sont surlignées et chaque catégorie se remet d'origine d'un
+clic. Depuis la 2.3.0, ces valeurs vivent dans une **base SQLite**
+(`DB_FILE`, défaut `/data/mountycrawl.db`, via le module natif `node:sqlite` —
+toujours zéro dépendance npm) : tables `monsters`, `gear`, `potions`, `scrolls`,
+seedées vanilla au premier démarrage puis jamais écrasées. On peut donc aussi
+les éditer directement avec n'importe quel outil SQLite (DB Browser, DBeaver,
+sqlite3) — chaque spawn/drop relit la base, c'est pris en compte à chaud.
+L'état vivant du monde (trolls, monstres actifs, objets au sol) reste dans
+`world.json` ; l'ancien `world.tuning` est migré automatiquement dans la base.
 
 ### API multijoueur
 
@@ -227,6 +234,16 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.3.0** (2026-06-12) — Les valeurs de référence du monde partagé passent dans
+  une **base SQLite** (`db.js`, module natif `node:sqlite` — toujours zéro
+  dépendance npm) : tables `monsters` (bestiaire), `gear` (55 objets),
+  `potions`/`scrolls` (fourchettes de puissance), dans `DB_FILE` (défaut
+  `/data/mountycrawl.db`). Seed vanilla au premier démarrage, jamais écrasé
+  ensuite ; chaque spawn/drop **relit la base**, donc une modification — page
+  admin ou édition directe au DB Browser/DBeaver/sqlite3 — s'applique à chaud.
+  L'ancien `world.tuning` de world.json est migré automatiquement puis retiré.
+  L'état vivant (trolls, monstres actifs, objets au sol) reste dans `world.json`.
+  Image Docker en node:24 (SQLite natif stable). API et page admin inchangées.
 - **2.2.0** (2026-06-12) — Le couple **physique/magique partout** : comme l'armure,
   l'ATT et les DEG existent désormais en deux saveurs pour les **monstres**
   (`attMag`, `degMag` — un monstre qui en a alterne au hasard entre attaque

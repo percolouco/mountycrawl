@@ -241,7 +241,8 @@ function makeWorld(over = {}) {
 // Tuning admin : bestiaire appliqué aux nouveaux spawns
 {
   const w = makeWorld({ monsterTarget: 0, itemTarget: 0, worldDepth: 1 });
-  mp.adminSetTuning(w, { monsters: { "Gobelin": { att: 9, pv: 77, armorMag: 3 } } });
+  const tun1 = mp.adminSetTuning(w, { monsters: { "Gobelin": { att: 9, pv: 77, armorMag: 3 } } });
+  assert.strictEqual(tun1.monsters.Gobelin.att, 9, "écart ATT visible dans le tuning courant");
   // spawn forcé jusqu'à obtenir un Gobelin
   let gob = null;
   for (let i = 0; i < 300 && !gob; i++) {
@@ -254,33 +255,33 @@ function makeWorld(over = {}) {
   assert([54, 77].includes(gob.pv), "PV tunés (×gabarit) : " + gob.pv);
   assert.strictEqual(gob.armorMag, 3, "armure magique tunée (gabarit ne la multiplie pas)");
   // bornage et noms inconnus ignorés
-  mp.adminSetTuning(w, { monsters: { "Dragon": { att: 5 }, "Gobelin": { att: 5000 } } });
-  assert(!w.tuning.monsters.Dragon, "type inconnu ignoré");
-  assert.strictEqual(w.tuning.monsters.Gobelin.att, 99, "ATT bornée à 99");
+  const tun2 = mp.adminSetTuning(w, { monsters: { "Dragon": { att: 5 }, "Gobelin": { att: 5000 } } });
+  assert(!tun2.monsters.Dragon, "type inconnu ignoré");
+  assert.strictEqual(tun2.monsters.Gobelin.att, 99, "ATT bornée à 99");
   // retour au vanilla
-  mp.adminSetTuning(w, { monsters: {} });
-  assert.strictEqual(Object.keys(w.tuning.monsters).length, 0, "bestiaire d'origine restauré");
+  const tun3 = mp.adminSetTuning(w, { monsters: {} });
+  assert.strictEqual(Object.keys(tun3.monsters).length, 0, "bestiaire d'origine restauré");
 }
 
 // Tuning admin : puissance des potions/parchemins et bonus d'équipement
 {
   const w = makeWorld({ monsterTarget: 0, itemTarget: 0 });
-  mp.adminSetTuning(w, {
+  const tun = mp.adminSetTuning(w, {
     potions: { guerison: [9, 9], nimporte: [1, 2] },
     scrolls: { runeExplosive: [7, 3] }, // inversé : doit devenir [3, 7]
     gear: { "arme/Gourdin": { deg: 12 }, "arme/Excalibur": { deg: 99 } },
   });
-  assert(!w.tuning.potions.nimporte, "potion inconnue ignorée");
-  assert.deepStrictEqual(w.tuning.scrolls.runeExplosive, [3, 7], "fourchette remise dans l'ordre");
-  assert(!w.tuning.gear["arme/Excalibur"], "objet inconnu ignoré");
+  assert(!tun.potions.nimporte, "potion inconnue ignorée");
+  assert.deepStrictEqual(tun.scrolls.runeExplosive, [3, 7], "fourchette remise dans l'ordre");
+  assert(!tun.gear["arme/Excalibur"], "objet inconnu ignoré");
   // la puissance tirée respecte l'override
   for (let i = 0; i < 100; i++) {
-    const it = mp.tunedRandomPotion(w);
+    const it = mp.tunedRandomPotion();
     if (it.potionId === "guerison") assert.strictEqual(it.power, 9, "Guérison forcée à X=9");
   }
   // l'équipement tuné garde ses autres mods
   const gearLib = require("../js/gear.js");
-  const club = mp.applyGearTuning(w, gearLib.gearItemByName("arme", "Gourdin"));
+  const club = mp.applyGearTuning(gearLib.gearItemByName("arme", "Gourdin"));
   assert.strictEqual(club.mods.deg, 12, "DEG du Gourdin tuné");
   assert.strictEqual(club.mods.att, 2, "ATT du Gourdin inchangée");
   // les défauts pour l'admin sont complets
@@ -294,12 +295,12 @@ function makeWorld(over = {}) {
 // Tuning admin : saveurs magiques (attMag/degMag/armMag) et suppression de troll
 {
   const w = makeWorld({ monsterTarget: 0, itemTarget: 0, worldDepth: 1 });
-  mp.adminSetTuning(w, {
+  const tunMag = mp.adminSetTuning(w, {
     monsters: { "Gobelin": { attMag: 6, degMag: 4 } },
     gear: { "arme/Bâton de mage": { attMag: 4, armMag: 2 } },
   });
-  assert.strictEqual(w.tuning.monsters.Gobelin.attMag, 6, "ATT mag du Gobelin tunée");
-  assert.strictEqual(w.tuning.gear["arme/Bâton de mage"].armMag, 2, "Armure mag du bâton tunée");
+  assert.strictEqual(tunMag.monsters.Gobelin.attMag, 6, "ATT mag du Gobelin tunée");
+  assert.strictEqual(tunMag.gear["arme/Bâton de mage"].armMag, 2, "Armure mag du bâton tunée");
   let gob = null;
   for (let i = 0; i < 300 && !gob; i++) {
     const m = mp.spawnMonster(w);
@@ -307,7 +308,7 @@ function makeWorld(over = {}) {
   }
   assert(gob && gob.attMag > 0 && gob.degMag > 0, "le Gobelin spawné a une attaque magique");
   const gearLib = require("../js/gear.js");
-  const baton = mp.applyGearTuning(w, gearLib.gearItemByName("arme", "Bâton de mage"));
+  const baton = mp.applyGearTuning(gearLib.gearItemByName("arme", "Bâton de mage"));
   assert.strictEqual(baton.mods.attMag, 4, "ATT mag du bâton droppé");
   assert.strictEqual(baton.mods.mmPct, 15, "MM % vanilla conservé");
   // suppression admin d'un troll
@@ -316,6 +317,39 @@ function makeWorld(over = {}) {
   assert(mp.adminKickTroll(w, r.troll.id).ok, "troll supprimé");
   assert(!w.trolls[r.troll.id], "le troll n'existe plus");
   assert(!mp.newTroll(w, "Banni", "Skrim").error, "son nom redevient libre");
+}
+
+// Base de référence : les retouches survivent au redémarrage (seed non destructif)
+{
+  const os = require("os");
+  const path = require("path");
+  const fs = require("fs");
+  const db = require("../db.js");
+  const file = path.join(os.tmpdir(), "mc-test-ref.db");
+  for (const f of [file, file + "-wal", file + "-shm"]) { try { fs.rmSync(f); } catch {} }
+  db.init(file);
+  db.setGear("arme", "Gourdin", { deg: 42 });
+  db.setMonster("Sorcière", { attMag: 7, degMag: 5 });
+  db.init(file); // « redémarrage » : INSERT OR IGNORE ne doit rien écraser
+  assert.strictEqual(db.gearRow("arme", "Gourdin").deg, 42, "retouche d'équipement conservée");
+  const sorciere = db.monsters().find(m => m.name === "Sorcière");
+  assert.strictEqual(sorciere.attMag, 7, "retouche du bestiaire conservée");
+  assert.strictEqual(db.gearRow("arme", "Torche").vue, 1, "valeurs vanilla seedées");
+  db.init(":memory:"); // base propre pour la suite des tests
+}
+
+// Migration < 2.3.0 : le tuning de world.json est déversé une fois dans la base
+{
+  const os = require("os");
+  const path = require("path");
+  const w = makeWorld();
+  w.tuning = { monsters: { "Gobelin": { att: 42 } }, gear: {}, potions: {}, scrolls: {} };
+  const file = path.join(os.tmpdir(), "mc-world-migration.json");
+  mp.saveWorld(w, file);
+  const loaded = mp.loadWorld(file);
+  assert(loaded && !loaded.tuning, "tuning retiré du monde migré");
+  assert.strictEqual(mp.currentTuning().monsters.Gobelin.att, 42, "écart migré en base");
+  mp.adminSetTuning(loaded, { monsters: {} }); // nettoyage
 }
 
 // Persistance : save + load

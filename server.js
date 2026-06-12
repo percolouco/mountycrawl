@@ -1,6 +1,9 @@
 /* Serveur MountyCrawl — fichiers statiques + API de niveaux communautaires
  * + monde multijoueur persistant (mp.js).
- * Node pur, aucune dépendance. Stockage : fichiers JSON (LEVELS_FILE, WORLD_FILE). */
+ * Node pur, aucune dépendance npm. Stockage : fichiers JSON (LEVELS_FILE,
+ * WORLD_FILE pour l'état vivant) + base SQLite native (DB_FILE) pour les
+ * valeurs de référence — bestiaire, équipement, potions, parchemins —
+ * éditables à chaud par la page admin ou n'importe quel outil SQLite. */
 
 "use strict";
 
@@ -8,12 +11,15 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const mp = require("./mp.js");
+const db = require("./db.js");
 
 const PORT = process.env.PORT || 80;
 const ROOT = __dirname;
 const LEVELS_FILE = process.env.LEVELS_FILE || "/data/levels.json";
 const WORLD_FILE = process.env.WORLD_FILE || "/data/world.json";
+const DB_FILE = process.env.DB_FILE || "/data/mountycrawl.db";
+
+const mp = require("./mp.js");
 const MAX_BODY = 100 * 1024; // 100 Ko par niveau, large
 const MAX_LEVELS = 500;
 
@@ -121,6 +127,7 @@ let worldDirty = false;
 let ADMIN_TOKEN = null;
 
 function initMP() {
+  db.init(DB_FILE); // avant loadWorld : la migration du tuning < 2.3.0 écrit dedans
   WORLD = mp.loadWorld(WORLD_FILE) || mp.createWorld();
   // token admin : variable d'environnement, sinon généré et persisté à côté du monde
   ADMIN_TOKEN = process.env.MP_ADMIN_TOKEN || null;
@@ -332,7 +339,7 @@ const server = http.createServer((req, res) => {
 
 if (require.main === module) {
   initMP();
-  server.listen(PORT, () => console.log(`MountyCrawl sur le port ${PORT}, niveaux dans ${LEVELS_FILE}, monde dans ${WORLD_FILE}`));
+  server.listen(PORT, () => console.log(`MountyCrawl sur le port ${PORT}, niveaux dans ${LEVELS_FILE}, monde dans ${WORLD_FILE}, référence dans ${DB_FILE}`));
 }
 
 module.exports = { validateLevel, MAP_W, MAP_H };

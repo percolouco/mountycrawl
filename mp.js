@@ -24,6 +24,7 @@ const g = require("./js/game.js");
 const p = require("./js/potions.js");
 const sc = require("./js/scrolls.js");
 const gearLib = require("./js/gear.js");
+const db = require("./db.js");
 
 /* ---------- Configuration par défaut (tout est réglable via l'admin) ---------- */
 
@@ -52,59 +53,49 @@ const CONFIG_BOUNDS = {
 };
 
 /* ---------- Tuning : valeurs du bestiaire, de l'équipement et des trésors ----------
- * world.tuning ne stocke que les écarts à la valeur de base (vanilla). Il
- * s'applique aux nouveaux spawns/drops du monde partagé — le solo reste vanilla. */
+ * Les valeurs de référence vivent dans la base SQLite (db.js) ; chaque
+ * spawn/drop la relit, donc une modification (page admin ou éditeur SQLite)
+ * s'applique à chaud aux nouveaux spawns/drops — le solo reste vanilla. */
 
-const MONSTER_TUNE_KEYS = ["level", "att", "attMag", "esq", "deg", "degMag", "pv", "armor", "armorMag", "vue"];
+const MONSTER_TUNE_KEYS = db.MONSTER_KEYS;
 const MONSTER_TUNE_BOUNDS = { level: [1, 99], att: [1, 99], attMag: [0, 99], esq: [1, 99], deg: [1, 99], degMag: [0, 99], pv: [1, 999], armor: [0, 99], armorMag: [0, 99], vue: [1, 30] };
-const GEAR_TUNE_KEYS = ["att", "attMag", "esq", "deg", "degMag", "reg", "arm", "armMag", "vue", "pv", "rmPct", "mmPct"];
+const GEAR_TUNE_KEYS = db.GEAR_KEYS;
 const GEAR_TUNE_BOUNDS = [-100, 100];
 const POWER_BOUNDS = [0, 200];
-
-/* Fourchettes de puissance « niveau X » par défaut (Mountypedia). La Longue-Vue
- * vanilla tire dans {1,2,3,5,8} : sans override on garde le tirage officiel. */
-const POTION_POWER_DEFAULTS = {
-  biskot: [0, 0], doverPowa: [11, 100], bonneBouffe: [3, 7], corruption: [3, 7],
-  fertilite: [3, 7], feu: [3, 7], longueVue: [1, 8], kouleMann: [1, 5],
-  djhinTonik: [1, 5], glacier: [3, 7], calvok: [2, 6], rhume: [1, 2],
-  grippe: [3, 4], pneumonie: [5, 5], cervelle: [2, 6], chronometre: [1, 5],
-  metomol: [1, 5], guerison: [1, 5], painture: [1, 5], pufPuff: [0, 2],
-  sangToh: [1, 5], sinneKhole: [11, 100], toxine: [1, 5], voiputrin: [1, 5],
-  zetCrak: [1, 5],
-};
-const SCROLL_POWER_DEFAULTS = Object.fromEntries(sc.SCROLL_IDS.map(id => [id, [1, 5]]));
-
-function emptyTuning() {
-  return { monsters: {}, gear: {}, potions: {}, scrolls: {} };
-}
 
 function randRange([min, max]) {
   const lo = Math.min(min, max), hi = Math.max(min, max);
   return lo + Math.floor(Math.random() * (hi - lo + 1));
 }
 
-/* Types de monstres avec le tuning admin appliqué (avant gabarit d'âge). */
-function tunedMonsterTypes(world) {
-  const tune = (world.tuning && world.tuning.monsters) || {};
-  return [...g.MONSTER_TYPES, g.BOSS].map(t => tune[t.name] ? { ...t, ...tune[t.name] } : t);
+const sameRange = (a, b) => a && b && Math.min(...a) === Math.min(...b) && Math.max(...a) === Math.max(...b);
+
+/* Types de monstres tels qu'en base (avant gabarit d'âge). */
+function tunedMonsterTypes() {
+  return db.monsters();
 }
 
-function tunedRandomPotion(world) {
+function tunedRandomPotion() {
   const item = p.makeRandomPotion();
-  const range = (world.tuning && world.tuning.potions || {})[item.potionId];
-  return range ? p.makePotionItem(item.potionId, randRange(range)) : item;
+  const range = db.treasureRange("potions", item.potionId);
+  // fourchette d'origine → on garde le tirage vanilla (ex. Longue-Vue {1,2,3,5,8})
+  if (!range || sameRange(range, db.POTION_POWER_DEFAULTS[item.potionId])) return item;
+  return p.makePotionItem(item.potionId, randRange(range));
 }
 
-function tunedRandomScroll(world) {
+function tunedRandomScroll() {
   const item = sc.makeRandomScroll();
-  const range = (world.tuning && world.tuning.scrolls || {})[item.scrollId];
-  return range ? sc.makeScrollItem(item.scrollId, randRange(range)) : item;
+  const range = db.treasureRange("scrolls", item.scrollId);
+  if (!range || sameRange(range, db.SCROLL_POWER_DEFAULTS[item.scrollId])) return item;
+  return sc.makeScrollItem(item.scrollId, randRange(range));
 }
 
-function applyGearTuning(world, item) {
+function applyGearTuning(item) {
   if (!item || item.kind !== "gear") return item;
-  const tune = (world.tuning && world.tuning.gear || {})[`${item.slot}/${item.name}`];
-  if (tune) item.mods = { ...item.mods, ...tune };
+  const row = db.gearRow(item.slot, item.name);
+  if (row) {
+    item.mods = Object.fromEntries(db.GEAR_KEYS.map(k => [k, row[k] || 0]).filter(([, v]) => v));
+  }
   return item;
 }
 
@@ -141,7 +132,7 @@ function spawnMonster(world, now = Date.now()) {
   // même logique que makeMonster (pool par profondeur + gabarit d'âge),
   // mais sur les types tunés par l'admin
   const depth = world.config.worldDepth;
-  const types = tunedMonsterTypes(world).filter(t => !t.boss);
+  const types = tunedMonsterTypes().filter(t => !t.boss);
   const pool = types.filter(t => t.level <= depth + 1 && t.level >= Math.max(1, depth - 2));
   const list = pool.length ? pool : types;
   const type = list[Math.floor(Math.random() * list.length)];
@@ -160,9 +151,9 @@ function spawnItem(world) {
   if (!pos) return null;
   const r = Math.random();
   const depth = world.config.worldDepth;
-  const item = r < 0.34 ? tunedRandomPotion(world)
-    : r < 0.48 ? tunedRandomScroll(world)
-    : r < 0.78 ? applyGearTuning(world, gearLib.makeRandomGear(depth))
+  const item = r < 0.34 ? tunedRandomPotion()
+    : r < 0.48 ? tunedRandomScroll()
+    : r < 0.78 ? applyGearTuning(gearLib.makeRandomGear(depth))
     : { kind: "gold", gold: g.rollDice(depth, 6).total * 10, emoji: "💰" };
   if (item.kind === "gold") item.name = `${item.gold} Mountyzédons`;
   world.items.push({ ...item, x: pos.x, y: pos.y });
@@ -173,7 +164,6 @@ function createWorld(config = {}) {
   const cfg = { ...DEFAULT_CONFIG, ...config };
   const world = {
     config: cfg,
-    tuning: emptyTuning(),
     grid: g.generateCavern(cfg.mapW, cfg.mapH),
     trolls: {},
     monsters: [],
@@ -434,8 +424,8 @@ function killMonsterMP(world, t, m) {
   worldLog(world, `⚔️ ${t.name} a terrassé ${m.emoji} ${m.name} !`, "combat");
   if (Math.random() < 0.4 && !world.items.some(i => i.x === m.x && i.y === m.y)) {
     const lr = Math.random();
-    const drop = lr < 0.4 ? { ...tunedRandomPotion(world), x: m.x, y: m.y }
-      : lr < 0.65 ? { ...tunedRandomScroll(world), x: m.x, y: m.y }
+    const drop = lr < 0.4 ? { ...tunedRandomPotion(), x: m.x, y: m.y }
+      : lr < 0.65 ? { ...tunedRandomScroll(), x: m.x, y: m.y }
       : { kind: "gold", gold: m.level * 10, name: `${m.level * 10} Mountyzédons`, emoji: "💰", x: m.x, y: m.y };
     world.items.push(drop);
     privLog(t, `${m.name} laisse tomber ${drop.emoji} ${drop.name}.`, "info");
@@ -811,7 +801,7 @@ function adminOverview(world, now = Date.now()) {
   return {
     config: world.config,
     bounds: CONFIG_BOUNDS,
-    tuning: world.tuning || emptyTuning(),
+    tuning: currentTuning(),
     defaults: adminDefaults(),
     uptime: now - world.createdAt,
     trolls: Object.values(world.trolls).map(t => ({
@@ -857,41 +847,60 @@ function adminSetConfig(world, patch, now = Date.now()) {
 /* Valeurs de base (vanilla) pour construire les formulaires de tuning admin. */
 function adminDefaults() {
   return {
-    monsters: [...g.MONSTER_TYPES, g.BOSS].map(t => ({
-      name: t.name, emoji: t.emoji, boss: !!t.boss,
-      ...Object.fromEntries(MONSTER_TUNE_KEYS.map(k => [k, t[k] || 0])),
-    })),
+    monsters: db.vanillaMonsters(),
     monsterKeys: MONSTER_TUNE_KEYS,
-    gear: Object.entries(gearLib.GEAR).flatMap(([slot, list]) => list.map(def => ({
-      slot, name: def.name, emoji: def.emoji, twoHanded: !!def.twoHanded,
-      mods: Object.fromEntries(GEAR_TUNE_KEYS.map(k => [k, def.mods[k] || 0])),
-    }))),
+    gear: db.vanillaGear().map(it => ({
+      slot: it.slot, name: it.name, emoji: it.emoji, twoHanded: it.twoHanded,
+      mods: Object.fromEntries(GEAR_TUNE_KEYS.map(k => [k, it[k] || 0])),
+    })),
     gearKeys: GEAR_TUNE_KEYS,
-    potions: p.POTION_IDS.map(id => ({
-      id, name: p.POTION_DEFS[id].name, emoji: p.POTION_DEFS[id].emoji,
-      min: POTION_POWER_DEFAULTS[id][0], max: POTION_POWER_DEFAULTS[id][1],
-    })),
-    scrolls: sc.SCROLL_IDS.map(id => ({
-      id, name: sc.SCROLL_DEFS[id].name, emoji: sc.SCROLL_DEFS[id].emoji,
-      min: SCROLL_POWER_DEFAULTS[id][0], max: SCROLL_POWER_DEFAULTS[id][1],
-    })),
+    potions: db.vanillaTreasures("potions").map(t => ({ id: t.id, name: t.name, emoji: t.emoji, min: t.powerMin, max: t.powerMax })),
+    scrolls: db.vanillaTreasures("scrolls").map(t => ({ id: t.id, name: t.name, emoji: t.emoji, min: t.powerMin, max: t.powerMax })),
   };
+}
+
+/* Écarts actuels entre la base et le vanilla (pour surligner dans l'admin). */
+function currentTuning() {
+  const out = { monsters: {}, gear: {}, potions: {}, scrolls: {} };
+  const vm = Object.fromEntries(db.vanillaMonsters().map(m => [m.name, m]));
+  for (const m of db.monsters()) {
+    if (!vm[m.name]) continue;
+    const d = {};
+    for (const k of MONSTER_TUNE_KEYS) if ((m[k] || 0) !== vm[m.name][k]) d[k] = m[k];
+    if (Object.keys(d).length) out.monsters[m.name] = d;
+  }
+  const vg = Object.fromEntries(db.vanillaGear().map(i => [`${i.slot}/${i.name}`, i]));
+  for (const it of db.gearAll()) {
+    const key = `${it.slot}/${it.name}`;
+    if (!vg[key]) continue;
+    const d = {};
+    for (const k of GEAR_TUNE_KEYS) if ((it[k] || 0) !== vg[key][k]) d[k] = it[k];
+    if (Object.keys(d).length) out.gear[key] = d;
+  }
+  for (const cat of ["potions", "scrolls"]) {
+    const defaults = cat === "potions" ? db.POTION_POWER_DEFAULTS : db.SCROLL_POWER_DEFAULTS;
+    for (const t of db.treasuresAll(cat)) {
+      if (defaults[t.id] && !sameRange([t.powerMin, t.powerMax], defaults[t.id])) {
+        out[cat][t.id] = [t.powerMin, t.powerMax];
+      }
+    }
+  }
+  return out;
 }
 
 const clampInt = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(v)));
 
-/* Applique un patch de tuning : chaque catégorie fournie remplace l'existante
- * (l'admin envoie l'ensemble de ses écarts). Tout est validé et borné. */
+/* Applique un patch de tuning : chaque catégorie fournie est remise au vanilla
+ * puis les écarts envoyés sont écrits en base (validés et bornés). */
 function adminSetTuning(world, patch) {
-  world.tuning = world.tuning || emptyTuning();
   const known = {
-    monsters: new Set([...g.MONSTER_TYPES, g.BOSS].map(t => t.name)),
-    gear: new Set(Object.entries(gearLib.GEAR).flatMap(([slot, list]) => list.map(d => `${slot}/${d.name}`))),
+    monsters: new Set(db.vanillaMonsters().map(t => t.name)),
+    gear: new Set(db.vanillaGear().map(i => `${i.slot}/${i.name}`)),
     potions: new Set(p.POTION_IDS),
     scrolls: new Set(sc.SCROLL_IDS),
   };
   if (patch.monsters && typeof patch.monsters === "object") {
-    const out = {};
+    db.resetCategory("monsters");
     for (const [name, vals] of Object.entries(patch.monsters)) {
       if (!known.monsters.has(name) || typeof vals !== "object") continue;
       const entry = {};
@@ -899,12 +908,11 @@ function adminSetTuning(world, patch) {
         const v = Number(vals[k]);
         if (Number.isFinite(v)) entry[k] = clampInt(v, MONSTER_TUNE_BOUNDS[k][0], MONSTER_TUNE_BOUNDS[k][1]);
       }
-      if (Object.keys(entry).length) out[name] = entry;
+      db.setMonster(name, entry);
     }
-    world.tuning.monsters = out;
   }
   if (patch.gear && typeof patch.gear === "object") {
-    const out = {};
+    db.resetCategory("gear");
     for (const [key, mods] of Object.entries(patch.gear)) {
       if (!known.gear.has(key) || typeof mods !== "object") continue;
       const entry = {};
@@ -912,25 +920,24 @@ function adminSetTuning(world, patch) {
         const v = Number(mods[k]);
         if (Number.isFinite(v)) entry[k] = clampInt(v, GEAR_TUNE_BOUNDS[0], GEAR_TUNE_BOUNDS[1]);
       }
-      if (Object.keys(entry).length) out[key] = entry;
+      const slash = key.indexOf("/");
+      db.setGear(key.slice(0, slash), key.slice(slash + 1), entry);
     }
-    world.tuning.gear = out;
   }
   for (const cat of ["potions", "scrolls"]) {
     if (!patch[cat] || typeof patch[cat] !== "object") continue;
-    const out = {};
+    db.resetCategory(cat);
     for (const [id, range] of Object.entries(patch[cat])) {
       if (!known[cat].has(id) || !Array.isArray(range)) continue;
       const lo = Number(range[0]), hi = Number(range[1]);
       if (!Number.isFinite(lo) || !Number.isFinite(hi)) continue;
-      out[id] = [
+      db.setTreasureRange(cat, id, [
         clampInt(Math.min(lo, hi), POWER_BOUNDS[0], POWER_BOUNDS[1]),
         clampInt(Math.max(lo, hi), POWER_BOUNDS[0], POWER_BOUNDS[1]),
-      ];
+      ]);
     }
-    world.tuning[cat] = out;
   }
-  return world.tuning;
+  return currentTuning();
 }
 
 /* Supprime définitivement un troll du monde (admin). */
@@ -975,7 +982,13 @@ function loadWorld(file) {
     const world = JSON.parse(fs.readFileSync(file, "utf8"));
     if (!world || !world.grid || !world.trolls) return null;
     world.config = { ...DEFAULT_CONFIG, ...world.config };
-    world.tuning = { ...emptyTuning(), ...world.tuning };
+    // migration < 2.3.0 : les écarts de tuning vivaient dans world.json,
+    // on les déverse une fois dans la base puis on les retire du monde
+    if (world.tuning) {
+      const hasDeltas = Object.values(world.tuning).some(cat => cat && Object.keys(cat).length);
+      if (hasDeltas) adminSetTuning(world, world.tuning);
+      delete world.tuning;
+    }
     return world;
   } catch { return null; }
 }
@@ -984,7 +997,7 @@ module.exports = {
   DEFAULT_CONFIG, CONFIG_BOUNDS,
   createWorld, tick, newTroll, authTroll, login, action, stateFor,
   adminOverview, adminSetConfig, adminSetTuning, adminDefaults, adminResetWorld, adminKickTroll,
-  saveWorld, loadWorld,
+  currentTuning, saveWorld, loadWorld,
   spawnMonster, spawnItem, monsterAct, trollDla, worldLog,
   tunedRandomPotion, tunedRandomScroll, applyGearTuning,
 };

@@ -89,8 +89,11 @@
 
     <div class="admin-card" style="margin-top:16px">
       <h2>⚔️ Tuning de l'équipement</h2>
-      <p><small>Bonus/malus de chaque objet (physiques, fixes sur les jets ; RM/MM en %).
-      S'applique aux prochains drops du monde partagé.</small></p>
+      <p><small>Bonus/malus de chaque objet (fixes sur les jets ; RM/MM en %).
+      S'applique aux prochains drops du monde partagé. Ces valeurs vivent dans la
+      base SQLite <code>data/mountycrawl.db</code> (tables <code>gear</code>,
+      <code>monsters</code>, <code>potions</code>, <code>scrolls</code>) — tu peux
+      aussi les éditer avec n'importe quel outil SQLite, c'est relu à chaque drop.</small></p>
       <div id="tune-gear"></div>
       <button id="tune-gear-save" class="big-btn">💾 Appliquer l'équipement</button>
       <button id="tune-gear-reset" class="menu-btn">↩️ Tout remettre d'origine</button>
