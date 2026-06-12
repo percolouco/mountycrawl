@@ -230,6 +230,14 @@ function handleMP(req, res, url) {
         return sendJSON(res, 200, tuning);
       });
     }
+    if (req.method === "POST" && url.pathname === "/api/mp/admin/kick") {
+      return readBody(req, res, body => {
+        const r = mp.adminKickTroll(WORLD, body.id);
+        if (r.error) return sendJSON(res, 404, r);
+        worldDirty = true;
+        return sendJSON(res, 200, r);
+      });
+    }
     if (req.method === "POST" && url.pathname === "/api/mp/admin/reset") {
       mp.adminResetWorld(WORLD);
       worldDirty = true;

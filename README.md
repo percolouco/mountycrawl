@@ -103,6 +103,12 @@ Gobelin, Champignon Vénéneux, Araignée Géante, Gargouille, Momie, Sorcière,
 Pierre — déclinés en gabarits *Jeune / Vieux / Ancien / Mythique* selon la profondeur,
 et le **Béhémoth** comme boss final à la profondeur −5.
 
+Comme l'armure, l'ATT et les DEG des monstres existent en **physique** et en
+**magique** : un monstre doté d'une attaque magique (ATT mag et DEG mag > 0)
+alterne au hasard entre ses deux attaques ; l'attaque magique n'est réduite que
+par l'armure magique du troll. En vanilla toutes les valeurs magiques sont à 0
+(comportement inchangé) — elles se règlent par type via l'admin du monde partagé.
+
 ## Monde partagé (multijoueur)
 
 Depuis l'accueil : **🧌🧌 Monde partagé**. Un monde souterrain persistant et
@@ -144,11 +150,11 @@ bouton « Régénérer le monde » (trolls conservés et replacés).
 L'admin peut aussi **retoucher les règles du monde partagé**, à chaud (les
 nouveaux spawns/drops utilisent les valeurs retouchées ; le solo reste vanilla) :
 
-- **Tuning du bestiaire** : tableau éditable par type de monstre (niveau, ATT,
-  ESQ, DEG, PV, armure physique/magique, VUE) — valeurs de base, avant gabarit
-  d'âge (Jeune/Vieux/Ancien/Mythique).
+- **Tuning du bestiaire** : tableau éditable par type de monstre (niveau, ATT
+  phy/mag, ESQ, DEG phy/mag, PV, armure phy/mag, VUE) — valeurs de base, avant
+  gabarit d'âge (Jeune/Vieux/Ancien/Mythique).
 - **Tuning de l'équipement** : les 55 objets avec tous leurs bonus modifiables
-  (ATT/ESQ/DEG/REG/armure/VUE/PV fixes, RM/MM en %).
+  (ATT phy/mag, ESQ, DEG phy/mag, REG, armure phy/mag, VUE, PV fixes, RM/MM en %).
 - **Tuning des potions & parchemins** : fourchette de puissance « niveau X »
   (min/max) tirée à chaque drop, par trésor.
 
@@ -221,6 +227,20 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.2.0** (2026-06-12) — Le couple **physique/magique partout** : comme l'armure,
+  l'ATT et les DEG existent désormais en deux saveurs pour les **monstres**
+  (`attMag`, `degMag` — un monstre qui en a alterne au hasard entre attaque
+  physique et magique, cette dernière n'étant réduite que par l'armure magique)
+  et pour l'**équipement** (`attMag`/`degMag`/`armMag` : bonus appliqués aux
+  sortilèges et à l'armure magique, là où `att`/`deg`/`arm` restent physiques).
+  ESQ, PV et VUE restent simples. Les bonus fixes du troll sont décomposés par
+  type d'action (`xxxFlatPhys`/`xxxFlatMag`) : les potions/parchemins modifient
+  le troll et comptent dans les deux, l'équipement selon sa saveur — au passage,
+  une arme physique ne booste plus les sortilèges (Vampirisme, Siphon des Âmes…).
+  Toutes les valeurs magiques vanilla sont à 0 (comportement inchangé) et se
+  règlent via le tuning admin, dont les tableaux gagnent les colonnes
+  ATT/DEG/Arm phy et mag. Admin : bouton 🗑️ pour **supprimer un troll**
+  (`POST /api/mp/admin/kick`).
 - **2.1.0** (2026-06-12) — **Connexion multi-appareils** : à la création du troll
   on choisit un mot de passe (stocké hashé+salé, jamais en clair) ; « 🔑 Retrouver
   mon troll » (`POST /api/mp/login`) permet de récupérer son troll depuis

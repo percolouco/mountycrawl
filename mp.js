@@ -55,9 +55,9 @@ const CONFIG_BOUNDS = {
  * world.tuning ne stocke que les écarts à la valeur de base (vanilla). Il
  * s'applique aux nouveaux spawns/drops du monde partagé — le solo reste vanilla. */
 
-const MONSTER_TUNE_KEYS = ["level", "att", "esq", "deg", "pv", "armor", "armorMag", "vue"];
-const MONSTER_TUNE_BOUNDS = { level: [1, 99], att: [1, 99], esq: [1, 99], deg: [1, 99], pv: [1, 999], armor: [0, 99], armorMag: [0, 99], vue: [1, 30] };
-const GEAR_TUNE_KEYS = ["att", "esq", "deg", "reg", "arm", "vue", "pv", "rmPct", "mmPct"];
+const MONSTER_TUNE_KEYS = ["level", "att", "attMag", "esq", "deg", "degMag", "pv", "armor", "armorMag", "vue"];
+const MONSTER_TUNE_BOUNDS = { level: [1, 99], att: [1, 99], attMag: [0, 99], esq: [1, 99], deg: [1, 99], degMag: [0, 99], pv: [1, 999], armor: [0, 99], armorMag: [0, 99], vue: [1, 30] };
+const GEAR_TUNE_KEYS = ["att", "attMag", "esq", "deg", "degMag", "reg", "arm", "armMag", "vue", "pv", "rmPct", "mmPct"];
 const GEAR_TUNE_BOUNDS = [-100, 100];
 const POWER_BOUNDS = [0, 200];
 
@@ -331,13 +331,15 @@ function monsterAct(world, m, now) {
   }
   if (best && bestDist <= 1) {
     const te = effTrollMP(best);
-    const r = g.resolveAttack(em, te);
+    // un monstre doté d'une attaque magique (attMag/degMag) alterne au hasard
+    const magic = em.attMag > 0 && em.degMag > 0 && Math.random() < 0.5;
+    const r = g.resolveAttack(magic ? { ...em, att: em.attMag, deg: em.degMag } : em, te, { magic });
     if (r.hit) {
       best.pv -= r.damage;
-      privLog(best, `${m.emoji} ${m.name} t'attaque : ${r.attRoll} vs ${r.esqRoll} → ${r.damage} dégâts${r.armorReduction ? ` (armure −${r.armorReduction})` : ""} !`, "bad");
+      privLog(best, `${m.emoji} ${m.name} t'attaque${magic ? " (magie)" : ""} : ${r.attRoll} vs ${r.esqRoll} → ${r.damage} dégâts${r.armorReduction ? ` (armure${magic ? " magique" : ""} −${r.armorReduction})` : ""} !`, "bad");
       if (best.pv <= 0) killTrollMP(world, best, m.name, now);
     } else {
-      privLog(best, `${m.emoji} ${m.name} t'attaque… et tu esquives !`, "combat");
+      privLog(best, `${m.emoji} ${m.name} t'attaque${magic ? " (magie)" : ""}… et tu esquives !`, "combat");
     }
   } else if (best && bestDist <= em.vue) {
     stepTowardMP(world, m, best);
@@ -497,10 +499,7 @@ function actComp(world, t, m) {
     if (!res.ok) return res;
     pxOnce();
     t.compUsed = true;
-    const pseudo = {
-      att: Math.max(1, Math.floor(te.att * 2 / 3)), deg: Math.max(1, Math.floor(te.att / 2)),
-      degBonus: te.degBonus, attFlat: te.attFlat, degFlat: te.degFlat,
-    };
+    const pseudo = { ...te, att: Math.max(1, Math.floor(te.att * 2 / 3)), deg: Math.max(1, Math.floor(te.att / 2)) };
     const r = g.resolveAttack(pseudo, monsterEff(m));
     if (r.hit) {
       m.pv -= r.damage;
@@ -583,10 +582,7 @@ function actSort(world, t, m) {
     const res = tryTalentMP(t, t.sort, 80, sort.cost);
     if (!res.ok) return res;
     pxOnce();
-    const pseudo = {
-      att: Math.max(1, Math.floor(te.deg * 2 / 3)), deg: te.deg,
-      degBonus: te.degBonus, attFlat: te.attFlat, degFlat: te.degFlat,
-    };
+    const pseudo = { ...te, att: Math.max(1, Math.floor(te.deg * 2 / 3)) };
     const r = g.resolveAttack(pseudo, monsterEff(m), { magic: true });
     if (r.hit) {
       let dmg = r.damage;
@@ -625,8 +621,8 @@ function actSort(world, t, m) {
     const res = tryTalentMP(t, t.sort, 80, sort.cost);
     if (!res.ok) return res;
     pxOnce();
-    const pseudo = { att: te.att, deg: te.reg, degBonus: 0, attFlat: te.attFlat, degFlat: te.degFlat };
-    const r = g.resolveAttack(pseudo, monsterEff(m), { ignoreArmor: true });
+    const pseudo = { ...te, deg: te.reg, degBonus: 0 };
+    const r = g.resolveAttack(pseudo, monsterEff(m), { ignoreArmor: true, magic: true });
     if (r.hit) {
       let dmg = r.damage;
       const resisted = resistMP(t, m);
@@ -937,6 +933,15 @@ function adminSetTuning(world, patch) {
   return world.tuning;
 }
 
+/* Supprime définitivement un troll du monde (admin). */
+function adminKickTroll(world, id) {
+  const t = world.trolls[id];
+  if (!t) return { error: "troll inconnu" };
+  delete world.trolls[id];
+  worldLog(world, `⚡ Les Dieux Trõlls ont rappelé ${t.name} hors du Monde Souterrain.`);
+  return { ok: true, name: t.name };
+}
+
 /* Régénère le monde (carte, monstres, trésors) en conservant trolls et config ;
  * les trolls sont replacés. */
 function adminResetWorld(world) {
@@ -978,7 +983,7 @@ function loadWorld(file) {
 module.exports = {
   DEFAULT_CONFIG, CONFIG_BOUNDS,
   createWorld, tick, newTroll, authTroll, login, action, stateFor,
-  adminOverview, adminSetConfig, adminSetTuning, adminDefaults, adminResetWorld,
+  adminOverview, adminSetConfig, adminSetTuning, adminDefaults, adminResetWorld, adminKickTroll,
   saveWorld, loadWorld,
   spawnMonster, spawnItem, monsterAct, trollDla, worldLog,
   tunedRandomPotion, tunedRandomScroll, applyGearTuning,

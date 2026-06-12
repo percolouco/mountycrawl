@@ -2,8 +2,12 @@
  * https://mountypedia.mountyhall.com/Mountyhall/{Arme,Armure,Casque,Bouclier,Talisman,Bottes}
  * Valeurs de base (sans templates) : TOUS les bonus sont fixes — ATT/ESQ/DEG/REG
  * s'ajoutent aux jets (jamais en dés), ARM/VUE/PV sont fixes, RM/MM en %.
- * Les bonus/malus d'équipement sont PHYSIQUES (dont l'armure, sauf exceptions
- * à venir) — les bonus magiques viennent des potions et parchemins.
+ * Comme l'armure, l'ATT et les DEG existent en physique et en magique :
+ * `att`/`deg`/`arm` = bonus physiques (appliqués aux attaques physiques,
+ * armure physique), `attMag`/`degMag`/`armMag` = bonus magiques (appliqués
+ * aux sortilèges, armure magique). ESQ/PV/VUE restent simples. Les valeurs
+ * magiques de la Mountypedia n'existant pas, elles sont à 0 en vanilla et se
+ * règlent via l'admin du monde partagé.
  * `tier` (1-5) borne la profondeur de drop.
  * Les armes à deux mains (twoHanded) sont incompatibles avec un bouclier. */
 
@@ -93,8 +97,10 @@ const LEGACY_WEAPON_NAMES = ["Épée Courte", "Gourdin", "Épée Longue", "Lame 
 const LEGACY_ARMOR_NAMES = ["Armure de cuir", "Haubert de mailles", "Armure de plates"];
 
 const GEAR_MOD_LABELS = [
-  ["att", "ATT", ""], ["esq", "ESQ", ""], ["deg", "DEG", ""],
-  ["reg", "REG", ""], ["arm", "Armure phy.", ""], ["vue", "VUE", ""], ["pv", "PV", ""],
+  ["att", "ATT", ""], ["attMag", "ATT mag.", ""], ["esq", "ESQ", ""],
+  ["deg", "DEG", ""], ["degMag", "DEG mag.", ""], ["reg", "REG", ""],
+  ["arm", "Armure phy.", ""], ["armMag", "Armure mag.", ""],
+  ["vue", "VUE", ""], ["pv", "PV", ""],
   ["rmPct", "RM", " %"], ["mmPct", "MM", " %"],
 ];
 
@@ -136,7 +142,7 @@ function makeRandomGear(depth, slot = null) {
 
 /* Somme des modificateurs de l'équipement porté ({ arme: item|null, … }). */
 function gearMods(equip) {
-  const total = { att: 0, esq: 0, deg: 0, reg: 0, arm: 0, vue: 0, pv: 0, rmPct: 0, mmPct: 0 };
+  const total = { att: 0, attMag: 0, esq: 0, deg: 0, degMag: 0, reg: 0, arm: 0, armMag: 0, vue: 0, pv: 0, rmPct: 0, mmPct: 0 };
   for (const item of Object.values(equip || {})) {
     if (!item || !item.mods) continue;
     for (const k of Object.keys(total)) total[k] += item.mods[k] || 0;

@@ -112,15 +112,55 @@ assert.strictEqual(g.improveCost("esq", 1, "Tomawak"), 32, "2e dé d'ESQ = 32 PI
   assert.strictEqual(e.armorPhys, 4, "Armure de cuir : armure physique +4");
   assert.strictEqual(e.armorMag, 5, "Extrait du Glacier : armure magique +5");
   assert.strictEqual(e.armor, 9, "armure totale = physique + magique");
-  // décomposition des bonus fixes : équipement = physique, potion = magique
-  g.equipGear(t, gearLib.gearItemByName("arme", "Gourdin")); // att +2 (physique)
-  p.drinkPotion(t, p.makePotionItem("bonneBouffe", 5), g.rollDice, () => {}); // DEG +5 (magique)
+  // décomposition par type d'attaque : l'équipement compte selon sa saveur,
+  // les potions modifient le troll et comptent dans les deux
+  g.equipGear(t, gearLib.gearItemByName("arme", "Gourdin")); // att +2, deg +5 (physiques)
+  p.drinkPotion(t, p.makePotionItem("bonneBouffe", 5), g.rollDice, () => {}); // DEG +5 (potion)
   const e2 = p.effTroll(t);
-  assert.strictEqual(e2.attFlatPhys, 2, "Gourdin : ATT +2 physique");
-  assert.strictEqual(e2.attFlatMag, 0, "aucun bonus magique d'ATT");
-  assert.strictEqual(e2.degFlatPhys, 5, "Gourdin : DEG +5 physique");
-  assert.strictEqual(e2.degFlatMag, 5, "Bonne Bouffe : DEG +5 magique");
-  assert.strictEqual(e2.degFlat, 10, "total = physique + magique");
+  assert.strictEqual(e2.attFlatPhys, 2, "attaque physique : ATT +2 du Gourdin");
+  assert.strictEqual(e2.attFlatMag, 0, "attaque magique : pas de bonus d'ATT");
+  assert.strictEqual(e2.degFlatPhys, 10, "attaque physique : DEG +5 Gourdin +5 Bonne Bouffe");
+  assert.strictEqual(e2.degFlatMag, 5, "attaque magique : seule la Bonne Bouffe compte");
+  assert.strictEqual(e2.degFlat, 10, "degFlat = bonus des attaques physiques");
+}
+
+// ATT/DEG/ARM phys et mag partout : équipement magique et choix du bonus selon l'attaque
+{
+  const gearLib = require("../js/gear.js");
+  const t = { att: 3, esq: 3, deg: 3, reg: 1, vue: 3, armor: 0, armorDice: 0, degBonus: 0, pvMax: 30, pv: 20,
+    potionEffects: [], blockCamoTurns: 0, tour: 1, bag: [],
+    equip: { arme: null, armure: null, casque: null, bouclier: null, talisman: null, bottes: null }, gearMods: null };
+  // objet retouché façon admin : bonus magiques sur une arme
+  const baton = gearLib.gearItemByName("arme", "Bâton de mage");
+  baton.mods = { ...baton.mods, attMag: 4, degMag: 6, armMag: 2 };
+  g.equipGear(t, baton);
+  const e = p.effTroll(t);
+  assert.strictEqual(e.attFlatPhys, 0, "le bâton ne donne rien aux attaques physiques");
+  assert.strictEqual(e.attFlatMag, 4, "ATT mag +4 sur les sortilèges");
+  assert.strictEqual(e.degFlatMag, 6, "DEG mag +6 sur les sortilèges");
+  assert.strictEqual(e.armorMag, 2, "Armure mag +2 d'équipement");
+  assert.strictEqual(e.armorPhys, 0, "pas d'armure physique");
+  // resolveAttack choisit le bon bonus selon le type d'attaque
+  const dummy = { esq: 1, armor: 0, armorMag: 0 };
+  const rPhys = g.resolveAttack(e, dummy, { autoHit: true });
+  const rMag = g.resolveAttack(e, dummy, { autoHit: true, magic: true });
+  assert.strictEqual(rPhys.attFlat, 0, "jet physique : ATT sans bonus");
+  assert.strictEqual(rMag.attFlat, 4, "jet magique : ATT +4");
+  assert(rMag.rawDamage >= 1 * 1 + 6 + 0 && rMag.rawDamage <= 3 * 3 * 2 + 12, "dégâts magiques avec DEG mag");
+  // le formatage des mods affiche les saveurs magiques
+  const label = gearLib.formatGearMods(baton.mods);
+  assert(label.includes("ATT mag. +4") && label.includes("Armure mag. +2"), "libellés magiques : " + label);
+}
+
+// Bestiaire : attMag/degMag présents et multipliés par les gabarits d'âge
+{
+  const gob = g.MONSTER_TYPES.find(t2 => t2.name === "Gobelin");
+  const tuned = { ...gob, attMag: 4, degMag: 3 };
+  const old2 = g.applyTemplate(tuned, { prefix: "Mythique ", mult: 2.0 }, 1, 1);
+  assert.strictEqual(old2.attMag, 8, "ATT mag ×2 (Mythique)");
+  assert.strictEqual(old2.degMag, 6, "DEG mag ×2 (Mythique)");
+  const vanilla = g.applyTemplate(gob, { prefix: "Mythique ", mult: 2.0 }, 1, 1);
+  assert.strictEqual(vanilla.attMag, 0, "vanilla : pas d'attaque magique");
 }
 
 // Monstres : armure physique et magique distinctes

@@ -158,12 +158,23 @@ function renderOverview(ov) {
     `<div>${new Date(l.t).toLocaleTimeString("fr-FR")} — ${l.msg}</div>`).reverse().join("");
 
   $("admin-trolls").innerHTML = ov.trolls.length ? `<table class="admin-table">
-    <tr><th>Nom</th><th>Race</th><th>Niv.</th><th>PV</th><th>PA</th><th>Kills</th><th>Or</th><th>Position</th><th>État</th><th>Vu il y a</th></tr>
+    <tr><th>Nom</th><th>Race</th><th>Niv.</th><th>PV</th><th>PA</th><th>Kills</th><th>Or</th><th>Position</th><th>État</th><th>Vu il y a</th><th></th></tr>
     ${ov.trolls.map(t => `<tr>
       <td>${t.name}</td><td>${t.race}</td><td>${t.level}</td>
       <td>${t.pv}/${t.pvMax}</td><td>${t.pa}</td><td>${t.kills}</td><td>${t.gold}</td>
       <td>${t.x},${t.y}</td><td>${t.dead ? "☠️ mort" : "vivant"}</td><td>${fmtAgo(t.lastSeenAgo)}</td>
+      <td><button class="kick-troll" data-id="${t.id}" data-name="${t.name}" title="Supprimer ce troll">🗑️</button></td>
     </tr>`).join("")}</table>` : "<p>Aucun troll pour l'instant.</p>";
+  for (const btn of document.querySelectorAll(".kick-troll")) {
+    btn.onclick = async () => {
+      if (!confirm(`Supprimer définitivement le troll « ${btn.dataset.name} » ?`)) return;
+      try {
+        await api("POST", "api/mp/admin/kick", { id: btn.dataset.id });
+        $("admin-msg").textContent = `✅ ${btn.dataset.name} supprimé.`;
+        await refresh();
+      } catch (e) { $("admin-msg").textContent = "⚠️ " + e.message; }
+    };
+  }
 
   $("admin-monsters").innerHTML = `<table class="admin-table">
     <tr><th></th><th>Nom</th><th>Niv.</th><th>PV</th><th>Position</th><th>DLA (s)</th><th>Prochaine action</th></tr>
@@ -176,8 +187,8 @@ function renderOverview(ov) {
 
 /* ---------- Tuning : bestiaire, trésors, équipement ---------- */
 
-const MONSTER_LABELS = { level: "Niv.", att: "ATT", esq: "ESQ", deg: "DEG", pv: "PV", armor: "Arm. phy", armorMag: "Arm. mag", vue: "VUE" };
-const GEAR_LABELS = { att: "ATT", esq: "ESQ", deg: "DEG", reg: "REG", arm: "Arm. phy", vue: "VUE", pv: "PV", rmPct: "RM %", mmPct: "MM %" };
+const MONSTER_LABELS = { level: "Niv.", att: "ATT phy", attMag: "ATT mag", esq: "ESQ", deg: "DEG phy", degMag: "DEG mag", pv: "PV", armor: "Arm. phy", armorMag: "Arm. mag", vue: "VUE" };
+const GEAR_LABELS = { att: "ATT phy", attMag: "ATT mag", esq: "ESQ", deg: "DEG phy", degMag: "DEG mag", reg: "REG", arm: "Arm. phy", armMag: "Arm. mag", vue: "VUE", pv: "PV", rmPct: "RM %", mmPct: "MM %" };
 
 function tuneInput(cat, id, key, def, cur) {
   const tuned = cur !== undefined && Number(cur) !== Number(def);

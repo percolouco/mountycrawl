@@ -4,7 +4,7 @@
 
 "use strict";
 
-const APP_VERSION = "2.1.0";
+const APP_VERSION = "2.2.0";
 
 /* Alpha : maîtrise initiale haute pour les tests. Remettre 15 % / 15 % à la v1.0 officielle. */
 const START_COMP_PCT = 90;
@@ -34,11 +34,19 @@ function rollDice(n, faces) {
  * (Les dégâts sont en D3 comme dans les profils officiels des races.)
  * Armure façon MH : les dégâts PHYSIQUES sont réduits par l'armure totale
  * (physique + magique) ; les dégâts MAGIQUES (opts.magic) par la seule armure
- * magique ; opts.ignoreArmor ignore tout (Siphon des Âmes). */
+ * magique ; opts.ignoreArmor ignore tout (Siphon des Âmes).
+ * ATT et DEG existent en deux saveurs comme l'armure : les bonus fixes
+ * physiques (xxxFlatPhys) s'appliquent aux attaques physiques, les magiques
+ * (xxxFlatMag) aux attaques magiques — à défaut on retombe sur xxxFlat. */
+function pickFlat(src, key, magic) {
+  const v = magic ? src[`${key}FlatMag`] : src[`${key}FlatPhys`];
+  return (v != null ? v : src[`${key}Flat`]) || 0;
+}
+
 function resolveAttack(attacker, defender, opts = {}) {
   const att = rollDice(attacker.att, 6);
   const esq = rollDice(defender.esq, 6);
-  const attFlat = attacker.attFlat || 0;
+  const attFlat = pickFlat(attacker, "att", opts.magic);
   const esqFlat = defender.esqFlat || 0;
   const attTotal = att.total + attFlat;
   const esqTotal = esq.total + esqFlat;
@@ -51,7 +59,7 @@ function resolveAttack(attacker, defender, opts = {}) {
   };
   if (result.hit) {
     const deg = rollDice(attacker.deg, 3);
-    const degFlat = attacker.degFlat || 0;
+    const degFlat = pickFlat(attacker, "deg", opts.magic);
     result.rawDamage = (deg.total + (attacker.degBonus || 0) + degFlat) * (result.critical ? 2 : 1);
     // armure physique : fixe (base + équipement) + naturelle en D3 (achetée en PI)
     // armure magique : effets de potions/parchemins (armorMag, peut être négative)
@@ -164,20 +172,22 @@ const RACES = {
 /* ================= Bestiaire ================= */
 
 /* Dégâts des monstres en D3, comme ceux des trolls.
- * `armor` = armure physique, `armorMag` = armure magique (réduit seule les
- * dégâts magiques). Valeurs provisoires à 0 — le bestiaire sera mis à jour
- * avec les vraies valeurs une fois le système validé. */
+ * Comme l'armure, l'ATT et les DEG existent en physique (`att`, `deg`, `armor`)
+ * et en magique (`attMag`, `degMag`, `armorMag`) : un monstre avec attMag et
+ * degMag > 0 peut porter une attaque magique (attMag D6 vs ESQ, degMag D3,
+ * réduite par la seule armure magique). Valeurs magiques provisoires à 0 — le
+ * bestiaire sera mis à jour avec les vraies valeurs (réglables via l'admin). */
 const MONSTER_TYPES = [
-  { name: "Gobelin",           emoji: "👺", level: 1, att: 2, esq: 2, deg: 2, pv: 12, armor: 0, armorMag: 0, vue: 4 },
-  { name: "Champignon Vénéneux", emoji: "🍄", level: 1, att: 3, esq: 1, deg: 3, pv: 10, armor: 0, armorMag: 0, vue: 1, static: true },
-  { name: "Araignée Géante",   emoji: "🕷️", level: 2, att: 3, esq: 3, deg: 3, pv: 16, armor: 0, armorMag: 0, vue: 5 },
-  { name: "Gargouille",        emoji: "🦇", level: 3, att: 3, esq: 3, deg: 3, pv: 22, armor: 2, armorMag: 0, vue: 4 },
-  { name: "Momie",             emoji: "🧟", level: 3, att: 4, esq: 2, deg: 4, pv: 26, armor: 1, armorMag: 0, vue: 3 },
-  { name: "Sorcière",          emoji: "🧙", level: 4, att: 4, esq: 3, deg: 5, pv: 24, armor: 0, armorMag: 0, vue: 6 },
-  { name: "Golem de Pierre",   emoji: "🗿", level: 5, att: 4, esq: 1, deg: 6, pv: 40, armor: 4, armorMag: 0, vue: 3 },
+  { name: "Gobelin",           emoji: "👺", level: 1, att: 2, esq: 2, deg: 2, attMag: 0, degMag: 0, pv: 12, armor: 0, armorMag: 0, vue: 4 },
+  { name: "Champignon Vénéneux", emoji: "🍄", level: 1, att: 3, esq: 1, deg: 3, attMag: 0, degMag: 0, pv: 10, armor: 0, armorMag: 0, vue: 1, static: true },
+  { name: "Araignée Géante",   emoji: "🕷️", level: 2, att: 3, esq: 3, deg: 3, attMag: 0, degMag: 0, pv: 16, armor: 0, armorMag: 0, vue: 5 },
+  { name: "Gargouille",        emoji: "🦇", level: 3, att: 3, esq: 3, deg: 3, attMag: 0, degMag: 0, pv: 22, armor: 2, armorMag: 0, vue: 4 },
+  { name: "Momie",             emoji: "🧟", level: 3, att: 4, esq: 2, deg: 4, attMag: 0, degMag: 0, pv: 26, armor: 1, armorMag: 0, vue: 3 },
+  { name: "Sorcière",          emoji: "🧙", level: 4, att: 4, esq: 3, deg: 5, attMag: 0, degMag: 0, pv: 24, armor: 0, armorMag: 0, vue: 6 },
+  { name: "Golem de Pierre",   emoji: "🗿", level: 5, att: 4, esq: 1, deg: 6, attMag: 0, degMag: 0, pv: 40, armor: 4, armorMag: 0, vue: 3 },
 ];
 
-const BOSS = { name: "Béhémoth", emoji: "👹", level: 9, att: 6, esq: 4, deg: 8, pv: 90, armor: 3, armorMag: 0, vue: 8, boss: true };
+const BOSS = { name: "Béhémoth", emoji: "👹", level: 9, att: 6, esq: 4, deg: 8, attMag: 0, degMag: 0, pv: 90, armor: 3, armorMag: 0, vue: 8, boss: true };
 
 /* Gabarits d'âge façon MountyHall : plus on descend, plus les bêtes sont vieilles. */
 const TEMPLATES = [
@@ -193,8 +203,10 @@ function applyTemplate(type, tpl, x, y) {
     name: tpl.prefix + type.name, emoji: type.emoji,
     level: Math.max(1, Math.round(type.level * tpl.mult)),
     att: Math.max(1, Math.round(type.att * tpl.mult)),
+    attMag: Math.round((type.attMag || 0) * tpl.mult),
     esq: Math.max(1, Math.round(type.esq * tpl.mult)),
     deg: Math.max(1, Math.round(type.deg * tpl.mult)),
+    degMag: Math.round((type.degMag || 0) * tpl.mult),
     pv: Math.round(type.pv * tpl.mult), pvMax: Math.round(type.pv * tpl.mult),
     armor: type.armor, armorMag: type.armorMag || 0, vue: type.vue, static: !!type.static,
     x, y, boss: false,
@@ -739,10 +751,7 @@ function useComp() {
     if (!tryTalent(t.comp, 90, comp.cost, "🥋 Botte Secrète", "comp")) { cdFlush(); afterAction(); return; }
     t.compUsed = true;
     cdLine(`Vous portez une <b>Botte Secrète</b> à <b>${m.name}</b>.`);
-    const pseudo = {
-      att: Math.max(1, Math.floor(te.att * 2 / 3)), deg: Math.max(1, Math.floor(te.att / 2)),
-      degBonus: te.degBonus, attFlat: te.attFlat, degFlat: te.degFlat,
-    };
+    const pseudo = { ...te, att: Math.max(1, Math.floor(te.att * 2 / 3)), deg: Math.max(1, Math.floor(te.att / 2)) };
     const r = resolveAttack(pseudo, effMonster(m));
     cdAttackRolls(r);
     if (r.hit) {
@@ -839,10 +848,7 @@ function useSort() {
     if (!m) { log("Aucun monstre adjacent.", "info"); return; }
     if (!tryTalent(t.sort, 80, sort.cost, "🔮 Vampirisme", "sort")) { cdFlush(); afterAction(); return; }
     cdLine(`Vous avez attaqué <b>${m.name}</b> grâce à un sortilège.`);
-    const pseudo = {
-      att: Math.max(1, Math.floor(te.deg * 2 / 3)), deg: te.deg,
-      degBonus: te.degBonus, attFlat: te.attFlat, degFlat: te.degFlat,
-    };
+    const pseudo = { ...te, att: Math.max(1, Math.floor(te.deg * 2 / 3)) };
     const r = resolveAttack(pseudo, effMonster(m), { magic: true });
     cdAttackRolls(r);
     if (r.hit) {
@@ -891,8 +897,8 @@ function useSort() {
     if (!m) { log("Aucun monstre adjacent.", "info"); return; }
     if (!tryTalent(t.sort, 80, sort.cost, "🔮 Siphon des Âmes", "sort")) { cdFlush(); afterAction(); return; }
     cdLine(`Vous avez attaqué <b>${m.name}</b> grâce à un sortilège.`);
-    const pseudo = { att: te.att, deg: te.reg, degBonus: 0, attFlat: te.attFlat, degFlat: te.degFlat };
-    const r = resolveAttack(pseudo, effMonster(m), { ignoreArmor: true });
+    const pseudo = { ...te, deg: te.reg, degBonus: 0 };
+    const r = resolveAttack(pseudo, effMonster(m), { ignoreArmor: true, magic: true });
     cdAttackRolls(r);
     if (r.hit) {
       let dmg = r.damage;
@@ -1090,18 +1096,20 @@ function passDLA() {
     const seesTroll = !t.camo && dist <= effMonster(m).vue;
     if (dist <= 1 && !t.camo) {
       const eff = effMonster(m);
-      const r = resolveAttack(eff, effTroll(t));
-      cdStart(`${m.emoji} ${m.name} vous attaque`);
-      cdLine(`Son jet d'Attaque est de : <span class="cd-val">${r.attRoll}</span> (${r.attDice}D6)`);
+      // un monstre doté d'une attaque magique (attMag/degMag) alterne au hasard
+      const magic = eff.attMag > 0 && eff.degMag > 0 && Math.random() < 0.5;
+      const r = resolveAttack(magic ? { ...eff, att: eff.attMag, deg: eff.degMag } : eff, effTroll(t), { magic });
+      cdStart(`${m.emoji} ${m.name} vous ${magic ? "frappe d'une attaque magique" : "attaque"}`);
+      cdLine(`Son jet d'Attaque${magic ? " magique" : ""} est de : <span class="cd-val">${r.attRoll}</span> (${r.attDice}D6)`);
       cdLine(`Votre jet d'Esquive est de : <span class="cd-val">${r.esqRoll}</span> (${r.esqDice}D6)`);
       if (r.hit) {
         t.pv -= r.damage;
-        cdLine(`Il vous a <span class="cd-bad">TOUCHÉ</span>${r.critical ? ` d'un <span class="cd-bad">coup critique</span>` : ""} et vous a infligé <span class="cd-bad">${r.damage} points de dégâts</span>${r.armorReduction ? ` (votre armure a absorbé ${r.armorReduction} point(s))` : ""}.`);
-        log(`${m.emoji} ${m.name} t'attaque : ${r.attRoll} vs ${r.esqRoll} → ${r.damage} dégâts !`, "bad");
+        cdLine(`Il vous a <span class="cd-bad">TOUCHÉ</span>${r.critical ? ` d'un <span class="cd-bad">coup critique</span>` : ""} et vous a infligé <span class="cd-bad">${r.damage} points de dégâts</span>${magic ? ` (seule votre armure magique compte${r.armorReduction ? ` : −${r.armorReduction}` : ""})` : r.armorReduction ? ` (votre armure a absorbé ${r.armorReduction} point(s))` : ""}.`);
+        log(`${m.emoji} ${m.name} t'attaque${magic ? " (magie)" : ""} : ${r.attRoll} vs ${r.esqRoll} → ${r.damage} dégâts !`, "bad");
         if (t.pv <= 0) { cdLine(`Il vous a <span class="cd-bad">TERRASSÉ</span>…`); cdFlush(); die(m); return; }
       } else {
         cdLine(`Vous avez <span class="cd-good">ESQUIVÉ</span> son coup.`);
-        log(`${m.emoji} ${m.name} t'attaque… et tu esquives !`, "combat");
+        log(`${m.emoji} ${m.name} t'attaque${magic ? " (magie)" : ""}… et tu esquives !`, "combat");
       }
       cdFlush();
     } else if (seesTroll && !m.static) {

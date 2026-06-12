@@ -409,9 +409,9 @@ function fmtStatLine(base, eff, faces, flat = 0, extra = 0, split = null) {
   let main = `${eff}D${faces}`;
   if (jetBonus) main += jetBonus > 0 ? ` +${jetBonus}` : ` ${jetBonus}`;
   const hints = [];
-  if (split && split.phys && split.mag) {
-    const f = v => `${v > 0 ? "+" : ""}${v}`;
-    hints.push(`P ${f(split.phys)} · M ${f(split.mag)}`);
+  if (split && (split.phys || split.mag) && split.phys !== split.mag) {
+    const f = v => `${(v || 0) > 0 ? "+" : ""}${v || 0}`;
+    hints.push(`phy ${f(split.phys)} · mag ${f(split.mag)}`);
   }
   if (diceDelta !== 0) {
     const sign = diceDelta > 0 ? "+" : "";
@@ -425,27 +425,32 @@ function fmtStatLine(base, eff, faces, flat = 0, extra = 0, split = null) {
  * + équipement (troll.gearMods, recalculé par game.js à chaque équipement).
  * Les bonus ATT/ESQ/DEG/REG de l'équipement sont des bonus FIXES sur les jets,
  * jamais des dés supplémentaires.
- * Bonus/malus PHYSIQUES (équipement) et MAGIQUES (potions, parchemins) sont
- * décomposés (xxxFlatPhys / xxxFlatMag) ; de même pour l'armure :
- * armorPhys = base + naturelle + équipement, armorMag = effets magiques.
- * Les dégâts physiques sont réduits par l'armure totale, les dégâts magiques
- * par la seule armure magique. */
+ * Comme l'armure, ATT et DEG existent en deux saveurs : xxxFlatPhys s'applique
+ * aux attaques PHYSIQUES, xxxFlatMag aux attaques MAGIQUES (sortilèges). Les
+ * potions/parchemins modifient le troll lui-même : leurs bonus comptent dans
+ * les deux ; l'équipement compte selon la saveur de chaque bonus (att/deg/arm
+ * physiques, attMag/degMag/armMag magiques). Armure :
+ * armorPhys = base + naturelle + équipement phys, armorMag = effets magiques
+ * + équipement mag. Les dégâts physiques sont réduits par l'armure totale,
+ * les dégâts magiques par la seule armure magique. */
 function effTroll(troll) {
-  const m = sumPotionMods(troll.potionEffects); // magique
-  const g = troll.gearMods || {};               // physique
+  const m = sumPotionMods(troll.potionEffects); // magique (modifie le troll)
+  const g = troll.gearMods || {};               // équipement (phys + mag)
   return {
     att: Math.max(1, troll.att + m.att),
-    attFlat: m.attFlat + (g.att || 0), attFlatPhys: g.att || 0, attFlatMag: m.attFlat,
+    attFlat: m.attFlat + (g.att || 0),
+    attFlatPhys: m.attFlat + (g.att || 0), attFlatMag: m.attFlat + (g.attMag || 0),
     esq: Math.max(1, troll.esq + m.esq),
     esqFlat: m.esqFlat + (g.esq || 0), esqFlatPhys: g.esq || 0, esqFlatMag: m.esqFlat,
     deg: Math.max(1, troll.deg + m.deg),
-    degFlat: m.degFlat + (g.deg || 0), degFlatPhys: g.deg || 0, degFlatMag: m.degFlat,
+    degFlat: m.degFlat + (g.deg || 0),
+    degFlatPhys: m.degFlat + (g.deg || 0), degFlatMag: m.degFlat + (g.degMag || 0),
     reg: Math.max(1, troll.reg + m.reg),
     regFlat: m.regFlat + (g.reg || 0), regFlatPhys: g.reg || 0, regFlatMag: m.regFlat,
     vue: Math.max(1, troll.vue + m.vue + (g.vue || 0)),
-    armor: Math.max(0, troll.armor + m.armor + (g.arm || 0)),
+    armor: Math.max(0, troll.armor + m.armor + (g.arm || 0) + (g.armMag || 0)),
     armorPhys: Math.max(0, troll.armor + (g.arm || 0)),
-    armorMag: m.armor,
+    armorMag: m.armor + (g.armMag || 0),
     armorDice: troll.armorDice,
     degBonus: troll.degBonus || 0,
     pvMax: troll.pvMax,

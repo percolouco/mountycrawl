@@ -291,6 +291,33 @@ function makeWorld(over = {}) {
   assert.strictEqual(defs.monsters.length, 8, "7 types + boss");
 }
 
+// Tuning admin : saveurs magiques (attMag/degMag/armMag) et suppression de troll
+{
+  const w = makeWorld({ monsterTarget: 0, itemTarget: 0, worldDepth: 1 });
+  mp.adminSetTuning(w, {
+    monsters: { "Gobelin": { attMag: 6, degMag: 4 } },
+    gear: { "arme/Bâton de mage": { attMag: 4, armMag: 2 } },
+  });
+  assert.strictEqual(w.tuning.monsters.Gobelin.attMag, 6, "ATT mag du Gobelin tunée");
+  assert.strictEqual(w.tuning.gear["arme/Bâton de mage"].armMag, 2, "Armure mag du bâton tunée");
+  let gob = null;
+  for (let i = 0; i < 300 && !gob; i++) {
+    const m = mp.spawnMonster(w);
+    if (m && m.name.includes("Gobelin")) gob = m;
+  }
+  assert(gob && gob.attMag > 0 && gob.degMag > 0, "le Gobelin spawné a une attaque magique");
+  const gearLib = require("../js/gear.js");
+  const baton = mp.applyGearTuning(w, gearLib.gearItemByName("arme", "Bâton de mage"));
+  assert.strictEqual(baton.mods.attMag, 4, "ATT mag du bâton droppé");
+  assert.strictEqual(baton.mods.mmPct, 15, "MM % vanilla conservé");
+  // suppression admin d'un troll
+  const r = mp.newTroll(w, "Banni", "Skrim");
+  assert(mp.adminKickTroll(w, "inconnu").error, "kick d'un id inconnu refusé");
+  assert(mp.adminKickTroll(w, r.troll.id).ok, "troll supprimé");
+  assert(!w.trolls[r.troll.id], "le troll n'existe plus");
+  assert(!mp.newTroll(w, "Banni", "Skrim").error, "son nom redevient libre");
+}
+
 // Persistance : save + load
 {
   const os = require("os");
