@@ -4,7 +4,7 @@
 
 "use strict";
 
-const APP_VERSION = "1.9.0";
+const APP_VERSION = "2.0.0";
 
 /* Alpha : maîtrise initiale haute pour les tests. Remettre 15 % / 15 % à la v1.0 officielle. */
 const START_COMP_PCT = 90;
@@ -1497,13 +1497,14 @@ if (typeof document !== "undefined") {
   });
 }
 
-/* Export pour les tests node */
+/* Export pour les tests node et le moteur multijoueur (mp.js) */
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     APP_VERSION, rollDice, resolveAttack, resolveSpell, masteryRoll, improveCost, levelFromTotalPI, killPX,
-    RACES, MONSTER_TYPES, BOSS, TEMPLATES, makeMonster, monsterFromSpec, itemFromSpec, equipGear,
+    RACES, MONSTER_TYPES, BOSS, TEMPLATES, applyTemplate, makeMonster, monsterFromSpec, itemFromSpec, equipGear,
     generateCavern, largestRegion,
     MAP_W, MAP_H, T_WALL, T_FLOOR, T_STAIRS,
+    COSTS, PA_PER_TURN, START_COMP_PCT, START_SORT_PCT,
     newGame, refreshFov, inSightAt,
     get state() { return G; },
   };

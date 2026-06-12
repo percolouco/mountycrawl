@@ -513,6 +513,37 @@ header h1 { font-size: 1.3em; color: #FFFFCC; text-shadow: 1px 1px 2px #000; }
 #log .l-good { color: #008040; }
 #log .l-info { color: #666666; }
 
+/* ---------- Multijoueur : journaux et statut ---------- */
+#mp-log, #mp-world-log {
+  flex: 1 1 50%;
+  background: #FFFFEE url("../img/mh/tableau1.jpg");
+  border: 1px solid #000000;
+  padding: 8px 12px;
+  height: 190px;
+  overflow-y: auto;
+  font-size: .85em;
+  font-family: monospace;
+  line-height: 1.45;
+  box-shadow: 1px 1px 4px rgba(0, 0, 0, 0.3);
+}
+#mp-world-log .cd-header {
+  color: #000000;
+  font-weight: bold;
+  border-bottom: 1px solid #000000;
+  margin-bottom: 6px;
+  position: sticky;
+  top: 0;
+  background: #EBEDAB url("../img/mh/tableau2.jpg");
+  padding: 1px 4px;
+}
+#mp-log .l-combat, #mp-world-log .l-combat { color: #993300; }
+#mp-log .l-bad, #mp-world-log .l-bad { color: #CC0000; }
+#mp-log .l-good, #mp-world-log .l-good { color: #008040; }
+#mp-log .l-info, #mp-world-log .l-info { color: #666666; }
+#mp-status { font-weight: bold; }
+#mp-effects .eq-line, #mp-effects .fx-empty { font-size: .88em; color: #333300; }
+#screen-mp #panel-center { overflow: auto; }
+
 /* ---------- Trésors du Hall (potions, parchemins & équipement) ---------- */
 #treasures-body {
   max-width: 1100px;

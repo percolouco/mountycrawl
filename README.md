@@ -103,6 +103,50 @@ Gobelin, Champignon Vénéneux, Araignée Géante, Gargouille, Momie, Sorcière,
 Pierre — déclinés en gabarits *Jeune / Vieux / Ancien / Mythique* selon la profondeur,
 et le **Béhémoth** comme boss final à la profondeur −5.
 
+## Monde partagé (multijoueur)
+
+Depuis l'accueil : **🧌🧌 Monde partagé**. Un monde souterrain persistant et
+commun à tous les joueurs, autoritaire côté serveur (`mp.js`) :
+
+- **Le monde vit en continu**, joueurs connectés ou non : chaque monstre a sa
+  propre **DLA** (période tirée dans une fourchette paramétrable) et agit à son
+  échéance — il erre, ou attaque le troll à portée de Vue. Les monstres ne
+  s'attaquent jamais entre eux. La population se repeuple automatiquement.
+- **Chaque troll a 6 PA**, rechargés à sa DLA personnelle (paramétrable). Toutes
+  les actions du solo sont disponibles : déplacement, attaque, compétence et
+  sortilège de race, potions, parchemins, équipement, entraînement en PI.
+- **À MountyHall on ne meurt jamais vraiment** : un troll terrassé réapparaît
+  après un délai paramétrable, PV pleins, en conservant tout son avoir.
+- L'identité du troll (id + clé secrète) est gardée par le navigateur
+  (localStorage) : on retrouve son personnage d'une session à l'autre.
+- Le client se rafraîchit par **polling** (intervalle conseillé par le serveur,
+  paramétrable) ; les autres trolls visibles apparaissent en bleu avec leur nom,
+  les camouflés sont invisibles.
+- Persistance dans `WORLD_FILE` (défaut `/data/world.json`), sauvegarde
+  périodique et au SIGTERM.
+
+### Administration (`admin.html`)
+
+Page protégée par token (`MP_ADMIN_TOKEN`, sinon généré au premier démarrage
+dans `/data/admin-token.txt` et affiché dans les logs). Tous les réglages sont
+**appliqués à chaud** : DLA des monstres (min/max — les échéances déjà planifiées
+sont re-tirées si besoin), DLA des trolls, intervalle de rafraîchissement client,
+population de monstres et de trésors, délai de réapparition, profondeur du monde
+(puissance des monstres), taille de carte (à la prochaine régénération), limite
+de trolls. Plus : vue d'ensemble (trolls avec dernière activité, monstres avec
+leur DLA individuelle et leur prochaine action), derniers échos du monde, et
+bouton « Régénérer le monde » (trolls conservés et replacés).
+
+### API multijoueur
+
+- `POST /api/mp/join` `{name, race}` → `{id, secret, state}`
+- `GET /api/mp/state?id=&secret=` → état visible (vue du troll)
+- `POST /api/mp/action` `{id, secret, action}` — `move`, `attack`, `comp`,
+  `sort`, `pickup`, `use`, `train`
+- `GET /api/mp/info` → compteurs publics (trolls en ligne…)
+- `GET /api/mp/admin` · `PUT /api/mp/admin/config` · `POST /api/mp/admin/reset`
+  (header `X-Admin-Token`)
+
 ## Éditeur de niveaux & partage
 
 Depuis l'écran d'accueil : **🛠️ Éditeur de niveaux**.
@@ -139,11 +183,14 @@ Stockage : `/data/levels.json` dans le volume `/opt/container/mountycrawl/data`.
 ## Tests
 
 ```bash
-node test/smoke.js
+node test/smoke.js   # cœur des règles : dés, combat, armures, talents, cavernes…
+node test/mp.js      # moteur multijoueur : DLA, tick, actions, admin, persistance
 ```
 
-Vérifie les dés, la résolution de combat, le Seuil de Résistance, les coûts
-d'amélioration, les niveaux, la connexité des cavernes générées et le bestiaire.
+Vérifie les dés, la résolution de combat (armures physique/magique), le Seuil de
+Résistance, les coûts d'amélioration, les niveaux, la connexité des cavernes
+générées, le bestiaire, et le monde partagé (DLA des monstres, mort/réapparition,
+visibilité, réglages admin bornés, sauvegarde/rechargement).
 
 ## Sources
 
@@ -154,6 +201,16 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.0.0** (2026-06-12) — **Multijoueur** : monde souterrain partagé et persistant,
+  autoritaire côté serveur (`mp.js`, node pur). Le monde vit en continu : chaque
+  monstre agit à sa propre DLA paramétrable (fourchette min/max), erre ou attaque
+  les trolls à portée, repeuplement automatique ; jamais de combat monstre contre
+  monstre. Trolls : 6 PA rechargés à leur DLA personnelle, toutes les actions du
+  solo (talents de race compris), réapparition après la mort, identité conservée
+  en localStorage. Client par polling (intervalle paramétrable), autres trolls
+  visibles (sauf camouflés). Page `admin.html` protégée par token : tous les
+  réglages à chaud + tableau de bord (trolls, monstres et leurs DLA, échos du
+  monde, régénération du monde). Tests `test/mp.js`.
 - **1.9.0** (2026-06-12) — Bonus/malus **physiques** et **magiques** distincts, comme
   à MountyHall : l'équipement donne des bonus physiques (exceptions à venir), les
   potions et parchemins des bonus magiques. L'armure est scindée en **armure

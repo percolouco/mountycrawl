@@ -19,6 +19,7 @@
     <input type="text" id="troll-name" placeholder="Nom de ton Trõll" maxlength="20" value="Trõllinet">
     <div id="race-list"></div>
     <button id="btn-start" class="big-btn">⚔️ Descendre dans le Monde Souterrain</button>
+    <button id="btn-mp" class="big-btn">🧌🧌 Monde partagé (multijoueur) <span id="mp-info"></span></button>
     <div class="menu-row">
       <button id="btn-community" class="menu-btn">🌍 Niveaux de la communauté</button>
       <button id="btn-editor" class="menu-btn">🛠️ Éditeur de niveaux</button>
@@ -135,6 +136,50 @@
   </div>
 </div>
 
+<!-- Écran multijoueur : monde partagé persistant -->
+<div id="screen-mp" class="screen hidden">
+  <header>
+    <h1>🧌🧌 Le Monde Souterrain partagé</h1>
+    <div class="header-right">
+      <div id="mp-status">Connexion…</div>
+      <button id="mp-leave" class="menu-btn">← Quitter</button>
+    </div>
+  </header>
+  <div id="layout">
+    <aside id="panel-left">
+      <h2 id="mp-troll-title"></h2>
+      <div id="mp-stats"></div>
+      <h3>S'améliorer (PI)</h3>
+      <div id="mp-improve"></div>
+      <h3>Effets actifs</h3>
+      <div id="mp-effects"></div>
+    </aside>
+    <main id="panel-center">
+      <canvas id="mp-map" width="960" height="672"></canvas>
+      <div id="mp-pa-bar"></div>
+      <div id="mp-actions"></div>
+    </main>
+    <aside id="panel-right">
+      <h3>Équipement</h3>
+      <div id="mp-equipment"></div>
+      <h3>Sac</h3>
+      <div id="mp-inventory"></div>
+      <h3>Aide</h3>
+      <div class="help">
+        <p>ZQSD / flèches : se déplacer (1 PA) — marcher sur un monstre l'attaque (3 PA)</p>
+        <p>Tes PA se rechargent à ta DLA (compte à rebours en haut).</p>
+        <p>Le monde vit en continu : chaque monstre agit à sa propre DLA, même quand tu ne regardes pas !</p>
+      </div>
+    </aside>
+  </div>
+  <div id="bottom-row">
+    <div id="mp-log"></div>
+    <div id="mp-world-log">
+      <div class="cd-header">🌍 Échos du Monde Souterrain</div>
+    </div>
+  </div>
+</div>
+
 <!-- Écran des règles des talents -->
 <div id="screen-rules" class="screen hidden">
   <header>
@@ -169,6 +214,7 @@
 <script src="js/gear.js"></script>
 <script src="js/game.js"></script>
 <script src="js/editor.js"></script>
+<script src="js/mp-client.js"></script>
 <script src="js/rules.js"></script>
 <script src="js/treasures.js"></script>
 </body>

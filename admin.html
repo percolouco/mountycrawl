@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MountyCrawl — Administration du Monde Souterrain</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .admin-card { background: #FFFFEE; border: 1px solid #000; padding: 12px; }
+  .admin-card h2 { margin-top: 0; font-size: 1.05em; }
+  .admin-field { display: grid; grid-template-columns: 1fr 90px; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .admin-field label { font-size: 0.85em; }
+  .admin-field small { display: block; color: #666; }
+  .admin-field input { width: 80px; padding: 3px; }
+  .admin-table { width: 100%; border-collapse: collapse; font-size: 0.82em; }
+  .admin-table th, .admin-table td { border: 1px solid #999; padding: 2px 6px; text-align: left; }
+  .admin-log { max-height: 220px; overflow-y: auto; font-size: 0.82em; }
+  .admin-msg { font-weight: bold; margin: 8px 0; }
+  #admin-login { max-width: 480px; margin: 60px auto; }
+</style>
+</head>
+<body>
+
+<div class="admin-wrap">
+  <h1>⚙️ Administration du Monde Souterrain</h1>
+
+  <div id="admin-login" class="admin-card">
+    <h2>Token admin</h2>
+    <p><small>Le token est affiché dans les logs du serveur au démarrage
+    (ou dans <code>/data/admin-token.txt</code>), ou défini par la variable
+    d'environnement <code>MP_ADMIN_TOKEN</code>.</small></p>
+    <input type="password" id="admin-token" placeholder="token admin" style="width:100%">
+    <button id="admin-connect" class="big-btn">Entrer</button>
+    <div id="admin-login-msg" class="admin-msg"></div>
+  </div>
+
+  <div id="admin-body" class="hidden">
+    <div class="admin-msg" id="admin-msg"></div>
+    <div class="admin-grid">
+      <div class="admin-card">
+        <h2>⏱️ Réglages (appliqués à chaud)</h2>
+        <form id="admin-form"></form>
+        <button id="admin-save" class="big-btn">💾 Appliquer les réglages</button>
+        <hr>
+        <button id="admin-reset" class="menu-btn">🌋 Régénérer le monde (trolls conservés)</button>
+      </div>
+      <div class="admin-card">
+        <h2>📊 Vue d'ensemble</h2>
+        <div id="admin-overview"></div>
+        <h2>🌍 Derniers échos</h2>
+        <div id="admin-log" class="admin-log"></div>
+      </div>
+    </div>
+    <div class="admin-card" style="margin-top:16px">
+      <h2>🧌 Trolls</h2>
+      <div id="admin-trolls"></div>
+    </div>
+    <div class="admin-card" style="margin-top:16px">
+      <h2>👺 Monstres</h2>
+      <div id="admin-monsters"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* Libellés des réglages : [clé, libellé, description] */
+const FIELDS = [
+  ["monsterDlaMinSec", "DLA monstres — min (s)", "période minimale entre deux actions d'un monstre"],
+  ["monsterDlaMaxSec", "DLA monstres — max (s)", "période maximale (chaque monstre tire sa DLA dans [min, max])"],
+  ["trollDlaSec", "DLA des trolls (s)", "rechargement des PA des joueurs"],
+  ["pollSec", "Rafraîchissement client (s)", "fréquence de polling conseillée aux navigateurs"],
+  ["monsterTarget", "Population de monstres", "le repeuplement vise ce nombre"],
+  ["repopSec", "Période de repeuplement (s)", "fréquence de vérification de la population"],
+  ["itemTarget", "Trésors au sol", "nombre de trésors visé"],
+  ["deathRespawnSec", "Réapparition des trolls (s)", "délai après une mort"],
+  ["worldDepth", "Profondeur du monde (1-5)", "puissance des monstres et des trésors"],
+  ["maxTrolls", "Trolls max", "limite de personnages dans le monde"],
+  ["mapW", "Largeur de carte", "appliqué à la prochaine régénération du monde"],
+  ["mapH", "Hauteur de carte", "appliqué à la prochaine régénération du monde"],
+];
+
+let TOKEN = localStorage.getItem("mc_admin_token") || "";
+
+const $ = id => document.getElementById(id);
+
+function fmtAgo(ms) {
+  const s = Math.round(ms / 1000);
+  if (s < 60) return s + " s";
+  if (s < 3600) return Math.round(s / 60) + " min";
+  return Math.round(s / 3600) + " h";
+}
+
+async function api(method, path, body) {
+  const res = await fetch(path, {
+    method,
+    headers: { "Content-Type": "application/json", "X-Admin-Token": TOKEN },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "erreur serveur");
+  return data;
+}
+
+function renderForm(config, bounds) {
+  const form = $("admin-form");
+  form.innerHTML = FIELDS.map(([key, label, desc]) => `
+    <div class="admin-field">
+      <label>${label}<small>${desc} (${bounds[key][0]}–${bounds[key][1]})</small></label>
+      <input type="number" name="${key}" value="${config[key]}" min="${bounds[key][0]}" max="${bounds[key][1]}">
+    </div>`).join("");
+}
+
+function renderOverview(ov) {
+  $("admin-overview").innerHTML = `
+    <p>Uptime du monde : <b>${fmtAgo(ov.uptime)}</b> ·
+       Trolls : <b>${ov.trolls.length}</b> ·
+       Monstres : <b>${ov.monsters.length}</b> ·
+       Trésors au sol : <b>${ov.items}</b></p>`;
+  $("admin-log").innerHTML = ov.logTail.map(l =>
+    `<div>${new Date(l.t).toLocaleTimeString("fr-FR")} — ${l.msg}</div>`).reverse().join("");
+
+  $("admin-trolls").innerHTML = ov.trolls.length ? `<table class="admin-table">
+    <tr><th>Nom</th><th>Race</th><th>Niv.</th><th>PV</th><th>PA</th><th>Kills</th><th>Or</th><th>Position</th><th>État</th><th>Vu il y a</th></tr>
+    ${ov.trolls.map(t => `<tr>
+      <td>${t.name}</td><td>${t.race}</td><td>${t.level}</td>
+      <td>${t.pv}/${t.pvMax}</td><td>${t.pa}</td><td>${t.kills}</td><td>${t.gold}</td>
+      <td>${t.x},${t.y}</td><td>${t.dead ? "☠️ mort" : "vivant"}</td><td>${fmtAgo(t.lastSeenAgo)}</td>
+    </tr>`).join("")}</table>` : "<p>Aucun troll pour l'instant.</p>";
+
+  $("admin-monsters").innerHTML = `<table class="admin-table">
+    <tr><th></th><th>Nom</th><th>Niv.</th><th>PV</th><th>Position</th><th>DLA (s)</th><th>Prochaine action</th></tr>
+    ${ov.monsters.map(m => `<tr>
+      <td>${m.emoji}</td><td>${m.name}</td><td>${m.level}</td>
+      <td>${m.pv}/${m.pvMax}</td><td>${m.x},${m.y}</td>
+      <td>${m.dlaSec}</td><td>dans ${Math.round(m.nextDlaIn / 1000)} s</td>
+    </tr>`).join("")}</table>`;
+}
+
+async function refresh(withForm = false) {
+  const ov = await api("GET", "api/mp/admin");
+  if (withForm) renderForm(ov.config, ov.bounds);
+  renderOverview(ov);
+}
+
+async function connect() {
+  try {
+    await refresh(true);
+    localStorage.setItem("mc_admin_token", TOKEN);
+    $("admin-login").classList.add("hidden");
+    $("admin-body").classList.remove("hidden");
+    setInterval(() => refresh(false).catch(() => {}), 10000);
+  } catch (e) {
+    $("admin-login-msg").textContent = "⚠️ " + e.message;
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  $("admin-connect").onclick = () => {
+    TOKEN = $("admin-token").value.trim();
+    connect();
+  };
+  $("admin-save").onclick = async () => {
+    const patch = {};
+    for (const input of $("admin-form").querySelectorAll("input")) patch[input.name] = input.value;
+    try {
+      await api("PUT", "api/mp/admin/config", patch);
+      $("admin-msg").textContent = "✅ Réglages appliqués à chaud.";
+      await refresh(true);
+    } catch (e) { $("admin-msg").textContent = "⚠️ " + e.message; }
+  };
+  $("admin-reset").onclick = async () => {
+    if (!confirm("Régénérer la carte, les monstres et les trésors ? (les trolls sont conservés et replacés)")) return;
+    try {
+      await api("POST", "api/mp/admin/reset");
+      $("admin-msg").textContent = "🌋 Monde régénéré.";
+      await refresh(true);
+    } catch (e) { $("admin-msg").textContent = "⚠️ " + e.message; }
+  };
+  // ?token=… dans l'URL : connexion directe (le token est ensuite mémorisé)
+  const urlToken = new URLSearchParams(location.search).get("token");
+  if (urlToken) TOKEN = urlToken;
+  if (TOKEN) { $("admin-token").value = TOKEN; connect(); }
+});
+</script>
+</body>
+</html>
