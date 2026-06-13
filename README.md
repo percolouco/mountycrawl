@@ -234,6 +234,14 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.6.0** (2026-06-13) — La page **« Trésors du Hall »** lit désormais les
+  équipements **en direct dans la base de référence** (BDD SQLite) au lieu des
+  valeurs figées du code : nouvel endpoint `GET /api/reference/gear`
+  (`db.gearAll()`), et l'encyclopédie récupère ces données à chaque ouverture
+  (repli automatique sur `gear.js` si la base est injoignable, ex. ouverture en
+  `file://`). Toute édition de l'équipement faite via l'admin / sqlite-web est
+  donc reflétée immédiatement sur le listing. L'intro de la section a aussi été
+  mise à jour (bonus physiques **et** magiques d'équipement).
 - **2.5.1** (2026-06-13) — Correction des niveaux de potions : **le niveau 0
   n'existe plus** (minimum 1). PufPuff passe de « 0 à 2 » à **« 1 à 3 »** (le
   niveau 0 affichait des formules absurdes : `ATT −0 D3`, `VUE −(0+1)`,

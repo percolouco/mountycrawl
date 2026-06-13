@@ -257,6 +257,14 @@ function handleMP(req, res, url) {
 
 function handleAPI(req, res, url) {
   if (url.pathname.startsWith("/api/mp/")) return handleMP(req, res, url);
+
+  // Valeurs de référence des équipements lues EN DIRECT dans la BDD SQLite :
+  // l'encyclopédie « Trésors du Hall » reflète ainsi les éditions de la base
+  // (DB Browser / sqlite-web) sans toucher au code.
+  if (req.method === "GET" && url.pathname === "/api/reference/gear") {
+    return sendJSON(res, 200, db.gearAll());
+  }
+
   const idMatch = url.pathname.match(/^\/api\/levels\/([a-f0-9]{12})$/);
 
   if (req.method === "GET" && url.pathname === "/api/levels") {

@@ -82,18 +82,22 @@ function treasuresRender() {
   }
   html += "</div>";
 
-  const gearCount = Object.values(GEAR).reduce((n, list) => n + list.length, 0);
+  // Source des équipements : la base de référence (BDD SQLite, éditable) si elle
+  // a pu être chargée, sinon les valeurs statiques de gear.js (ex. hors-ligne).
+  const gearSource = GEAR_DB || GEAR;
+  const gearCount = Object.values(gearSource).reduce((n, list) => n + list.length, 0);
   html += `<h2 class="tz-section">⚔️ Équipement (${gearCount})</h2>
     <p class="tz-intro">Six emplacements : ${Object.values(GEAR_SLOTS).map(s => s.label).join(", ")}.
-    Tous les bonus d'équipement sont <b>fixes</b> et <b>physiques</b> : ATT/ESQ/DEG/REG
-    s'ajoutent aux jets (jamais en dés), Armure physique/VUE/PV aussi, RM/MM en %.
-    L'armure d'équipement réduit les dégâts physiques mais pas les dégâts magiques.
+    Les bonus d'équipement sont <b>fixes</b> (jamais en dés) et s'ajoutent toujours aux jets.
+    La plupart sont <b>physiques</b> ; certains objets portent aussi des bonus <b>magiques</b>
+    (ATT mag., DEG mag., Armure mag.), et les deux saveurs se cumulent. Les dégâts physiques
+    sont encaissés par l'armure totale, les dégâts magiques par la seule armure magique.
     Une arme <b>à 2 mains</b> est incompatible avec un bouclier. S'équiper coûte <b>2 PA</b>.
-    Valeurs de base de la Mountypedia (sans templates) ; les objets puissants ne se trouvent
-    qu'en profondeur.</p>`;
+    Valeurs lues dans la <b>base de référence</b> (modifiables côté admin) ; les objets
+    puissants ne se trouvent qu'en profondeur.</p>`;
   for (const [slot, info] of Object.entries(GEAR_SLOTS)) {
     html += `<h3 class="tz-subsection">${info.emoji} ${info.label}s</h3><div class="tz-grid">`;
-    for (const def of GEAR[slot]) {
+    for (const def of (gearSource[slot] || [])) {
       const fx = [];
       for (const [key, label, unit] of GEAR_MOD_LABELS) {
         const v = def.mods[key];
@@ -122,12 +126,39 @@ function treasuresRender() {
 
 let treasuresReturnTo = "create";
 
-function treasuresShow(from) {
+// Équipements de la base de référence (BDD), rechargés à chaque ouverture pour
+// refléter les éditions ; null tant qu'on n'a pas (ou pas pu) charger → repli
+// sur les valeurs statiques de gear.js.
+let GEAR_DB = null;
+async function loadGearReference() {
+  try {
+    const res = await fetch("api/reference/gear");
+    if (!res.ok) throw new Error("indisponible");
+    const rows = await res.json();
+    if (!Array.isArray(rows) || !rows.length) throw new Error("vide");
+    const bySlot = {};
+    for (const r of rows) {
+      const mods = {};
+      for (const [key] of GEAR_MOD_LABELS) mods[key] = r[key] || 0;
+      const staticDef = (GEAR[r.slot] || []).find(d => d.name === r.name);
+      (bySlot[r.slot] = bySlot[r.slot] || []).push({
+        emoji: r.emoji, name: r.name, tier: r.tier, twoHanded: !!r.twoHanded,
+        note: staticDef && staticDef.note, mods,
+      });
+    }
+    GEAR_DB = bySlot;
+  } catch {
+    GEAR_DB = null; // base injoignable (ex. ouverture en file://) → statique
+  }
+}
+
+async function treasuresShow(from) {
   treasuresReturnTo = from;
   document.getElementById("screen-" + from).classList.add("hidden");
   document.getElementById("screen-treasures").classList.remove("hidden");
-  treasuresRender();
   document.getElementById("screen-treasures").scrollTop = 0;
+  await loadGearReference();
+  treasuresRender();
 }
 
 if (typeof document !== "undefined") {
