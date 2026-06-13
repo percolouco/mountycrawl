@@ -234,6 +234,13 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.4.4** (2026-06-13) — Affichage des bonus fixes clarifié : quand le bonus
+  physique et le bonus magique sont **identiques**, on n'affiche plus qu'un
+  seul `+X` (avant : `+1 (phy +1 · mag +1)`, qui donnait l'illusion d'un triple
+  comptage). Le détail `(phy +X · mag +Y)` n'apparaît plus que lorsque les deux
+  saveurs **diffèrent réellement** (équipement magique, etc.), et le bonus de
+  dégâts fixe (`degBonus`) est correctement reporté des deux côtés. Le calcul de
+  combat lui-même était déjà correct (`pickFlat` choisit une seule saveur).
 - **2.4.3** (2026-06-13) — Fin de l'harmonisation de la fiche : les règles
   CSS de mise en page des caractéristiques (libellé à gauche, valeur alignée
   à droite en chasse fixe, indice phys/mag) ne ciblaient que le solo (`#stats`)

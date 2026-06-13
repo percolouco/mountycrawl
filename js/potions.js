@@ -405,18 +405,22 @@ function sumPotionMods(effects) {
  * (équipement), M = magique (potions, parchemins). */
 function fmtStatLine(base, eff, faces, flat = 0, extra = 0, split = null) {
   const diceDelta = eff - base;
-  const jetBonus = (flat || 0) + (extra || 0);
+  const f = v => `${v > 0 ? "+" : ""}${v}`;
   let main = `${eff}D${faces}`;
-  if (jetBonus) main += jetBonus > 0 ? ` +${jetBonus}` : ` ${jetBonus}`;
   const hints = [];
-  if (split && (split.phys || split.mag)) {
-    const f = v => `${(v || 0) > 0 ? "+" : ""}${v || 0}`;
-    hints.push(`phy ${f(split.phys)} · mag ${f(split.mag)}`);
+  // `extra` (degBonus) s'applique quel que soit le type d'attaque ; il s'ajoute
+  // donc aux deux saveurs. On ne détaille « phy/mag » QUE si les deux diffèrent
+  // réellement — sinon un seul « +X » suffit (un bonus identique des deux côtés
+  // affiché en double laisse croire à tort à un cumul).
+  if (split && split.phys !== split.mag) {
+    // bonus fixe différent selon le type d'attaque → on détaille les deux
+    hints.push(`phy ${f((split.phys || 0) + (extra || 0))} · mag ${f((split.mag || 0) + (extra || 0))}`);
+  } else {
+    // bonus identique quelle que soit la saveur → une seule valeur
+    const jetBonus = (flat || 0) + (extra || 0);
+    if (jetBonus) main += ` ${f(jetBonus)}`;
   }
-  if (diceDelta !== 0) {
-    const sign = diceDelta > 0 ? "+" : "";
-    hints.push(`${base}D${faces} ${sign}${diceDelta}`);
-  }
+  if (diceDelta !== 0) hints.push(`${base}D${faces} ${diceDelta > 0 ? "+" : ""}${diceDelta}`);
   if (hints.length) return `${main} <small class="stat-hint">(${hints.join(" · ")})</small>`;
   return main;
 }
