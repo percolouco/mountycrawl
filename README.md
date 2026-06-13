@@ -234,6 +234,13 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.6.3** (2026-06-13) — **Cache-busting** des fichiers du jeu : les balises
+  `<script>`/`<link>` de `index.html` portent `?v=__V__`, jeton que le serveur
+  remplace par la version de l'appli (donc différent à chaque déploiement). Le
+  navigateur recharge ainsi forcément le nouveau code/CSS — fini les anciennes
+  versions servies depuis le cache même après une mise à jour (par ex. la page
+  « Trésors du Hall » qui n'affichait pas les bonus magiques d'équipement
+  fraîchement édités). Complète le `Cache-Control: no-cache` de la 2.6.1.
 - **2.6.2** (2026-06-13) — La page admin et l'édition directe en base
   (sqlite-web) **ne se marchent plus dessus**. Avant, sauver le tuning d'une
   catégorie la **remettait entièrement au vanilla** puis réappliquait le

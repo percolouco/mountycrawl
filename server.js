@@ -15,6 +15,15 @@ const db = require("./db.js");
 
 const PORT = process.env.PORT || 80;
 const ROOT = __dirname;
+// Jeton de cache-busting injecté dans le HTML (assets référencés en `?v=__V__`) :
+// il vaut la version de l'appli, donc change à chaque déploiement → le navigateur
+// recharge forcément le nouveau code/CSS sans vider son cache à la main.
+const BUILD = (() => {
+  try {
+    const m = fs.readFileSync(path.join(__dirname, "js/game.js"), "utf8").match(/APP_VERSION\s*=\s*["']([^"']+)["']/);
+    return m ? m[1] : String(Date.now());
+  } catch { return String(Date.now()); }
+})();
 const LEVELS_FILE = process.env.LEVELS_FILE || "/data/levels.json";
 const WORLD_FILE = process.env.WORLD_FILE || "/data/world.json";
 const DB_FILE = process.env.DB_FILE || "/data/mountycrawl.db";
@@ -341,6 +350,9 @@ function handleStatic(req, res, url) {
   fs.readFile(file, (err, data) => {
     if (err) { res.writeHead(404); return res.end("introuvable"); }
     const ext = path.extname(file);
+    // Pages HTML : on remplace le jeton de cache-busting des assets (`?v=__V__`)
+    // par la version courante.
+    if (ext === ".html") data = Buffer.from(data.toString("utf8").replace(/__V__/g, BUILD));
     // Code et pages (.html/.js/.css) : toujours revalider pour qu'une mise à
     // jour (ou une édition de la base reflétée par le code) soit prise tout de
     // suite, sans cache navigateur périmé. Médias : cache court.
