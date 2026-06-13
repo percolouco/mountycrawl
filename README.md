@@ -234,6 +234,12 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.4.1** (2026-06-13) — Fiche du troll du monde partagé : les **bonus
+  physiques et magiques** de chaque caractéristique (attaque, esquive, dégâts,
+  régénération) sont désormais **toujours détaillés** (`phy +X · mag +Y`),
+  même quand un bonus s'applique aux deux saveurs — on voyait avant disparaître
+  la décomposition dès que les deux valeurs étaient égales. Les deux panneaux
+  latéraux ont été **légèrement agrandis** (230 → 270 px) pour les accueillir.
 - **2.4.0** (2026-06-12) — Gestion du sac, en solo comme en multi :
   **déséquiper** (↩️, 1 PA : la pièce revient au sac, PV max et bonus recalculés),
   **jeter à terre** (🗑️, 1 PA : l'objet tombe sur la case du troll et peut être

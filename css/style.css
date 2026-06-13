@@ -132,7 +132,7 @@ header h1 { font-size: 1.3em; color: #FFFFCC; text-shadow: 1px 1px 2px #000; }
 }
 
 #panel-left, #panel-right {
-  width: 230px;
+  width: 270px;
   flex-shrink: 0;
   background: #FFFFEE url("../img/mh/tableau1.jpg");
   border: 1px solid #000000;

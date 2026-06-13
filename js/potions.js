@@ -409,7 +409,7 @@ function fmtStatLine(base, eff, faces, flat = 0, extra = 0, split = null) {
   let main = `${eff}D${faces}`;
   if (jetBonus) main += jetBonus > 0 ? ` +${jetBonus}` : ` ${jetBonus}`;
   const hints = [];
-  if (split && (split.phys || split.mag) && split.phys !== split.mag) {
+  if (split && (split.phys || split.mag)) {
     const f = v => `${(v || 0) > 0 ? "+" : ""}${v || 0}`;
     hints.push(`phy ${f(split.phys)} · mag ${f(split.mag)}`);
   }
