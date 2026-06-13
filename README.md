@@ -234,6 +234,17 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.6.1** (2026-06-13) — Suite du branchement de la base de référence sur
+  l'encyclopédie. Les **plages de puissance des potions et parchemins** sont
+  désormais lues dans la BDD (`/api/reference/potions`, `/api/reference/scrolls`,
+  `/api/reference/monsters` en plus de `gear`) — une plage simple « A à B » suit
+  la base, les libellés spéciaux (« — », « 5 (fixe) », « 1, 2, 3, 5 ou 8 ») sont
+  préservés. **Cache navigateur corrigé** : le HTML/JS/CSS est désormais envoyé
+  en `Cache-Control: no-cache` (toujours revalidé) pour qu'une mise à jour ou une
+  édition de la base soit prise immédiatement, sans vider le cache à la main
+  (les médias gardent un cache d'un jour). Enfin, **PufPuff** était encore en
+  « 0 à 2 » dans la base (le rollPower solo seul avait été corrigé en 2.5.1) :
+  défaut corrigé en « 1 à 3 » + migration automatique des bases déjà créées.
 - **2.6.0** (2026-06-13) — La page **« Trésors du Hall »** lit désormais les
   équipements **en direct dans la base de référence** (BDD SQLite) au lieu des
   valeurs figées du code : nouvel endpoint `GET /api/reference/gear`

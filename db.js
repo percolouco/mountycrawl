@@ -31,7 +31,7 @@ const POTION_POWER_DEFAULTS = {
   fertilite: [3, 7], feu: [3, 7], longueVue: [1, 8], kouleMann: [1, 5],
   djhinTonik: [1, 5], glacier: [3, 7], calvok: [2, 6], rhume: [1, 2],
   grippe: [3, 4], pneumonie: [5, 5], cervelle: [2, 6], chronometre: [1, 5],
-  metomol: [1, 5], guerison: [1, 5], painture: [1, 5], pufPuff: [0, 2],
+  metomol: [1, 5], guerison: [1, 5], painture: [1, 5], pufPuff: [1, 3],
   sangToh: [1, 5], sinneKhole: [11, 100], toxine: [1, 5], voiputrin: [1, 5],
   zetCrak: [1, 5],
 };
@@ -110,6 +110,10 @@ function init(file = ":memory:") {
     const ins = DB.prepare(`INSERT OR IGNORE INTO ${cat} (id, name, emoji, powerMin, powerMax) VALUES (?, ?, ?, ?, ?)`);
     for (const t of vanillaTreasures(cat)) ins.run(t.id, t.name, t.emoji, t.powerMin, t.powerMax);
   }
+  // Correctif des bases déjà créées : PufPuff avait été seedé à tort en [0,2]
+  // (le niveau 0 d'une potion n'existe pas, minimum 1) → on le ramène à [1,3].
+  // Le garde `powerMin = 0` évite d'écraser une plage éditée volontairement.
+  DB.prepare("UPDATE potions SET powerMin = 1, powerMax = 3 WHERE id = 'pufPuff' AND powerMin = 0").run();
   return DB;
 }
 

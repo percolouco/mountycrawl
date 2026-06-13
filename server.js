@@ -258,11 +258,18 @@ function handleMP(req, res, url) {
 function handleAPI(req, res, url) {
   if (url.pathname.startsWith("/api/mp/")) return handleMP(req, res, url);
 
-  // Valeurs de référence des équipements lues EN DIRECT dans la BDD SQLite :
-  // l'encyclopédie « Trésors du Hall » reflète ainsi les éditions de la base
-  // (DB Browser / sqlite-web) sans toucher au code.
-  if (req.method === "GET" && url.pathname === "/api/reference/gear") {
-    return sendJSON(res, 200, db.gearAll());
+  // Valeurs de référence lues EN DIRECT dans la BDD SQLite : l'encyclopédie
+  // « Trésors du Hall » reflète ainsi les éditions de la base, qu'elles viennent
+  // de la page admin ou d'un outil comme sqlite-web — sans toucher au code.
+  const REFERENCE = {
+    gear: () => db.gearAll(),
+    monsters: () => db.monsters(),
+    potions: () => db.treasuresAll("potions"),
+    scrolls: () => db.treasuresAll("scrolls"),
+  };
+  const refMatch = url.pathname.match(/^\/api\/reference\/(gear|monsters|potions|scrolls)$/);
+  if (req.method === "GET" && refMatch) {
+    return sendJSON(res, 200, REFERENCE[refMatch[1]]());
   }
 
   const idMatch = url.pathname.match(/^\/api\/levels\/([a-f0-9]{12})$/);
@@ -333,7 +340,17 @@ function handleStatic(req, res, url) {
   }
   fs.readFile(file, (err, data) => {
     if (err) { res.writeHead(404); return res.end("introuvable"); }
-    res.writeHead(200, { "Content-Type": MIME[path.extname(file)] || "application/octet-stream" });
+    const ext = path.extname(file);
+    // Code et pages (.html/.js/.css) : toujours revalider pour qu'une mise à
+    // jour (ou une édition de la base reflétée par le code) soit prise tout de
+    // suite, sans cache navigateur périmé. Médias : cache court.
+    const cache = [".html", ".js", ".css"].includes(ext)
+      ? "no-cache"
+      : "public, max-age=86400";
+    res.writeHead(200, {
+      "Content-Type": MIME[ext] || "application/octet-stream",
+      "Cache-Control": cache,
+    });
     res.end(data);
   });
 }

@@ -72,13 +72,13 @@ function treasuresRender() {
 
   html += `<h2 class="tz-section">🧪 Potions (${TREASURE_POTIONS.length})</h2><div class="tz-grid">`;
   for (const [id, x, duration, fx] of TREASURE_POTIONS) {
-    html += treasureCard(POTION_DEFS[id], x, duration, fx);
+    html += treasureCard(POTION_DEFS[id], powerLabel(x, POTIONS_DB && POTIONS_DB[id]), duration, fx);
   }
   html += "</div>";
 
   html += `<h2 class="tz-section">📜 Parchemins standards (${TREASURE_SCROLLS.length})</h2><div class="tz-grid">`;
   for (const [id, x, duration, fx] of TREASURE_SCROLLS) {
-    html += treasureCard(SCROLL_DEFS[id], x, duration, fx);
+    html += treasureCard(SCROLL_DEFS[id], powerLabel(x, SCROLLS_DB && SCROLLS_DB[id]), duration, fx);
   }
   html += "</div>";
 
@@ -126,30 +126,58 @@ function treasuresRender() {
 
 let treasuresReturnTo = "create";
 
-// Équipements de la base de référence (BDD), rechargés à chaque ouverture pour
-// refléter les éditions ; null tant qu'on n'a pas (ou pas pu) charger → repli
-// sur les valeurs statiques de gear.js.
-let GEAR_DB = null;
-async function loadGearReference() {
+// Données de la base de référence (BDD), rechargées à chaque ouverture pour
+// refléter les éditions (admin OU sqlite-web) ; null tant qu'on n'a pas (ou pas
+// pu) charger → repli sur les valeurs statiques du code.
+let GEAR_DB = null, POTIONS_DB = null, SCROLLS_DB = null;
+
+async function fetchRef(cat) {
   try {
-    const res = await fetch("api/reference/gear");
-    if (!res.ok) throw new Error("indisponible");
+    const res = await fetch("api/reference/" + cat);
+    if (!res.ok) return null;
     const rows = await res.json();
-    if (!Array.isArray(rows) || !rows.length) throw new Error("vide");
-    const bySlot = {};
-    for (const r of rows) {
-      const mods = {};
-      for (const [key] of GEAR_MOD_LABELS) mods[key] = r[key] || 0;
-      const staticDef = (GEAR[r.slot] || []).find(d => d.name === r.name);
-      (bySlot[r.slot] = bySlot[r.slot] || []).push({
-        emoji: r.emoji, name: r.name, tier: r.tier, twoHanded: !!r.twoHanded,
-        note: staticDef && staticDef.note, mods,
-      });
-    }
-    GEAR_DB = bySlot;
+    return Array.isArray(rows) && rows.length ? rows : null;
   } catch {
-    GEAR_DB = null; // base injoignable (ex. ouverture en file://) → statique
+    return null; // base injoignable (ex. ouverture en file://)
   }
+}
+
+async function loadReference() {
+  const [gear, potions, scrolls] = await Promise.all([
+    fetchRef("gear"), fetchRef("potions"), fetchRef("scrolls"),
+  ]);
+  GEAR_DB = gear ? gearBySlotFromRows(gear) : null;
+  POTIONS_DB = potions ? indexPowerById(potions) : null;
+  SCROLLS_DB = scrolls ? indexPowerById(scrolls) : null;
+}
+
+function gearBySlotFromRows(rows) {
+  const bySlot = {};
+  for (const r of rows) {
+    const mods = {};
+    for (const [key] of GEAR_MOD_LABELS) mods[key] = r[key] || 0;
+    const staticDef = (GEAR[r.slot] || []).find(d => d.name === r.name);
+    (bySlot[r.slot] = bySlot[r.slot] || []).push({
+      emoji: r.emoji, name: r.name, tier: r.tier, twoHanded: !!r.twoHanded,
+      note: staticDef && staticDef.note, mods,
+    });
+  }
+  return bySlot;
+}
+
+function indexPowerById(rows) {
+  const map = {};
+  for (const r of rows) map[r.id] = { min: r.powerMin, max: r.powerMax };
+  return map;
+}
+
+// Libellé « Niveau X » : on remplace par la plage BDD (min/max) UNIQUEMENT pour
+// les plages numériques simples « A à B » ; les libellés spéciaux (« — »,
+// « 5 (fixe) », « 1, 2, 3, 5 ou 8 »…) sont conservés tels quels car la base ne
+// stocke qu'un min/max qui ne saurait les représenter.
+function powerLabel(staticLabel, range) {
+  if (!range || !/^\d+ à \d+$/.test(staticLabel)) return staticLabel;
+  return range.min === range.max ? `${range.min} (fixe)` : `${range.min} à ${range.max}`;
 }
 
 async function treasuresShow(from) {
@@ -157,7 +185,7 @@ async function treasuresShow(from) {
   document.getElementById("screen-" + from).classList.add("hidden");
   document.getElementById("screen-treasures").classList.remove("hidden");
   document.getElementById("screen-treasures").scrollTop = 0;
-  await loadGearReference();
+  await loadReference();
   treasuresRender();
 }
 
