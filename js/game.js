@@ -4,7 +4,7 @@
 
 "use strict";
 
-const APP_VERSION = "2.4.4";
+const APP_VERSION = "2.5.0";
 
 /* Alpha : maîtrise initiale haute pour les tests. Remettre 15 % / 15 % à la v1.0 officielle. */
 const START_COMP_PCT = 90;
@@ -35,18 +35,15 @@ function rollDice(n, faces) {
  * Armure façon MH : les dégâts PHYSIQUES sont réduits par l'armure totale
  * (physique + magique) ; les dégâts MAGIQUES (opts.magic) par la seule armure
  * magique ; opts.ignoreArmor ignore tout (Siphon des Âmes).
- * ATT et DEG existent en deux saveurs comme l'armure : les bonus fixes
- * physiques (xxxFlatPhys) s'appliquent aux attaques physiques, les magiques
- * (xxxFlatMag) aux attaques magiques — à défaut on retombe sur xxxFlat. */
-function pickFlat(src, key, magic) {
-  const v = magic ? src[`${key}FlatMag`] : src[`${key}FlatPhys`];
-  return (v != null ? v : src[`${key}Flat`]) || 0;
-}
-
+ * Bonus fixes : on lance les dés, puis on ajoute TOUJOURS les deux saveurs —
+ * le bonus physique ET le bonus magique se cumulent (xxxFlat = phys + mag,
+ * cf. effTroll). opts.magic ne sert plus qu'à choisir l'armure qui réduit les
+ * dégâts (magique seule pour une attaque magique). Les monstres n'ont pas de
+ * flats (que des dés) → xxxFlat absent → 0. */
 function resolveAttack(attacker, defender, opts = {}) {
   const att = rollDice(attacker.att, 6);
   const esq = rollDice(defender.esq, 6);
-  const attFlat = pickFlat(attacker, "att", opts.magic);
+  const attFlat = attacker.attFlat || 0;
   const esqFlat = defender.esqFlat || 0;
   const attTotal = att.total + attFlat;
   const esqTotal = esq.total + esqFlat;
@@ -59,7 +56,7 @@ function resolveAttack(attacker, defender, opts = {}) {
   };
   if (result.hit) {
     const deg = rollDice(attacker.deg, 3);
-    const degFlat = pickFlat(attacker, "deg", opts.magic);
+    const degFlat = attacker.degFlat || 0;
     result.rawDamage = (deg.total + (attacker.degBonus || 0) + degFlat) * (result.critical ? 2 : 1);
     // armure physique : fixe (base + équipement) + naturelle en D3 (achetée en PI)
     // armure magique : effets de potions/parchemins (armorMag, peut être négative)
@@ -1380,8 +1377,7 @@ function renderPanels() {
     <div><span>Esquive</span><span class="stat-val">${fmtStatLine(t.esq, te.esq, 6, te.esqFlat, 0, { phys: te.esqFlatPhys, mag: te.esqFlatMag })}</span></div>
     <div><span>Dégâts</span><span class="stat-val">${fmtStatLine(t.deg, te.deg, 3, te.degFlat, te.degBonus, { phys: te.degFlatPhys, mag: te.degFlatMag })}</span></div>
     <div><span>Régénération</span><span class="stat-val">${fmtStatLine(t.reg, te.reg, 3, te.regFlat, 0, { phys: te.regFlatPhys, mag: te.regFlatMag })}</span></div>
-    <div><span>Armure phy.</span><span class="stat-val">${te.armorPhys}${t.armorDice ? "+" + t.armorDice + "D3" : ""}</span></div>
-    <div><span>Armure mag.</span><span class="stat-val">${te.armorMag > 0 ? "+" : ""}${te.armorMag}</span></div>
+    <div><span>Armure</span><span class="stat-val">${fmtArmorLine(t.armorDice, te.armorPhys, te.armorMag)}</span></div>
     <div><span>Vue</span><span class="stat-val">${te.vue}</span></div>
     <div><span>${RACES[t.race].comp.name}</span><span class="stat-val">${t.comp.pct} %</span></div>
     <div><span>${RACES[t.race].sort.name}</span><span class="stat-val">${t.sort.pct} %</span></div>

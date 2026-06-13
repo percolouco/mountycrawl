@@ -115,13 +115,15 @@ assert.strictEqual(g.improveCost("esq", 1, "Tomawak"), 32, "2e dé d'ESQ = 32 PI
   // décomposition par type d'attaque : l'équipement compte selon sa saveur,
   // les potions modifient le troll et comptent dans les deux
   g.equipGear(t, gearLib.gearItemByName("arme", "Gourdin")); // att +2, deg +5 (physiques)
-  p.drinkPotion(t, p.makePotionItem("bonneBouffe", 5), g.rollDice, () => {}); // DEG +5 (potion)
+  p.drinkPotion(t, p.makePotionItem("bonneBouffe", 5), g.rollDice, () => {}); // DEG +5 (potion, magique)
   const e2 = p.effTroll(t);
-  assert.strictEqual(e2.attFlatPhys, 2, "attaque physique : ATT +2 du Gourdin");
-  assert.strictEqual(e2.attFlatMag, 0, "attaque magique : pas de bonus d'ATT");
-  assert.strictEqual(e2.degFlatPhys, 10, "attaque physique : DEG +5 Gourdin +5 Bonne Bouffe");
-  assert.strictEqual(e2.degFlatMag, 5, "attaque magique : seule la Bonne Bouffe compte");
-  assert.strictEqual(e2.degFlat, 10, "degFlat = bonus des attaques physiques");
+  // colonnes PURES : physique = équipement seul, magique = potions/parchemins
+  // + équipement magique. Le total (xxxFlat) = phys + mag (les deux se cumulent).
+  assert.strictEqual(e2.attFlatPhys, 2, "bonus physique d'ATT : +2 du Gourdin");
+  assert.strictEqual(e2.attFlatMag, 0, "bonus magique d'ATT : aucun");
+  assert.strictEqual(e2.degFlatPhys, 5, "bonus physique de DEG : +5 du Gourdin (équipement)");
+  assert.strictEqual(e2.degFlatMag, 5, "bonus magique de DEG : +5 de la Bonne Bouffe (potion)");
+  assert.strictEqual(e2.degFlat, 10, "degFlat = total ajouté au jet = phys + mag");
 }
 
 // ATT/DEG/ARM phys et mag partout : équipement magique et choix du bonus selon l'attaque
@@ -140,12 +142,13 @@ assert.strictEqual(g.improveCost("esq", 1, "Tomawak"), 32, "2e dé d'ESQ = 32 PI
   assert.strictEqual(e.degFlatMag, 6, "DEG mag +6 sur les sortilèges");
   assert.strictEqual(e.armorMag, 2, "Armure mag +2 d'équipement");
   assert.strictEqual(e.armorPhys, 0, "pas d'armure physique");
-  // resolveAttack choisit le bon bonus selon le type d'attaque
+  // resolveAttack ajoute TOUJOURS les deux bonus (phys + mag), quel que soit le
+  // type d'attaque ; opts.magic ne change plus que l'armure qui réduit.
   const dummy = { esq: 1, armor: 0, armorMag: 0 };
   const rPhys = g.resolveAttack(e, dummy, { autoHit: true });
   const rMag = g.resolveAttack(e, dummy, { autoHit: true, magic: true });
-  assert.strictEqual(rPhys.attFlat, 0, "jet physique : ATT sans bonus");
-  assert.strictEqual(rMag.attFlat, 4, "jet magique : ATT +4");
+  assert.strictEqual(rPhys.attFlat, 4, "jet : ATT +4 (phys 0 + mag 4)");
+  assert.strictEqual(rMag.attFlat, 4, "jet magique : ATT +4 (phys 0 + mag 4)");
   assert(rMag.rawDamage >= 1 * 1 + 6 + 0 && rMag.rawDamage <= 3 * 3 * 2 + 12, "dégâts magiques avec DEG mag");
   // le formatage des mods affiche les saveurs magiques
   const label = gearLib.formatGearMods(baton.mods);

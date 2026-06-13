@@ -234,6 +234,18 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.5.0** (2026-06-13) — **Cumul systématique des bonus physiques et
+  magiques.** On lance les dés, puis on ajoute **toujours les deux** bonus :
+  le physique (équipement) *et* le magique (potions/parchemins + équipement
+  magique) s'additionnent, comme le faisait déjà l'esquive (avant, l'attaque
+  et les dégâts ne prenaient qu'une seule saveur selon le type d'attaque). Les
+  colonnes phys/mag sont désormais **pures et sans recouvrement** (une potion
+  est un bonus magique, comptée une seule fois), donc l'affichage `+total
+  (phy +X · mag +Y)` est cohérent — fini le faux double comptage. `opts.magic`
+  ne sert plus qu'à choisir l'armure qui réduit (la magique seule pour une
+  attaque magique). **Armure** présentée comme l'attaque et l'esquive : une
+  seule ligne `XD3 +total (phy +P · mag +M)` au lieu des deux lignes « phy. »
+  et « mag. » séparées.
 - **2.4.4** (2026-06-13) — Affichage des bonus fixes clarifié : quand le bonus
   physique et le bonus magique sont **identiques**, on n'affiche plus qu'un
   seul `+X` (avant : `+1 (phy +1 · mag +1)`, qui donnait l'illusion d'un triple

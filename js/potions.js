@@ -408,20 +408,33 @@ function fmtStatLine(base, eff, faces, flat = 0, extra = 0, split = null) {
   const f = v => `${v > 0 ? "+" : ""}${v}`;
   let main = `${eff}D${faces}`;
   const hints = [];
-  // `extra` (degBonus) s'applique quel que soit le type d'attaque ; il s'ajoute
-  // donc aux deux saveurs. On ne détaille « phy/mag » QUE si les deux diffèrent
-  // réellement — sinon un seul « +X » suffit (un bonus identique des deux côtés
-  // affiché en double laisse croire à tort à un cumul).
-  if (split && split.phys !== split.mag) {
-    // bonus fixe différent selon le type d'attaque → on détaille les deux
-    hints.push(`phy ${f((split.phys || 0) + (extra || 0))} · mag ${f((split.mag || 0) + (extra || 0))}`);
-  } else {
-    // bonus identique quelle que soit la saveur → une seule valeur
-    const jetBonus = (flat || 0) + (extra || 0);
-    if (jetBonus) main += ` ${f(jetBonus)}`;
-  }
+  // Bonus fixe total ajouté au jet = bonus physique + bonus magique (les deux se
+  // cumulent toujours), + `extra` (degBonus, neutre). On affiche ce total puis,
+  // dès qu'il y a un bonus, le détail « phy/mag ». Les colonnes étant pures
+  // (cf. effTroll), phys + mag = flat : le total et le détail sont cohérents.
+  const fb = v => `${v >= 0 ? "+" : ""}${v}`; // détail phys/mag : toujours signé (+0 inclus)
+  const phys = split ? (split.phys || 0) : 0;
+  const mag = split ? (split.mag || 0) : 0;
+  const total = (flat || 0) + (extra || 0);
+  if (total) main += ` ${f(total)}`;
+  if (phys || mag) hints.push(`phy ${fb(phys)} · mag ${fb(mag)}`);
   if (diceDelta !== 0) hints.push(`${base}D${faces} ${diceDelta > 0 ? "+" : ""}${diceDelta}`);
   if (hints.length) return `${main} <small class="stat-hint">(${hints.join(" · ")})</small>`;
+  return main;
+}
+
+/* Ligne d'armure présentée comme l'attaque/l'esquive (demande Perco) : les dés
+ * d'armure naturelle (XD3 achetés en PI) puis le bonus fixe total (physique +
+ * magique) et son détail « phy/mag ». */
+function fmtArmorLine(armorDice, phys = 0, mag = 0) {
+  const f = v => `${v > 0 ? "+" : ""}${v}`;
+  const fb = v => `${v >= 0 ? "+" : ""}${v}`;
+  const flat = (phys || 0) + (mag || 0);
+  const parts = [];
+  if (armorDice) parts.push(`${armorDice}D3`);
+  if (flat || !parts.length) parts.push(parts.length ? f(flat) : `${flat}`);
+  let main = parts.join(" ");
+  if (phys || mag) main += ` <small class="stat-hint">(phy ${fb(phys)} · mag ${fb(mag)})</small>`;
   return main;
 }
 
@@ -429,28 +442,32 @@ function fmtStatLine(base, eff, faces, flat = 0, extra = 0, split = null) {
  * + équipement (troll.gearMods, recalculé par game.js à chaque équipement).
  * Les bonus ATT/ESQ/DEG/REG de l'équipement sont des bonus FIXES sur les jets,
  * jamais des dés supplémentaires.
- * Comme l'armure, ATT et DEG existent en deux saveurs : xxxFlatPhys s'applique
- * aux attaques PHYSIQUES, xxxFlatMag aux attaques MAGIQUES (sortilèges). Les
- * potions/parchemins modifient le troll lui-même : leurs bonus comptent dans
- * les deux ; l'équipement compte selon la saveur de chaque bonus (att/deg/arm
- * physiques, attMag/degMag/armMag magiques). Armure :
- * armorPhys = base + naturelle + équipement phys, armorMag = effets magiques
- * + équipement mag. Les dégâts physiques sont réduits par l'armure totale,
- * les dégâts magiques par la seule armure magique. */
+ * RÈGLE (demande Perco) : on lance les dés, puis on ajoute TOUJOURS les deux
+ * bonus — le physique ET le magique se cumulent. Les colonnes sont donc
+ * PURES et sans recouvrement : xxxFlatPhys = uniquement l'équipement physique
+ * (att/esq/deg/reg/arm), xxxFlatMag = uniquement le magique (potions/parchemins
+ * + équipement magique attMag/degMag/armMag). xxxFlat = phys + mag = le bonus
+ * total réellement ajouté au jet. (Avant, la potion était comptée dans les deux
+ * colonnes → faux double comptage à l'affichage.) Armure : armorPhys = base
+ * naturelle + équipement phys, armorMag = effets magiques + équipement mag. Les
+ * dégâts physiques sont réduits par l'armure totale, les dégâts magiques par la
+ * seule armure magique. */
 function effTroll(troll) {
   const m = sumPotionMods(troll.potionEffects); // magique (modifie le troll)
   const g = troll.gearMods || {};               // équipement (phys + mag)
   return {
     att: Math.max(1, troll.att + m.att),
-    attFlat: m.attFlat + (g.att || 0),
-    attFlatPhys: m.attFlat + (g.att || 0), attFlatMag: m.attFlat + (g.attMag || 0),
+    attFlatPhys: g.att || 0, attFlatMag: m.attFlat + (g.attMag || 0),
+    attFlat: (g.att || 0) + m.attFlat + (g.attMag || 0),
     esq: Math.max(1, troll.esq + m.esq),
-    esqFlat: m.esqFlat + (g.esq || 0), esqFlatPhys: g.esq || 0, esqFlatMag: m.esqFlat,
+    esqFlatPhys: g.esq || 0, esqFlatMag: m.esqFlat,
+    esqFlat: (g.esq || 0) + m.esqFlat,
     deg: Math.max(1, troll.deg + m.deg),
-    degFlat: m.degFlat + (g.deg || 0),
-    degFlatPhys: m.degFlat + (g.deg || 0), degFlatMag: m.degFlat + (g.degMag || 0),
+    degFlatPhys: g.deg || 0, degFlatMag: m.degFlat + (g.degMag || 0),
+    degFlat: (g.deg || 0) + m.degFlat + (g.degMag || 0),
     reg: Math.max(1, troll.reg + m.reg),
-    regFlat: m.regFlat + (g.reg || 0), regFlatPhys: g.reg || 0, regFlatMag: m.regFlat,
+    regFlatPhys: g.reg || 0, regFlatMag: m.regFlat,
+    regFlat: (g.reg || 0) + m.regFlat,
     vue: Math.max(1, troll.vue + m.vue + (g.vue || 0)),
     armor: Math.max(0, troll.armor + m.armor + (g.arm || 0) + (g.armMag || 0)),
     armorPhys: Math.max(0, troll.armor + (g.arm || 0)),
@@ -675,6 +692,6 @@ if (typeof module !== "undefined" && module.exports) {
     POTION_IDS, POTION_DEFS, sumPotionMods, effTroll, formatPotionItem,
     makeRandomPotion, makePotionItem, drinkPotion, goinfreItem, tickPotionTurns,
     describeActiveEffects, renderEffectsPanel, countActiveEffects, formatEffectMods,
-    sharedMod, makeEffect, fmtStatLine, talentPctWithPotions, corruptionYZ,
+    sharedMod, makeEffect, fmtStatLine, fmtArmorLine, talentPctWithPotions, corruptionYZ,
   };
 }

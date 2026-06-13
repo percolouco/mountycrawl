@@ -269,8 +269,7 @@ function mpRenderPanels(st) {
     <div><span>Esquive</span><span class="stat-val">${fmtStatLine(you.esq, e.esq, 6, e.esqFlat, 0, { phys: e.esqFlatPhys, mag: e.esqFlatMag })}</span></div>
     <div><span>Dégâts</span><span class="stat-val">${fmtStatLine(you.deg, e.deg, 3, e.degFlat, e.degBonus, { phys: e.degFlatPhys, mag: e.degFlatMag })}</span></div>
     <div><span>Régénération</span><span class="stat-val">${fmtStatLine(you.reg, e.reg, 3, e.regFlat, 0, { phys: e.regFlatPhys, mag: e.regFlatMag })}</span></div>
-    <div><span>Armure phy.</span><span class="stat-val">${e.armorPhys}${you.armorDice ? "+" + you.armorDice + "D3" : ""}</span></div>
-    <div><span>Armure mag.</span><span class="stat-val">${e.armorMag > 0 ? "+" : ""}${e.armorMag}</span></div>
+    <div><span>Armure</span><span class="stat-val">${fmtArmorLine(you.armorDice, e.armorPhys, e.armorMag)}</span></div>
     <div><span>Vue</span><span class="stat-val">${e.vue}</span></div>
     <div><span>${RACES[you.race].comp.name}</span><span class="stat-val">${you.comp.pct} %</span></div>
     <div><span>${RACES[you.race].sort.name}</span><span class="stat-val">${you.sort.pct} %</span></div>
