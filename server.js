@@ -275,8 +275,9 @@ function handleAPI(req, res, url) {
     monsters: () => db.monsters(),
     potions: () => db.treasuresAll("potions"),
     scrolls: () => db.treasuresAll("scrolls"),
+    templates: () => db.templatesAll(),
   };
-  const refMatch = url.pathname.match(/^\/api\/reference\/(gear|monsters|potions|scrolls)$/);
+  const refMatch = url.pathname.match(/^\/api\/reference\/(gear|monsters|potions|scrolls|templates)$/);
   if (req.method === "GET" && refMatch) {
     return sendJSON(res, 200, REFERENCE[refMatch[1]]());
   }

@@ -234,6 +234,17 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.7.0** (2026-06-14) — **Templates de drop** façon MountyHall. 19 suffixes
+  (« de l'Aigle », « des Mages », « des Béhémoths »…) stockés dans une nouvelle
+  table `templates` de la base (seedés au démarrage, éditables comme le reste via
+  sqlite-web / `GET /api/reference/templates`). À chaque **drop d'équipement du
+  monde partagé**, l'objet reçoit jusqu'à **3 templates** (6 pour une arme à
+  **2 mains**), chaque emplacement étant rempli avec une **probabilité réglable
+  sur la page admin** (`templateChance`, 0–100 %). Les bonus des templates
+  s'ajoutent aux mods de l'objet (nouveau mod `TOUR`, en minutes) et leurs
+  suffixes au nom (« Épée Courte de l'Aigle des Mages »). Le solo reste vanilla.
+  *Note : le bonus `TOUR` est affiché mais son effet de jeu (DLA) reste à câbler
+  une fois la règle confirmée.*
 - **2.6.3** (2026-06-13) — **Cache-busting** des fichiers du jeu : les balises
   `<script>`/`<link>` de `index.html` portent `?v=__V__`, jeton que le serveur
   remplace par la version de l'appli (donc différent à chaque déploiement). Le

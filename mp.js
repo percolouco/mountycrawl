@@ -41,6 +41,7 @@ const DEFAULT_CONFIG = {
   deathRespawnSec: 90,            // délai de réapparition d'un troll terrassé
   maxTrolls: 40,
   logSize: 150,
+  templateChance: 0,              // proba (%) qu'un emplacement de template soit rempli sur un drop d'équipement
 };
 
 const CONFIG_BOUNDS = {
@@ -50,6 +51,7 @@ const CONFIG_BOUNDS = {
   monsterTarget: [0, 120], repopSec: [10, 3600],
   itemTarget: [0, 120], deathRespawnSec: [0, 3600],
   maxTrolls: [1, 200], logSize: [20, 500],
+  templateChance: [0, 100],
 };
 
 /* ---------- Tuning : valeurs du bestiaire, de l'équipement et des trésors ----------
@@ -96,6 +98,33 @@ function applyGearTuning(item) {
   if (row) {
     item.mods = Object.fromEntries(db.GEAR_KEYS.map(k => [k, row[k] || 0]).filter(([, v]) => v));
   }
+  return item;
+}
+
+/* Templates de drop : un objet qui tombe reçoit jusqu'à 3 templates (6 pour une
+ * arme à 2 mains), chaque emplacement étant rempli avec la proba `chance` (%)
+ * par un template DISTINCT tiré au hasard en base. Les bonus (dont `tour`)
+ * s'ajoutent aux mods de l'objet, et les suffixes au nom (« Épée Courte de
+ * l'Aigle des Mages »). N'affecte que le monde partagé (drops) ; le solo reste
+ * vanilla. */
+function applyGearTemplates(item, chance) {
+  if (!item || item.kind !== "gear" || !(chance > 0)) return item;
+  const pool = db.templatesAll();
+  if (!pool.length) return item;
+  const slots = item.twoHanded ? 6 : 3;
+  const picked = [];
+  for (let i = 0; i < slots && pool.length; i++) {
+    if (Math.random() * 100 >= chance) continue;
+    picked.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  }
+  if (!picked.length) return item;
+  const mods = { ...(item.mods || {}) };
+  for (const t of picked) {
+    for (const k of db.TEMPLATE_KEYS) if (t[k]) mods[k] = (mods[k] || 0) + t[k];
+  }
+  item.mods = Object.fromEntries(Object.entries(mods).filter(([, v]) => v));
+  item.name = `${item.name} ${picked.map(t => t.name).join(" ")}`;
+  item.templates = picked.map(t => t.name);
   return item;
 }
 
@@ -153,7 +182,7 @@ function spawnItem(world) {
   const depth = world.config.worldDepth;
   const item = r < 0.34 ? tunedRandomPotion()
     : r < 0.48 ? tunedRandomScroll()
-    : r < 0.78 ? applyGearTuning(gearLib.makeRandomGear(depth))
+    : r < 0.78 ? applyGearTemplates(applyGearTuning(gearLib.makeRandomGear(depth)), world.config.templateChance)
     : { kind: "gold", gold: g.rollDice(depth, 6).total * 10, emoji: "💰" };
   if (item.kind === "gold") item.name = `${item.gold} Mountyzédons`;
   world.items.push({ ...item, x: pos.x, y: pos.y });
@@ -1038,5 +1067,5 @@ module.exports = {
   adminOverview, adminSetConfig, adminSetTuning, adminDefaults, adminResetWorld, adminKickTroll,
   currentTuning, saveWorld, loadWorld,
   spawnMonster, spawnItem, monsterAct, trollDla, worldLog,
-  tunedRandomPotion, tunedRandomScroll, applyGearTuning,
+  tunedRandomPotion, tunedRandomScroll, applyGearTuning, applyGearTemplates,
 };

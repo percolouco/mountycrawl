@@ -102,6 +102,7 @@ const GEAR_MOD_LABELS = [
   ["arm", "Armure phy.", ""], ["armMag", "Armure mag.", ""],
   ["vue", "VUE", ""], ["pv", "PV", ""],
   ["rmPct", "RM", " %"], ["mmPct", "MM", " %"],
+  ["tour", "TOUR", " mn"], // apporté par les templates de drop (modif de DLA)
 ];
 
 function formatGearMods(mods, sep = " · ") {

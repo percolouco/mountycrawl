@@ -280,6 +280,20 @@ function makeWorld(over = {}) {
   assert.strictEqual(db.gearRow("arme", "Gourdin").att, 2, "reset gear → vanilla (gourdin)");
 }
 
+// Templates de drop : nombre selon les mains, distincts, bonus fusionnés, proba 0
+{
+  const one = mp.applyGearTemplates({ kind: "gear", slot: "arme", name: "Épée Courte", twoHanded: false, mods: { deg: 2 } }, 100);
+  assert.strictEqual(one.templates.length, 3, "1 main : 3 templates max");
+  assert.strictEqual(one.mods.deg >= 2, true, "mod de base conservé");
+  assert(one.name.startsWith("Épée Courte "), "suffixes de template ajoutés au nom");
+  const two = mp.applyGearTemplates({ kind: "gear", slot: "arme", name: "Épée Longue", twoHanded: true, mods: {} }, 100);
+  assert.strictEqual(two.templates.length, 6, "2 mains : 6 templates max");
+  assert.strictEqual(new Set(two.templates).size, 6, "templates tous distincts");
+  const none = mp.applyGearTemplates({ kind: "gear", slot: "arme", name: "Gourdin", twoHanded: false, mods: { att: 2 } }, 0);
+  assert(!none.templates, "proba 0 : aucun template");
+  assert.strictEqual(none.name, "Gourdin", "nom inchangé sans template");
+}
+
 // Tuning admin : puissance des potions/parchemins et bonus d'équipement
 {
   const w = makeWorld({ monsterTarget: 0, itemTarget: 0 });

@@ -23,6 +23,33 @@ const gearLib = require("./js/gear.js");
 const MONSTER_KEYS = ["level", "att", "attMag", "esq", "deg", "degMag", "pv", "armor", "armorMag", "vue"];
 const GEAR_KEYS = ["att", "attMag", "esq", "deg", "degMag", "reg", "arm", "armMag", "vue", "pv", "rmPct", "mmPct"];
 
+/* Templates de drop façon MountyHall : des suffixes (« de l'Aigle », « des
+ * Mages »…) ajoutés aléatoirement à l'équipement qui tombe, selon une proba
+ * réglable côté admin. Leurs bonus s'ajoutent aux mods de l'objet ; `tour` est
+ * un modificateur de TOUR (DLA) propre aux templates. */
+const TEMPLATE_KEYS = ["att", "attMag", "esq", "vue", "deg", "degMag", "arm", "armMag", "rmPct", "mmPct", "reg", "pv", "tour"];
+const VANILLA_TEMPLATES = [
+  [1, "de l'Aigle", [0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
+  [2, "des Béhémoths", [0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 30]],
+  [3, "des Cyclopes", [0, 1, 0, -1, 0, 1, 0, 0, 0, 0, 0, 0, 0]],
+  [4, "des Enragés", [0, 1, -1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]],
+  [5, "de Feu", [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]],
+  [6, "des Mages", [0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0]],
+  [7, "de l'Orage", [0, 0, 2, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0]],
+  [8, "de l'Ours", [0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 5, 30]],
+  [9, "du Pic", [0, 0, -1, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0]],
+  [10, "du Rat", [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
+  [11, "de Résistance", [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0]],
+  [12, "de la Salamandre", [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0]],
+  [13, "du Temps", [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -30]],
+  [14, "de la Terre", [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 5, 30]],
+  [15, "du Sable", [0, 0, 3, -1, 0, 0, 0, -1, 0, 0, 0, 0, 0]],
+  [16, "des Vampires", [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0]],
+  [17, "des Duellistes", [0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
+  [18, "des Champions", [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
+  [19, "des Anciens", [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
+];
+
 /* Fourchettes de puissance « niveau X » vanilla (Mountypedia). La Longue-Vue
  * vanilla tire dans {1,2,3,5,8} : tant que sa fourchette en base reste celle
  * d'origine, on garde le tirage officiel. */
@@ -53,6 +80,12 @@ function vanillaGear() {
     slot, name: def.name, emoji: def.emoji, tier: def.tier, twoHanded: !!def.twoHanded,
     ...Object.fromEntries(GEAR_KEYS.map(k => [k, def.mods[k] || 0])),
   })));
+}
+
+function vanillaTemplates() {
+  return VANILLA_TEMPLATES.map(([id, name, vals]) => ({
+    id, name, ...Object.fromEntries(TEMPLATE_KEYS.map((k, i) => [k, vals[i]])),
+  }));
 }
 
 function vanillaTreasures(cat) {
@@ -93,6 +126,9 @@ function init(file = ":memory:") {
       id TEXT PRIMARY KEY, name TEXT, emoji TEXT,
       powerMin INTEGER, powerMax INTEGER
     );
+    CREATE TABLE IF NOT EXISTS templates (
+      id INTEGER PRIMARY KEY, name TEXT, ${TEMPLATE_KEYS.map(k => `${k} INTEGER`).join(", ")}
+    );
   `);
   const insM = DB.prepare(`INSERT OR IGNORE INTO monsters
     (name, emoji, boss, isStatic, ${MONSTER_KEYS.join(", ")})
@@ -110,6 +146,9 @@ function init(file = ":memory:") {
     const ins = DB.prepare(`INSERT OR IGNORE INTO ${cat} (id, name, emoji, powerMin, powerMax) VALUES (?, ?, ?, ?, ?)`);
     for (const t of vanillaTreasures(cat)) ins.run(t.id, t.name, t.emoji, t.powerMin, t.powerMax);
   }
+  const insT = DB.prepare(`INSERT OR IGNORE INTO templates (id, name, ${TEMPLATE_KEYS.join(", ")})
+    VALUES (?, ?, ${TEMPLATE_KEYS.map(() => "?").join(", ")})`);
+  for (const t of vanillaTemplates()) insT.run(t.id, t.name, ...TEMPLATE_KEYS.map(k => t[k]));
   // Correctif des bases déjà créées : PufPuff avait été seedé à tort en [0,2]
   // (le niveau 0 d'une potion n'existe pas, minimum 1) → on le ramène à [1,3].
   // Le garde `powerMin = 0` évite d'écraser une plage éditée volontairement.
@@ -148,6 +187,10 @@ function treasuresAll(cat) {
   return db().prepare(`SELECT * FROM ${cat === "scrolls" ? "scrolls" : "potions"}`).all();
 }
 
+function templatesAll() {
+  return db().prepare("SELECT * FROM templates ORDER BY id").all();
+}
+
 /* ---------- Écriture (page admin) ---------- */
 
 function setMonster(name, vals) {
@@ -169,10 +212,18 @@ function setTreasureRange(cat, id, [min, max]) {
     .run(min, max, id);
 }
 
+function setTemplate(id, vals) {
+  const keys = TEMPLATE_KEYS.filter(k => vals[k] != null);
+  if (!keys.length) return;
+  db().prepare(`UPDATE templates SET ${keys.map(k => `${k} = ?`).join(", ")} WHERE id = ?`)
+    .run(...keys.map(k => vals[k]), id);
+}
+
 /* Remet une catégorie entière aux valeurs vanilla. */
 function resetCategory(cat) {
   if (cat === "monsters") for (const m of vanillaMonsters()) setMonster(m.name, m);
   if (cat === "gear") for (const it of vanillaGear()) setGear(it.slot, it.name, it);
+  if (cat === "templates") for (const t of vanillaTemplates()) setTemplate(t.id, t);
   if (cat === "potions" || cat === "scrolls") {
     for (const t of vanillaTreasures(cat)) setTreasureRange(cat, t.id, [t.powerMin, t.powerMax]);
   }
@@ -180,8 +231,8 @@ function resetCategory(cat) {
 
 module.exports = {
   init, db,
-  MONSTER_KEYS, GEAR_KEYS, POTION_POWER_DEFAULTS, SCROLL_POWER_DEFAULTS,
-  vanillaMonsters, vanillaGear, vanillaTreasures,
-  monsters, gearAll, gearRow, treasureRange, treasuresAll,
-  setMonster, setGear, setTreasureRange, resetCategory,
+  MONSTER_KEYS, GEAR_KEYS, TEMPLATE_KEYS, POTION_POWER_DEFAULTS, SCROLL_POWER_DEFAULTS,
+  vanillaMonsters, vanillaGear, vanillaTreasures, vanillaTemplates,
+  monsters, gearAll, gearRow, treasureRange, treasuresAll, templatesAll,
+  setMonster, setGear, setTreasureRange, setTemplate, resetCategory,
 };
