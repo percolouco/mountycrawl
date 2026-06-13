@@ -258,9 +258,26 @@ function makeWorld(over = {}) {
   const tun2 = mp.adminSetTuning(w, { monsters: { "Dragon": { att: 5 }, "Gobelin": { att: 5000 } } });
   assert(!tun2.monsters.Dragon, "type inconnu ignoré");
   assert.strictEqual(tun2.monsters.Gobelin.att, 99, "ATT bornée à 99");
-  // retour au vanilla
-  const tun3 = mp.adminSetTuning(w, { monsters: {} });
+  // retour au vanilla : reset explicite de la catégorie
+  const tun3 = mp.adminSetTuning(w, { reset: ["monsters"] });
   assert.strictEqual(Object.keys(tun3.monsters).length, 0, "bestiaire d'origine restauré");
+}
+
+// Tuning admin : mises à jour CIBLÉES — éditer un objet n'écrase pas les autres
+// (cohabitation avec les éditions directes en base, ex. sqlite-web).
+{
+  const db = require("../db.js");
+  const w = makeWorld({ monsterTarget: 0, itemTarget: 0 });
+  // édition « externe » (façon sqlite-web) sur le Chapeau pointu
+  db.setGear("casque", "Chapeau pointu", { mmPct: 20 });
+  // l'admin sauve un AUTRE objet : le chapeau ne doit PAS être réinitialisé
+  mp.adminSetTuning(w, { gear: { "arme/Gourdin": { att: 7 } } });
+  assert.strictEqual(db.gearRow("casque", "Chapeau pointu").mmPct, 20, "édition externe préservée");
+  assert.strictEqual(db.gearRow("arme", "Gourdin").att, 7, "objet édité par l'admin appliqué");
+  // reset explicite : tout revient au vanilla
+  mp.adminSetTuning(w, { reset: ["gear"] });
+  assert.strictEqual(db.gearRow("casque", "Chapeau pointu").mmPct, 5, "reset gear → vanilla (chapeau)");
+  assert.strictEqual(db.gearRow("arme", "Gourdin").att, 2, "reset gear → vanilla (gourdin)");
 }
 
 // Tuning admin : puissance des potions/parchemins et bonus d'équipement

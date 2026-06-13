@@ -234,6 +234,15 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.6.2** (2026-06-13) — La page admin et l'édition directe en base
+  (sqlite-web) **ne se marchent plus dessus**. Avant, sauver le tuning d'une
+  catégorie la **remettait entièrement au vanilla** puis réappliquait le
+  formulaire — donc une édition faite en base pouvait être écrasée par une
+  sauvegarde admin (et un onglet admin périmé écrasait les éditions récentes).
+  Désormais l'admin fait des **mises à jour ciblées** : seuls les objets
+  réellement modifiés dans la session sont écrits, le reste de la catégorie est
+  laissé tel quel. Le bouton « Tout remettre d'origine » passe par un reset
+  explicite (`patch.reset`). Les deux chemins d'édition cohabitent enfin.
 - **2.6.1** (2026-06-13) — Suite du branchement de la base de référence sur
   l'encyclopédie. Les **plages de puissance des potions et parchemins** sont
   désormais lues dans la BDD (`/api/reference/potions`, `/api/reference/scrolls`,

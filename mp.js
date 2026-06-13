@@ -922,8 +922,11 @@ function currentTuning() {
 
 const clampInt = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(v)));
 
-/* Applique un patch de tuning : chaque catégorie fournie est remise au vanilla
- * puis les écarts envoyés sont écrits en base (validés et bornés). */
+/* Applique un patch de tuning. Mises à jour CIBLÉES : seuls les objets fournis
+ * (valeurs absolues) sont écrits, sans toucher au reste de la catégorie — ainsi
+ * les éditions faites en parallèle dans la base (sqlite-web) ne sont PAS écrasées.
+ * `patch.reset` (tableau de catégories) remet explicitement une catégorie entière
+ * au vanilla (bouton « Tout remettre d'origine »). */
 function adminSetTuning(world, patch) {
   const known = {
     monsters: new Set(db.vanillaMonsters().map(t => t.name)),
@@ -931,8 +934,12 @@ function adminSetTuning(world, patch) {
     potions: new Set(p.POTION_IDS),
     scrolls: new Set(sc.SCROLL_IDS),
   };
+  if (Array.isArray(patch.reset)) {
+    for (const cat of patch.reset) {
+      if (["monsters", "gear", "potions", "scrolls"].includes(cat)) db.resetCategory(cat);
+    }
+  }
   if (patch.monsters && typeof patch.monsters === "object") {
-    db.resetCategory("monsters");
     for (const [name, vals] of Object.entries(patch.monsters)) {
       if (!known.monsters.has(name) || typeof vals !== "object") continue;
       const entry = {};
@@ -940,11 +947,10 @@ function adminSetTuning(world, patch) {
         const v = Number(vals[k]);
         if (Number.isFinite(v)) entry[k] = clampInt(v, MONSTER_TUNE_BOUNDS[k][0], MONSTER_TUNE_BOUNDS[k][1]);
       }
-      db.setMonster(name, entry);
+      if (Object.keys(entry).length) db.setMonster(name, entry);
     }
   }
   if (patch.gear && typeof patch.gear === "object") {
-    db.resetCategory("gear");
     for (const [key, mods] of Object.entries(patch.gear)) {
       if (!known.gear.has(key) || typeof mods !== "object") continue;
       const entry = {};
@@ -952,13 +958,14 @@ function adminSetTuning(world, patch) {
         const v = Number(mods[k]);
         if (Number.isFinite(v)) entry[k] = clampInt(v, GEAR_TUNE_BOUNDS[0], GEAR_TUNE_BOUNDS[1]);
       }
-      const slash = key.indexOf("/");
-      db.setGear(key.slice(0, slash), key.slice(slash + 1), entry);
+      if (Object.keys(entry).length) {
+        const slash = key.indexOf("/");
+        db.setGear(key.slice(0, slash), key.slice(slash + 1), entry);
+      }
     }
   }
   for (const cat of ["potions", "scrolls"]) {
     if (!patch[cat] || typeof patch[cat] !== "object") continue;
-    db.resetCategory(cat);
     for (const [id, range] of Object.entries(patch[cat])) {
       if (!known[cat].has(id) || !Array.isArray(range)) continue;
       const lo = Number(range[0]), hi = Number(range[1]);

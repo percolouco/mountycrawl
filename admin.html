@@ -194,8 +194,11 @@ const MONSTER_LABELS = { level: "Niv.", att: "ATT phy", attMag: "ATT mag", esq: 
 const GEAR_LABELS = { att: "ATT phy", attMag: "ATT mag", esq: "ESQ", deg: "DEG phy", degMag: "DEG mag", reg: "REG", arm: "Arm. phy", armMag: "Arm. mag", vue: "VUE", pv: "PV", rmPct: "RM %", mmPct: "MM %" };
 
 function tuneInput(cat, id, key, def, cur) {
+  const val = cur !== undefined ? cur : def;
   const tuned = cur !== undefined && Number(cur) !== Number(def);
-  return `<input type="number" class="${tuned ? "tuned" : ""}" data-cat="${cat}" data-id="${id}" data-key="${key}" data-def="${def}" value="${cur !== undefined ? cur : def}">`;
+  // data-def = valeur d'origine (vanilla) ; data-init = valeur chargée (pour
+  // détecter ce que l'utilisateur change réellement dans cette session).
+  return `<input type="number" class="${tuned ? "tuned" : ""}" data-cat="${cat}" data-id="${id}" data-key="${key}" data-def="${def}" data-init="${val}" value="${val}">`;
 }
 
 function markTuned(e) {
@@ -240,25 +243,32 @@ function renderTuning(defaults, tuning) {
   }
 }
 
-/* Collecte les écarts à la valeur d'origine d'une catégorie. */
+/* Collecte les objets MODIFIÉS dans cette session (au moins un champ ≠ valeur
+ * chargée) avec TOUTES leurs valeurs courantes (absolues). La sauvegarde ne
+ * touchera donc que ces objets-là, sans réinitialiser le reste : on peut éditer
+ * en parallèle via la base (sqlite-web) sans que l'admin écrase ces éditions. */
 function collectTuning(cat) {
-  const out = {};
+  const byId = {};
   for (const input of document.querySelectorAll(`input[data-cat="${cat}"]`)) {
-    const v = Number(input.value), def = Number(input.dataset.def);
-    if (!Number.isFinite(v) || v === def) continue;
-    const id = input.dataset.id, key = input.dataset.key;
-    (out[id] = out[id] || {})[key] = v;
+    (byId[input.dataset.id] = byId[input.dataset.id] || []).push(input);
+  }
+  const out = {};
+  for (const [id, inputs] of Object.entries(byId)) {
+    if (!inputs.some(i => Number(i.value) !== Number(i.dataset.init))) continue;
+    out[id] = {};
+    for (const i of inputs) {
+      const v = Number(i.value);
+      if (Number.isFinite(v)) out[id][i.dataset.key] = v;
+    }
   }
   return out;
 }
 
-/* Potions/parchemins : chaque entrée doit devenir [min, max] complet. */
-function collectTreasureTuning(cat, defaults) {
-  const deltas = collectTuning(cat);
+/* Potions/parchemins : chaque objet modifié devient [min, max] complet. */
+function collectTreasureTuning(cat) {
   const out = {};
-  for (const [id, vals] of Object.entries(deltas)) {
-    const def = defaults.find(t => t.id === id);
-    out[id] = [vals.min !== undefined ? vals.min : def.min, vals.max !== undefined ? vals.max : def.max];
+  for (const [id, vals] of Object.entries(collectTuning(cat))) {
+    out[id] = [vals.min, vals.max];
   }
   return out;
 }
@@ -310,14 +320,14 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (e) { $("admin-msg").textContent = "⚠️ " + e.message; }
   };
   $("tune-monsters-save").onclick = () => saveTuning({ monsters: collectTuning("monsters") }, "Bestiaire");
-  $("tune-monsters-reset").onclick = () => saveTuning({ monsters: {} }, "Bestiaire d'origine");
+  $("tune-monsters-reset").onclick = () => saveTuning({ reset: ["monsters"] }, "Bestiaire d'origine");
   $("tune-treasures-save").onclick = () => saveTuning({
-    potions: collectTreasureTuning("potions", LAST_OV.defaults.potions),
-    scrolls: collectTreasureTuning("scrolls", LAST_OV.defaults.scrolls),
+    potions: collectTreasureTuning("potions"),
+    scrolls: collectTreasureTuning("scrolls"),
   }, "Trésors");
-  $("tune-treasures-reset").onclick = () => saveTuning({ potions: {}, scrolls: {} }, "Trésors d'origine");
+  $("tune-treasures-reset").onclick = () => saveTuning({ reset: ["potions", "scrolls"] }, "Trésors d'origine");
   $("tune-gear-save").onclick = () => saveTuning({ gear: collectTuning("gear") }, "Équipement");
-  $("tune-gear-reset").onclick = () => saveTuning({ gear: {} }, "Équipement d'origine");
+  $("tune-gear-reset").onclick = () => saveTuning({ reset: ["gear"] }, "Équipement d'origine");
   $("admin-reset").onclick = async () => {
     if (!confirm("Régénérer la carte, les monstres et les trésors ? (les trolls sont conservés et replacés)")) return;
     try {
