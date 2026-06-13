@@ -159,11 +159,18 @@
   <div id="layout">
     <aside id="panel-left">
       <h2 id="mp-troll-title"></h2>
-      <div id="mp-stats"></div>
-      <h3>S'améliorer (PI)</h3>
-      <div id="mp-improve"></div>
-      <h3>Effets actifs</h3>
-      <div id="mp-effects"></div>
+      <div class="panel-tabs" role="tablist">
+        <button type="button" id="mp-tab-stats" class="panel-tab active" role="tab" aria-selected="true">Caractéristiques</button>
+        <button type="button" id="mp-tab-effects" class="panel-tab" role="tab" aria-selected="false">Effets <span id="mp-fx-badge" class="fx-badge hidden"></span></button>
+      </div>
+      <div id="mp-panel-tab-stats" role="tabpanel">
+        <div id="mp-stats"></div>
+        <h3>S'améliorer (PI)</h3>
+        <div id="mp-improve"></div>
+      </div>
+      <div id="mp-panel-tab-effects" class="hidden" role="tabpanel">
+        <div id="mp-effects"></div>
+      </div>
     </aside>
     <main id="panel-center">
       <canvas id="mp-map" width="960" height="672"></canvas>

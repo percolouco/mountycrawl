@@ -810,7 +810,9 @@ function stateFor(world, t, now = Date.now()) {
       comp: { pct: t.comp.pct }, sort: { pct: t.sort.pct },
       eff: te,
       equip: t.equip, bag: t.bag,
-      effects: (t.potionEffects || []).map(e => ({ name: e.name, emoji: e.emoji, turnsLeft: e.turnsLeft, modLines: e.modLines || [] })),
+      // effets bruts : le client réutilise renderEffectsPanel() du solo,
+      // qui a besoin des modificateurs chiffrés (total) en plus des modLines.
+      potionEffects: (t.potionEffects || []).map(e => ({ ...e, modLines: e.modLines || [] })),
       blockCamoTurns: t.blockCamoTurns,
     },
     trolls: Object.values(world.trolls)

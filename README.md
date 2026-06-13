@@ -234,6 +234,15 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.4.2** (2026-06-13) — **Fiche du troll harmonisée** entre le solo et le
+  monde partagé : le mode multi adopte le même **panneau à onglets**
+  « Caractéristiques / Effets » que le solo (avec le badge du nombre d'effets
+  actifs), et son onglet Effets utilise désormais le **même rendu**
+  (cartes buff/malus + « Total des modificateurs ») au lieu de la liste
+  simplifiée d'avant. Les deux modes partagent désormais strictement le même
+  code d'affichage (`fmtStatLine`, `renderEffectsPanel`, `switchLeftTab`) ;
+  seule subsiste la différence de fond entre les modes (compteur de **Tour**
+  en solo, compte à rebours **DLA** en temps réel en multi).
 - **2.4.1** (2026-06-13) — Fiche du troll du monde partagé : les **bonus
   physiques et magiques** de chaque caractéristique (attaque, esquive, dégâts,
   régénération) sont désormais **toujours détaillés** (`phy +X · mag +Y`),

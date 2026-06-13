@@ -4,7 +4,7 @@
 
 "use strict";
 
-const APP_VERSION = "2.4.1";
+const APP_VERSION = "2.4.2";
 
 /* Alpha : maîtrise initiale haute pour les tests. Remettre 15 % / 15 % à la v1.0 officielle. */
 const START_COMP_PCT = 90;
@@ -1532,10 +1532,12 @@ function showEnd(victory, killer) {
 let selectedRace = "Skrim";
 let activeLeftTab = "stats";
 
-function switchLeftTab(tab) {
+// `prefix` = "" pour le solo, "mp-" pour le monde partagé : les deux modes
+// partagent strictement le même panneau à onglets (Caractéristiques / Effets).
+function switchLeftTab(tab, prefix = "") {
   activeLeftTab = tab;
-  const statsBtn = $("tab-stats"), fxBtn = $("tab-effects");
-  const statsPanel = $("panel-tab-stats"), fxPanel = $("panel-tab-effects");
+  const statsBtn = $(prefix + "tab-stats"), fxBtn = $(prefix + "tab-effects");
+  const statsPanel = $(prefix + "panel-tab-stats"), fxPanel = $(prefix + "panel-tab-effects");
   if (!statsBtn || !fxBtn) return;
   const isStats = tab === "stats";
   statsBtn.classList.toggle("active", isStats);

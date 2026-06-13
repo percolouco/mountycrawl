@@ -100,6 +100,7 @@ function mpShowJoin(show) {
 async function mpEnter() {
   document.getElementById("screen-create").classList.add("hidden");
   document.getElementById("screen-mp").classList.remove("hidden");
+  switchLeftTab("stats", "mp-"); // ouvrir sur les caractéristiques
   MP.seen = new Set();
   try {
     const saved = mpLoadIdentity();
@@ -292,10 +293,16 @@ function mpRenderPanels(st) {
     improve.appendChild(btn);
   }
 
-  const fx = document.getElementById("mp-effects");
-  fx.innerHTML = you.effects.length
-    ? you.effects.map(ef => `<div class="eq-line">${ef.emoji} ${ef.name} <small>(${ef.turnsLeft} DLA)</small>${ef.modLines.length ? `<div class="eq-mods">${ef.modLines.join(" · ")}</div>` : ""}</div>`).join("")
-    : '<p class="fx-empty">Aucun bonus ni malus magique actif.</p>';
+  // Effets : on réutilise tel quel le panneau du solo (renderEffectsPanel +
+  // badge), pour que les deux modes soient strictement identiques.
+  const fxTroll = { potionEffects: you.potionEffects || [], blockCamoTurns: you.blockCamoTurns || 0 };
+  document.getElementById("mp-effects").innerHTML = renderEffectsPanel(fxTroll);
+  const fxBadge = document.getElementById("mp-fx-badge");
+  if (fxBadge) {
+    const n = countActiveEffects(fxTroll);
+    fxBadge.textContent = n;
+    fxBadge.classList.toggle("hidden", n === 0);
+  }
 
   document.getElementById("mp-pa-bar").textContent = "⚡".repeat(you.pa) + "▫️".repeat(Math.max(0, 6 - you.pa));
 
@@ -361,6 +368,10 @@ if (typeof document !== "undefined") {
     document.getElementById("mp-leave").onclick = mpLeave;
     document.getElementById("mp-join-create").onclick = () => mpJoinSubmit(false);
     document.getElementById("mp-join-login").onclick = () => mpJoinSubmit(true);
+
+    // Onglets « Caractéristiques / Effets » — même mécanique que le solo
+    document.getElementById("mp-tab-stats")?.addEventListener("click", () => switchLeftTab("stats", "mp-"));
+    document.getElementById("mp-tab-effects")?.addEventListener("click", () => switchLeftTab("effects", "mp-"));
 
     document.addEventListener("keydown", e => {
       if (document.getElementById("screen-mp").classList.contains("hidden")) return;
