@@ -25,7 +25,7 @@ const TREASURE_POTIONS = [
   ["metomol",     "1 à 5",            "2 tours",  ["TOUR accéléré : +X PA par tour", "Armure mag. −2·X"]],
   ["painture",    "1 à 5",            "X tours",  ["Visible — camouflage impossible"]],
   ["pneumonie",   "5 (fixe)",         "3 tours",  ["ATT −5 D3", "ESQ −5 D3", "DEG −5", "REG −5"]],
-  ["pufPuff",     "0 à 2",            "3 tours",  ["ATT −X D3", "ESQ −X D3", "VUE −(X+1)", "PV −2D3 si X ≥ 2", "Effet de Zone"]],
+  ["pufPuff",     "1 à 3",            "3 tours",  ["ATT −X D3", "ESQ −X D3", "VUE −(X+1)", "PV −2D3 si X ≥ 2", "Effet de Zone"]],
   ["rhume",       "1 à 2",            "3 tours",  ["ATT −X D3", "ESQ −X D3", "DEG −X", "REG −X"]],
   ["sangToh",     "1 à 5",            "4 tours",  ["ATT +X D3", "ESQ +X D3", "VUE +X"]],
   ["sinneKhole",  "11 à 100",         "2 tours",  ["RM +X %", "MM −Y %"]],

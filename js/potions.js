@@ -296,7 +296,7 @@ const POTION_DEFS = {
   pufPuff: {
     name: "PufPuff", emoji: "💨", color: "#b8b8b8",
     duration: 3,
-    rollPower: () => potRand(0, 2),
+    rollPower: () => potRand(1, 3),
     build(troll, p, rollDice) {
       const jet = p > 0 ? rollDice(p, 3).total : 0;
       const attR = p > 0 ? sharedMod(jet, p, 3, true) : { value: 0, line: "±0" };
@@ -485,8 +485,11 @@ function effTroll(troll) {
 function formatPotionItem(potionId, power) {
   const def = POTION_DEFS[potionId];
   if (!def) return null;
+  // Le niveau minimal d'une potion est 1 ; les potions à effet fixe (puissance 0,
+  // ex. Biskot) n'affichent pas de niveau du tout.
   const suffix = def.duration === 0 && (potionId === "guerison" || potionId === "toxine")
-    ? ` (${2 * power}D3)` : ` (niv. ${power})`;
+    ? ` (${2 * power}D3)`
+    : power >= 1 ? ` (niv. ${power})` : "";
   return {
     kind: "potion",
     potionId,

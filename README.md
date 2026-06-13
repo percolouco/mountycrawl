@@ -234,6 +234,11 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.5.1** (2026-06-13) — Correction des niveaux de potions : **le niveau 0
+  n'existe plus** (minimum 1). PufPuff passe de « 0 à 2 » à **« 1 à 3 »** (le
+  niveau 0 affichait des formules absurdes : `ATT −0 D3`, `VUE −(0+1)`,
+  `PV −2D3 si 0 ≥ 2`). Le Biskot, à effet **fixe**, n'affiche plus de niveau
+  du tout (au lieu de « niv. 0 »).
 - **2.5.0** (2026-06-13) — **Cumul systématique des bonus physiques et
   magiques.** On lance les dés, puis on ajoute **toujours les deux** bonus :
   le physique (équipement) *et* le magique (potions/parchemins + équipement
