@@ -234,6 +234,12 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.4.3** (2026-06-13) — Fin de l'harmonisation de la fiche : les règles
+  CSS de mise en page des caractéristiques (libellé à gauche, valeur alignée
+  à droite en chasse fixe, indice phys/mag) ne ciblaient que le solo (`#stats`)
+  et sont désormais **partagées avec le multi** (`#mp-stats`) ; suppression
+  d'un reliquat CSS multi qui désalignait le message « aucun effet ». Les deux
+  fiches sont maintenant strictement identiques au pixel près.
 - **2.4.2** (2026-06-13) — **Fiche du troll harmonisée** entre le solo et le
   monde partagé : le mode multi adopte le même **panneau à onglets**
   « Caractéristiques / Effets » que le solo (avec le badge du nombre d'effets

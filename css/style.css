@@ -188,9 +188,9 @@ header h1 { font-size: 1.3em; color: #FFFFCC; text-shadow: 1px 1px 2px #000; }
 }
 .fx-badge.hidden { display: none; }
 
-#stats div { display: flex; justify-content: space-between; padding: 2px 0; }
-#stats .stat-val { font-family: monospace; color: #000000; font-weight: bold; }
-#stats .stat-hint { color: #666633; font-size: 0.82em; font-family: inherit; font-weight: normal; }
+#stats div, #mp-stats div { display: flex; justify-content: space-between; padding: 2px 0; }
+#stats .stat-val, #mp-stats .stat-val { font-family: monospace; color: #000000; font-weight: bold; }
+#stats .stat-hint, #mp-stats .stat-hint { color: #666633; font-size: 0.82em; font-family: inherit; font-weight: normal; }
 
 #effects-panel { margin-top: 4px; }
 .fx-empty { color: #666633; font-style: italic; font-size: 0.88em; line-height: 1.4; }
@@ -549,7 +549,6 @@ header h1 { font-size: 1.3em; color: #FFFFCC; text-shadow: 1px 1px 2px #000; }
 #mp-log .l-good, #mp-world-log .l-good { color: #008040; }
 #mp-log .l-info, #mp-world-log .l-info { color: #666666; }
 #mp-status { font-weight: bold; }
-#mp-effects .eq-line, #mp-effects .fx-empty { font-size: .88em; color: #333300; }
 #screen-mp #panel-center { overflow: auto; }
 
 /* ---------- Trésors du Hall (potions, parchemins & équipement) ---------- */
