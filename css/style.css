@@ -569,7 +569,49 @@ header h1 { font-size: 1.3em; color: #FFFFCC; text-shadow: 1px 1px 2px #000; }
   border-bottom: 2px solid #000000;
   margin: 24px 0 12px;
   font-size: 1.3em;
+  scroll-margin-top: 64px; /* pour que l'ancre ne passe pas sous le menu collant */
 }
+/* Menu de navigation entre sections (collant en haut). */
+.tz-nav {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 0;
+  margin: 8px 0 4px;
+  background: #FFFFEE url("../img/mh/tableau1.jpg");
+  border-bottom: 1px solid #000000;
+}
+.tz-nav a {
+  padding: 5px 10px;
+  font-size: .9em;
+  text-decoration: none;
+  color: #333300;
+  background: #EBEDAB url("../img/mh/tableau2.jpg");
+  border: 1px solid #666633;
+}
+.tz-nav a:hover { border-color: #990000; color: #990000; }
+/* Bouton « remonter en haut » flottant. */
+.tz-top {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 6;
+  width: 44px;
+  height: 44px;
+  font-size: 1.4em;
+  line-height: 1;
+  color: #FFFFCC;
+  background: #666633;
+  border: 1px solid #000000;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 1px 1px 4px rgba(0, 0, 0, .4);
+}
+.tz-top:hover { background: #990000; }
+.tz-top.hidden { display: none; }
 .tz-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));

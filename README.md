@@ -234,6 +234,11 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.7.1** (2026-06-14) — Encyclopédie « Trésors du Hall » : nouvelle section
+  **✨ Templates** (les 19 templates de drop, lus dans la base), un **menu de
+  navigation** collant en haut pour sauter directement à chaque section (Potions,
+  Parchemins, Équipement, Templates) et un bouton flottant **« remonter en
+  haut »** qui apparaît dès qu'on a défilé — la page étant devenue longue.
 - **2.7.0** (2026-06-14) — **Templates de drop** façon MountyHall. 19 suffixes
   (« de l'Aigle », « des Mages », « des Béhémoths »…) stockés dans une nouvelle
   table `templates` de la base (seedés au démarrage, éditables comme le reste via

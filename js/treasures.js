@@ -44,6 +44,23 @@ const TREASURE_SCROLLS = [
   ["runeFoins",    "1 à 5", "3 tours",  ["DEG −X", "VUE −1", "PV −2D3 ou −4D3 (immédiat)"]],
 ];
 
+/* Carte d'un template de drop : ses bonus, lus directement sur la ligne BDD
+ * (mêmes clés que les mods d'équipement, donc on réutilise GEAR_MOD_LABELS). */
+function templateCard(t) {
+  const fx = [];
+  for (const [key, label, unit] of GEAR_MOD_LABELS) {
+    const v = t[key];
+    if (!v) continue;
+    fx.push(`<span class="tz-fx ${v > 0 ? "tz-good" : "tz-bad"}">${label} ${v > 0 ? "+" : "−"}${Math.abs(v)}${unit}</span>`);
+  }
+  if (!fx.length) fx.push('<span class="tz-fx">aucun bonus (titre honorifique)</span>');
+  return `
+    <div class="tz-card" style="--tz-color:#7a5c9e">
+      <div class="tz-head"><span class="tz-name">✨ ${t.name}</span></div>
+      <div class="tz-fx-list">${fx.join("")}</div>
+    </div>`;
+}
+
 function treasureCard(def, x, duration, fx) {
   const fxHtml = fx.map(f => {
     const neg = f.includes("−");
@@ -70,13 +87,21 @@ function treasuresRender() {
     l'<b>armure magique</b>, seule à réduire les dégâts magiques.
     1 tour = 1 DLA. Boire une potion ou lire un parchemin coûte <b>1 PA</b>.</p>`;
 
-  html += `<h2 class="tz-section">🧪 Potions (${TREASURE_POTIONS.length})</h2><div class="tz-grid">`;
+  const templates = TEMPLATES_DB || [];
+  html += `<nav class="tz-nav">
+    <a href="#tz-sec-potions">🧪 Potions</a>
+    <a href="#tz-sec-scrolls">📜 Parchemins</a>
+    <a href="#tz-sec-gear">⚔️ Équipement</a>
+    <a href="#tz-sec-templates">✨ Templates</a>
+  </nav>`;
+
+  html += `<h2 class="tz-section" id="tz-sec-potions">🧪 Potions (${TREASURE_POTIONS.length})</h2><div class="tz-grid">`;
   for (const [id, x, duration, fx] of TREASURE_POTIONS) {
     html += treasureCard(POTION_DEFS[id], powerLabel(x, POTIONS_DB && POTIONS_DB[id]), duration, fx);
   }
   html += "</div>";
 
-  html += `<h2 class="tz-section">📜 Parchemins standards (${TREASURE_SCROLLS.length})</h2><div class="tz-grid">`;
+  html += `<h2 class="tz-section" id="tz-sec-scrolls">📜 Parchemins standards (${TREASURE_SCROLLS.length})</h2><div class="tz-grid">`;
   for (const [id, x, duration, fx] of TREASURE_SCROLLS) {
     html += treasureCard(SCROLL_DEFS[id], powerLabel(x, SCROLLS_DB && SCROLLS_DB[id]), duration, fx);
   }
@@ -86,7 +111,7 @@ function treasuresRender() {
   // a pu être chargée, sinon les valeurs statiques de gear.js (ex. hors-ligne).
   const gearSource = GEAR_DB || GEAR;
   const gearCount = Object.values(gearSource).reduce((n, list) => n + list.length, 0);
-  html += `<h2 class="tz-section">⚔️ Équipement (${gearCount})</h2>
+  html += `<h2 class="tz-section" id="tz-sec-gear">⚔️ Équipement (${gearCount})</h2>
     <p class="tz-intro">Six emplacements : ${Object.values(GEAR_SLOTS).map(s => s.label).join(", ")}.
     Les bonus d'équipement sont <b>fixes</b> (jamais en dés) et s'ajoutent toujours aux jets.
     La plupart sont <b>physiques</b> ; certains objets portent aussi des bonus <b>magiques</b>
@@ -117,6 +142,19 @@ function treasuresRender() {
     html += "</div>";
   }
 
+  html += `<h2 class="tz-section" id="tz-sec-templates">✨ Templates de drop (${templates.length})</h2>
+    <p class="tz-intro">Suffixes à la MountyHall ajoutés aux objets qui tombent dans le
+    monde partagé : un objet reçoit jusqu'à <b>3 templates</b> (<b>6</b> pour une arme à
+    2 mains), chacun tiré au hasard selon une probabilité réglable sur la page admin. Leurs
+    bonus s'ajoutent à ceux de l'objet (le mod <b>TOUR</b> est en minutes de DLA), et leur
+    nom s'accole à celui de l'objet (« Épée Courte <i>de l'Aigle des Mages</i> »).
+    Valeurs lues dans la <b>base de référence</b> (modifiables côté admin).</p>`;
+  if (templates.length) {
+    html += `<div class="tz-grid">${templates.map(templateCard).join("")}</div>`;
+  } else {
+    html += `<p class="tz-note">Liste indisponible (base non joignable).</p>`;
+  }
+
   html += `<p class="tz-note">Effet de Zone : touche le lecteur et tous les monstres à 3 cases
     ou moins. « PV −2D3 ou −4D3 » (Rune des Foins) : la Mountypedia note « -2/4 D3 », interprété
     ici comme un tirage au sort entre 2D3 et 4D3.</p>`;
@@ -129,7 +167,7 @@ let treasuresReturnTo = "create";
 // Données de la base de référence (BDD), rechargées à chaque ouverture pour
 // refléter les éditions (admin OU sqlite-web) ; null tant qu'on n'a pas (ou pas
 // pu) charger → repli sur les valeurs statiques du code.
-let GEAR_DB = null, POTIONS_DB = null, SCROLLS_DB = null;
+let GEAR_DB = null, POTIONS_DB = null, SCROLLS_DB = null, TEMPLATES_DB = null;
 
 async function fetchRef(cat) {
   try {
@@ -143,12 +181,13 @@ async function fetchRef(cat) {
 }
 
 async function loadReference() {
-  const [gear, potions, scrolls] = await Promise.all([
-    fetchRef("gear"), fetchRef("potions"), fetchRef("scrolls"),
+  const [gear, potions, scrolls, templates] = await Promise.all([
+    fetchRef("gear"), fetchRef("potions"), fetchRef("scrolls"), fetchRef("templates"),
   ]);
   GEAR_DB = gear ? gearBySlotFromRows(gear) : null;
   POTIONS_DB = potions ? indexPowerById(potions) : null;
   SCROLLS_DB = scrolls ? indexPowerById(scrolls) : null;
+  TEMPLATES_DB = templates;
 }
 
 function gearBySlotFromRows(rows) {
@@ -184,7 +223,7 @@ async function treasuresShow(from) {
   treasuresReturnTo = from;
   document.getElementById("screen-" + from).classList.add("hidden");
   document.getElementById("screen-treasures").classList.remove("hidden");
-  document.getElementById("screen-treasures").scrollTop = 0;
+  window.scrollTo(0, 0);
   await loadReference();
   treasuresRender();
 }
@@ -197,6 +236,15 @@ if (typeof document !== "undefined") {
       document.getElementById("screen-treasures").classList.add("hidden");
       document.getElementById("screen-" + treasuresReturnTo).classList.remove("hidden");
     };
+    // Bouton « remonter en haut » : visible dès qu'on a un peu défilé.
+    const topBtn = document.getElementById("tz-top");
+    if (topBtn) {
+      topBtn.onclick = () => window.scrollTo({ top: 0, behavior: "smooth" });
+      window.addEventListener("scroll", () => {
+        const onTz = !document.getElementById("screen-treasures").classList.contains("hidden");
+        topBtn.classList.toggle("hidden", !onTz || window.scrollY < 400);
+      });
+    }
     if (new URLSearchParams(location.search).get("screen") === "treasures") {
       treasuresShow("create");
     }
