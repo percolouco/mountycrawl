@@ -479,6 +479,25 @@ function actAttack(world, t, m) {
   return { ok: true };
 }
 
+/* Attaque d'un troll sur un autre (PvP, 3 PA) — uniquement sur la même case. */
+function actAttackTroll(world, t, v, now = Date.now()) {
+  if (!spendPA(t, g.COSTS.attack)) return { error: "pas assez de PA" };
+  const r = g.resolveAttack(effTrollMP(t), effTrollMP(v));
+  if (t.camo) { t.camo = false; privLog(t, "Ton attaque brise le camouflage.", "info"); }
+  if (r.hit) {
+    v.pv -= r.damage;
+    gainPXMP(t, 1);
+    const armTxt = r.armorReduction ? ` (armure −${r.armorReduction})` : "";
+    privLog(t, `Tu attaques ${v.name} : ${r.attRoll} vs ${r.esqRoll} → ${r.critical ? "CRITIQUE ! " : ""}${r.damage} dégâts${armTxt}.`, "combat");
+    privLog(v, `⚔️ ${t.name} t'attaque : ${r.attRoll} vs ${r.esqRoll} → ${r.damage} dégâts${armTxt} !`, "bad");
+    if (v.pv <= 0) { t.kills++; killTrollMP(world, v, t.name, now); }
+  } else {
+    privLog(t, `Tu attaques ${v.name} : ${r.attRoll} vs ${r.esqRoll} → esquivé !`, "combat");
+    privLog(v, `⚔️ ${t.name} t'attaque… et tu esquives !`, "combat");
+  }
+  return { ok: true };
+}
+
 /* Talent (compétence/sortilège) : jet de maîtrise mutualisé avec le solo. */
 function tryTalentMP(t, talent, cap, cost) {
   if (!spendPA(t, cost)) return { error: "pas assez de PA" };
@@ -685,17 +704,27 @@ function action(world, t, act) {
   }
 
   if (act.type === "attack") {
+    // On ne peut frapper (monstre OU troll) que sur SA PROPRE case (même case).
     const m = monsterById(world, act.target);
-    if (!m || chebyshev(m, t) > 1) return { error: "aucun monstre adjacent à attaquer" };
-    return actAttack(world, t, m);
+    if (m) {
+      if (chebyshev(m, t) !== 0) return { error: "il faut être sur la case du monstre" };
+      return actAttack(world, t, m);
+    }
+    const v = world.trolls[act.target];
+    if (v && v !== t && !v.dead) {
+      if (chebyshev(v, t) !== 0) return { error: "il faut être sur la case du troll" };
+      return actAttackTroll(world, t, v);
+    }
+    return { error: "aucune cible sur ta case" };
   }
 
   if (act.type === "comp" || act.type === "sort") {
     let m = act.target != null ? monsterById(world, act.target) : null;
     if (!m) {
-      // cible implicite : adjacent (ou plus proche visible pour le Projectile)
+      // Cible implicite : un monstre sur TA case ; exception, le Projectile
+      // Magique (sortilège du Tomawak) frappe à distance (jusqu'à la Vue).
       const te = effTrollMP(t);
-      const range = act.type === "sort" && t.race === "Tomawak" ? te.vue : 1;
+      const range = act.type === "sort" && t.race === "Tomawak" ? te.vue : 0;
       let bestDist = Infinity;
       for (const cand of world.monsters) {
         const d = chebyshev(cand, t);
@@ -846,7 +875,7 @@ function stateFor(world, t, now = Date.now()) {
     },
     trolls: Object.values(world.trolls)
       .filter(o => o !== t && !o.dead && !o.camo && seen(o))
-      .map(o => ({ name: o.name, race: o.race, x: o.x, y: o.y, level: g.levelFromTotalPI(o.totalPI), pvPct: Math.max(0, o.pv / o.pvMax) })),
+      .map(o => ({ id: o.id, name: o.name, race: o.race, x: o.x, y: o.y, level: g.levelFromTotalPI(o.totalPI), pvPct: Math.max(0, o.pv / o.pvMax) })),
     monsters: world.monsters.filter(seen)
       .map(m => ({ id: m.id, name: m.name, emoji: m.emoji, x: m.x, y: m.y, level: m.level, pvPct: Math.max(0, m.pv / m.pvMax), nextDlaIn: Math.max(0, m.nextDla - now) })),
     items: world.items.filter(seen)

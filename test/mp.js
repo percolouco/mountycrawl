@@ -135,7 +135,7 @@ function makeWorld(over = {}) {
   const { troll: t } = mp.newTroll(w, "Tueur", "Kastar");
   t.att = 50; t.deg = 20; // écrasant
   const m = w.monsters[0];
-  m.x = t.x + 1; m.y = t.y;
+  m.x = t.x; m.y = t.y; // même case : l'attaque ne porte que sur sa propre case
   m.pv = 5;
   t.pa = 6;
   const r = mp.action(w, t, { type: "attack", target: m.id });
@@ -420,6 +420,24 @@ function makeWorld(over = {}) {
   t.pa = 6;
   const ra = mp.action(w, t, { type: "attack", target: m.id });
   assert(ra.ok, "attaque explicite possible sur la même case");
+}
+
+// PvP : un troll peut attaquer un autre troll sur sa case (et le terrasser)
+{
+  const w = makeWorld({ monsterTarget: 0, itemTarget: 0 });
+  const { troll: a } = mp.newTroll(w, "Agresseur", "Kastar");
+  const { troll: b } = mp.newTroll(w, "Victime", "Skrim");
+  a.att = 50; a.deg = 20; a.pa = 6;
+  b.x = a.x; b.y = a.y; b.pv = 5; b.esq = 1;
+  // pas sur la même case → refusé
+  b.x = a.x + 5;
+  assert(mp.action(w, a, { type: "attack", target: b.id }).error, "PvP refusé hors de la case");
+  // sur la même case → combat, mise à mort
+  b.x = a.x; b.y = a.y;
+  const r = mp.action(w, a, { type: "attack", target: b.id });
+  assert(r.ok, "PvP résolu sur la même case");
+  assert(b.dead, "le troll visé est terrassé");
+  assert(a.kills === 1, "kill comptabilisé pour l'attaquant");
 }
 
 // Base de référence : les retouches survivent au redémarrage (seed non destructif)

@@ -5,7 +5,7 @@
 
 "use strict";
 
-const MP_TILE = 24;
+const MP_TILE = 48;
 const MP_KEY = "mc_mp_identity";
 
 let MP = {
@@ -224,26 +224,27 @@ function mpRenderMap(st) {
   for (const pl of (st.places || [])) cell(pl.x, pl.y).place = pl;
   if (!you.dead) cell(you.x, you.y).youHere = true;
 
-  const Q = MP_TILE / 4; // demi-coin
+  const Q = MP_TILE / 4; // centre d'un coin
+  const EMOJI_FONT = Math.round(MP_TILE / 3) + "px serif";
+  const COUNT_FONT = "bold " + Math.round(MP_TILE / 4.5) + "px sans-serif";
   const corner = (c, qx, qy, color, emoji, count, mine) => {
     const cx = c.x * MP_TILE + qx, cy = c.y * MP_TILE + qy;
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.arc(cx, cy, Q, 0, Math.PI * 2);
     ctx.fill();
-    if (mine) { ctx.strokeStyle = "#eaffdc"; ctx.lineWidth = 1.5; ctx.stroke(); }
+    if (mine) { ctx.strokeStyle = "#eaffdc"; ctx.lineWidth = 2; ctx.stroke(); }
     ctx.fillStyle = "#1a140e";
-    ctx.font = "11px serif";
+    ctx.font = EMOJI_FONT;
     ctx.fillText(emoji, cx, cy + 1);
     if (count > 1) {
-      ctx.font = "bold 9px sans-serif";
-      ctx.fillStyle = "#ffe";
+      ctx.font = COUNT_FONT;
+      ctx.lineWidth = 3;
       ctx.strokeStyle = "#1a140e";
-      ctx.lineWidth = 2;
-      ctx.strokeText(count, cx + Q, cy + Q);
-      ctx.fillText(count, cx + Q, cy + Q);
+      ctx.strokeText("×" + count, cx + Q * 0.9, cy + Q * 0.9);
+      ctx.fillStyle = "#ffe";
+      ctx.fillText("×" + count, cx + Q * 0.9, cy + Q * 0.9);
     }
-    ctx.font = "18px serif";
   };
 
   for (const c of Object.values(cells)) {
@@ -252,9 +253,9 @@ function mpRenderMap(st) {
     if (c.monsters.length) {
       corner(c, MP_TILE - Q, Q, "#8a3030", c.monsters[0].emoji, c.monsters.length); // ↗
       const low = c.monsters.reduce((a, b) => (b.pvPct < a.pvPct ? b : a));
-      const bw = Math.max(2, Math.round((MP_TILE - 4) * low.pvPct));
+      const bw = Math.max(3, Math.round((MP_TILE - 6) * low.pvPct));
       ctx.fillStyle = "#b03030";
-      ctx.fillRect(c.x * MP_TILE + 2, c.y * MP_TILE + 1, bw, 2);
+      ctx.fillRect(c.x * MP_TILE + 3, c.y * MP_TILE + 2, bw, 3);
     }
     if (c.items.length) {
       const it = c.items[0];
@@ -265,11 +266,11 @@ function mpRenderMap(st) {
     // nom d'un autre troll seul sur sa case (au-dessus) ; masqué si empilement
     if (c.trolls.length === 1 && !c.youHere) {
       ctx.fillStyle = "#dfe8ff";
-      ctx.font = "9px sans-serif";
-      ctx.fillText(c.trolls[0].name, c.x * MP_TILE + MP_TILE / 2, c.y * MP_TILE - 4);
-      ctx.font = "18px serif";
+      ctx.font = Math.round(MP_TILE / 2.6) + "px sans-serif";
+      ctx.fillText(c.trolls[0].name, c.x * MP_TILE + MP_TILE / 2, c.y * MP_TILE - MP_TILE / 8);
     }
   }
+  ctx.font = "18px serif";
   if (!you.dead && you.camo) {
     ctx.strokeStyle = "#8fbf5a";
     ctx.strokeRect(you.x * MP_TILE + 1, you.y * MP_TILE + 1, MP_TILE - 2, MP_TILE - 2);
@@ -336,23 +337,27 @@ function mpRenderPanels(st) {
     b.onclick = fn;
     actions.appendChild(b);
   };
-  // Cibles atteignables : monstres sur ta case ou adjacents (cheby ≤ 1). S'il y
-  // en a plusieurs (empilement), on propose un menu déroulant pour choisir.
-  const attackable = st.monsters.filter(m => Math.max(Math.abs(m.x - you.x), Math.abs(m.y - you.y)) <= 1);
+  // Cibles : monstres ET autres trolls (PvP) sur TA case (même case). S'il y en
+  // a plusieurs, menu déroulant pour choisir lequel frapper.
+  const onCell = e => e.x === you.x && e.y === you.y;
+  const attackable = [
+    ...st.monsters.filter(onCell).map(m => ({ id: m.id, label: `${m.emoji} ${m.name} (niv. ${m.level} · ${Math.round(m.pvPct * 100)} % PV)` })),
+    ...st.trolls.filter(onCell).map(o => ({ id: o.id, label: `🧌 ${o.name} (troll niv. ${o.level} · ${Math.round(o.pvPct * 100)} % PV)` })),
+  ];
   const canAttack = attackable.length > 0 && you.pa >= 3 && !you.dead;
   if (attackable.length > 1) {
     const wrap = document.createElement("div");
     wrap.className = "mp-attack-sel";
     const sel = document.createElement("select");
-    for (const m of attackable) {
+    for (const a of attackable) {
       const opt = document.createElement("option");
-      opt.textContent = `${m.emoji} ${m.name} (niv. ${m.level} · ${Math.round(m.pvPct * 100)} % PV)`;
+      opt.textContent = a.label;
       sel.appendChild(opt);
     }
     const b = document.createElement("button");
     b.textContent = "⚔️ Attaquer (3 PA)";
     b.disabled = !canAttack;
-    b.onclick = () => { const m = attackable[sel.selectedIndex]; if (m) mpAction({ type: "attack", target: m.id }); };
+    b.onclick = () => { const a = attackable[sel.selectedIndex]; if (a) mpAction({ type: "attack", target: a.id }); };
     wrap.appendChild(sel);
     wrap.appendChild(b);
     actions.appendChild(wrap);

@@ -234,6 +234,15 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.9.0** (2026-06-15) — Monde partagé : **cases deux fois plus grandes**
+  (48 px) pour la lisibilité de l'empilement par coins. **Portée d'attaque =
+  même case** : on ne peut frapper (attaque de base et compétences/sortilèges
+  d'attaque) que sur sa propre case ; seule exception, le **Projectile Magique**
+  (sortilège du Tomawak) reste à distance (jusqu'à la Vue). **PvP** : on peut
+  désormais attaquer les autres trolls comme les monstres (combat classique,
+  mise à mort → réapparition habituelle ; +1 PX par coup porté, pas de butin
+  transféré). Le menu déroulant de cible liste monstres **et** trolls présents
+  sur la case.
 - **2.8.0** (2026-06-15) — **Empilement sur les cases** dans le monde partagé.
   Une case accueille maintenant **plusieurs trolls, plusieurs monstres et
   plusieurs trésors** (un seul « lieu » à terme). Se déplacer ne fait **plus
