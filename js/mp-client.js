@@ -213,44 +213,66 @@ function mpRenderMap(st) {
     }
   }
 
-  const disc = (x, y, color) => {
+  // Empilement : une case peut contenir plusieurs trolls/monstres/trésors et un
+  // lieu. On regroupe par case et on dessine chaque TYPE dans un coin —
+  // troll ↖, monstre ↗, trésor ↙, lieu ↘ — avec un « ×N » si plusieurs.
+  const cells = {};
+  const cell = (x, y) => (cells[x + "," + y] = cells[x + "," + y] || { x, y, trolls: [], monsters: [], items: [], place: null, youHere: false });
+  for (const i of st.items) cell(i.x, i.y).items.push(i);
+  for (const m of st.monsters) cell(m.x, m.y).monsters.push(m);
+  for (const o of st.trolls) cell(o.x, o.y).trolls.push(o);
+  for (const pl of (st.places || [])) cell(pl.x, pl.y).place = pl;
+  if (!you.dead) cell(you.x, you.y).youHere = true;
+
+  const Q = MP_TILE / 4; // demi-coin
+  const corner = (c, qx, qy, color, emoji, count, mine) => {
+    const cx = c.x * MP_TILE + qx, cy = c.y * MP_TILE + qy;
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.arc(x * MP_TILE + MP_TILE / 2, y * MP_TILE + MP_TILE / 2, MP_TILE / 2 - 3, 0, Math.PI * 2);
+    ctx.arc(cx, cy, Q, 0, Math.PI * 2);
     ctx.fill();
-  };
-  for (const i of st.items) {
-    disc(i.x, i.y, i.kind === "gold" ? "#caa53d" : i.kind === "potion" || i.kind === "scroll" ? (i.color || "#5d8535") : "#7a8db0");
+    if (mine) { ctx.strokeStyle = "#eaffdc"; ctx.lineWidth = 1.5; ctx.stroke(); }
     ctx.fillStyle = "#1a140e";
-    ctx.fillText(i.emoji, i.x * MP_TILE + MP_TILE / 2, i.y * MP_TILE + MP_TILE / 2 + 1);
-  }
-  for (const m of st.monsters) {
-    disc(m.x, m.y, "#8a3030");
-    ctx.fillStyle = "#1a140e";
-    ctx.fillText(m.emoji, m.x * MP_TILE + MP_TILE / 2, m.y * MP_TILE + MP_TILE / 2 + 1);
-    const bw = Math.max(2, Math.round((MP_TILE - 6) * m.pvPct));
-    ctx.fillStyle = "#b03030";
-    ctx.fillRect(m.x * MP_TILE + 3, m.y * MP_TILE + 1, bw, 3);
-  }
-  // les autres trolls : pastille bleue + nom
-  for (const o of st.trolls) {
-    disc(o.x, o.y, "#5a7abf");
-    ctx.fillStyle = "#1a140e";
-    ctx.fillText("🧌", o.x * MP_TILE + MP_TILE / 2, o.y * MP_TILE + MP_TILE / 2 + 1);
-    ctx.fillStyle = "#dfe8ff";
-    ctx.font = "10px sans-serif";
-    ctx.fillText(o.name, o.x * MP_TILE + MP_TILE / 2, o.y * MP_TILE - 5);
-    ctx.font = "18px serif";
-  }
-  // toi
-  if (!you.dead) {
-    disc(you.x, you.y, "#8fbf5a");
-    ctx.fillStyle = "#1a140e";
-    ctx.fillText("🧌", you.x * MP_TILE + MP_TILE / 2, you.y * MP_TILE + MP_TILE / 2 + 1);
-    if (you.camo) {
-      ctx.strokeStyle = "#8fbf5a";
-      ctx.strokeRect(you.x * MP_TILE + 1, you.y * MP_TILE + 1, MP_TILE - 2, MP_TILE - 2);
+    ctx.font = "11px serif";
+    ctx.fillText(emoji, cx, cy + 1);
+    if (count > 1) {
+      ctx.font = "bold 9px sans-serif";
+      ctx.fillStyle = "#ffe";
+      ctx.strokeStyle = "#1a140e";
+      ctx.lineWidth = 2;
+      ctx.strokeText(count, cx + Q, cy + Q);
+      ctx.fillText(count, cx + Q, cy + Q);
     }
+    ctx.font = "18px serif";
+  };
+
+  for (const c of Object.values(cells)) {
+    const nTrolls = c.trolls.length + (c.youHere ? 1 : 0);
+    if (nTrolls) corner(c, Q, Q, c.youHere ? "#8fbf5a" : "#5a7abf", "🧌", nTrolls, c.youHere); // ↖
+    if (c.monsters.length) {
+      corner(c, MP_TILE - Q, Q, "#8a3030", c.monsters[0].emoji, c.monsters.length); // ↗
+      const low = c.monsters.reduce((a, b) => (b.pvPct < a.pvPct ? b : a));
+      const bw = Math.max(2, Math.round((MP_TILE - 4) * low.pvPct));
+      ctx.fillStyle = "#b03030";
+      ctx.fillRect(c.x * MP_TILE + 2, c.y * MP_TILE + 1, bw, 2);
+    }
+    if (c.items.length) {
+      const it = c.items[0];
+      const col = it.kind === "gold" ? "#caa53d" : (it.kind === "potion" || it.kind === "scroll") ? (it.color || "#5d8535") : "#7a8db0";
+      corner(c, Q, MP_TILE - Q, col, it.emoji, c.items.length); // ↙
+    }
+    if (c.place) corner(c, MP_TILE - Q, MP_TILE - Q, "#6a5a8a", c.place.emoji, 1); // ↘
+    // nom d'un autre troll seul sur sa case (au-dessus) ; masqué si empilement
+    if (c.trolls.length === 1 && !c.youHere) {
+      ctx.fillStyle = "#dfe8ff";
+      ctx.font = "9px sans-serif";
+      ctx.fillText(c.trolls[0].name, c.x * MP_TILE + MP_TILE / 2, c.y * MP_TILE - 4);
+      ctx.font = "18px serif";
+    }
+  }
+  if (!you.dead && you.camo) {
+    ctx.strokeStyle = "#8fbf5a";
+    ctx.strokeRect(you.x * MP_TILE + 1, you.y * MP_TILE + 1, MP_TILE - 2, MP_TILE - 2);
   }
 }
 
@@ -314,8 +336,30 @@ function mpRenderPanels(st) {
     b.onclick = fn;
     actions.appendChild(b);
   };
-  const adj = st.monsters.find(m => Math.max(Math.abs(m.x - you.x), Math.abs(m.y - you.y)) <= 1);
-  addBtn(`⚔️ Attaquer (${3} PA)`, () => adj && mpAction({ type: "attack", target: adj.id }), adj && you.pa >= 3);
+  // Cibles atteignables : monstres sur ta case ou adjacents (cheby ≤ 1). S'il y
+  // en a plusieurs (empilement), on propose un menu déroulant pour choisir.
+  const attackable = st.monsters.filter(m => Math.max(Math.abs(m.x - you.x), Math.abs(m.y - you.y)) <= 1);
+  const canAttack = attackable.length > 0 && you.pa >= 3 && !you.dead;
+  if (attackable.length > 1) {
+    const wrap = document.createElement("div");
+    wrap.className = "mp-attack-sel";
+    const sel = document.createElement("select");
+    for (const m of attackable) {
+      const opt = document.createElement("option");
+      opt.textContent = `${m.emoji} ${m.name} (niv. ${m.level} · ${Math.round(m.pvPct * 100)} % PV)`;
+      sel.appendChild(opt);
+    }
+    const b = document.createElement("button");
+    b.textContent = "⚔️ Attaquer (3 PA)";
+    b.disabled = !canAttack;
+    b.onclick = () => { const m = attackable[sel.selectedIndex]; if (m) mpAction({ type: "attack", target: m.id }); };
+    wrap.appendChild(sel);
+    wrap.appendChild(b);
+    actions.appendChild(wrap);
+  } else {
+    const target = attackable[0];
+    addBtn("⚔️ Attaquer (3 PA)", () => target && mpAction({ type: "attack", target: target.id }), canAttack);
+  }
   const comp = RACES[you.race].comp, sort = RACES[you.race].sort;
   addBtn(`🥋 ${comp.name} (${comp.cost} PA · ${you.comp.pct} %)`, () => mpAction({ type: "comp" }), you.pa >= comp.cost);
   addBtn(`🔮 ${sort.name} (${sort.cost} PA · ${you.sort.pct} %)`, () => mpAction({ type: "sort" }), you.pa >= sort.cost);

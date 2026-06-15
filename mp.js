@@ -396,8 +396,9 @@ function moveMonsterMP(world, m, nx, ny) {
   const { mapW, mapH } = world.config;
   if (nx < 0 || ny < 0 || nx >= mapW || ny >= mapH) return false;
   if (world.grid[ny][nx] === g.T_WALL) return false;
+  // Empilement autorisé : les monstres peuvent partager une case (mais ne se
+  // déplacent pas sur un troll — ils l'attaquent quand il est adjacent).
   if (Object.values(world.trolls).some(t => !t.dead && t.x === nx && t.y === ny)) return false;
-  if (world.monsters.some(o => o !== m && o.x === nx && o.y === ny)) return false;
   m.x = nx; m.y = ny;
   return true;
 }
@@ -451,7 +452,7 @@ function killMonsterMP(world, t, m) {
   t.kills++;
   privLog(t, `💀 ${m.name} est terrassé !${px > 0 ? ` +${px} PX.` : " Pas de PX (adversaire trop faible)."}`, "good");
   worldLog(world, `⚔️ ${t.name} a terrassé ${m.emoji} ${m.name} !`, "combat");
-  if (Math.random() < 0.4 && !world.items.some(i => i.x === m.x && i.y === m.y)) {
+  if (Math.random() < 0.4) {
     const lr = Math.random();
     const drop = lr < 0.4 ? { ...tunedRandomPotion(), x: m.x, y: m.y }
       : lr < 0.65 ? { ...tunedRandomScroll(), x: m.x, y: m.y }
@@ -668,10 +669,9 @@ function action(world, t, act) {
     const nx = t.x + dx, ny = t.y + dy;
     if (nx < 0 || ny < 0 || nx >= mapW || ny >= mapH) return { error: "hors du monde" };
     if (world.grid[ny][nx] === g.T_WALL) return { error: "un mur" };
-    const m = world.monsters.find(m => m.x === nx && m.y === ny);
-    if (m) return actAttack(world, t, m);
-    if (Object.values(world.trolls).some(o => o !== t && !o.dead && o.x === nx && o.y === ny))
-      return { error: "un troll occupe cette case" };
+    // Empilement autorisé : une case accueille plusieurs trolls/monstres/trésors.
+    // Se déplacer ne fait plus attaquer — l'attaque passe par l'action « attack »
+    // (avec choix de la cible si plusieurs sur la case ou adjacentes).
     if (!spendPA(t, g.COSTS.move)) return { error: "pas assez de PA" };
     t.x = nx; t.y = ny;
     if (t.camo) {
@@ -767,7 +767,7 @@ function action(world, t, act) {
   if (act.type === "drop") {
     const item = t.bag[act.idx];
     if (!item) return { error: "objet introuvable dans le sac" };
-    if (world.items.some(i => i.x === t.x && i.y === t.y)) return { error: "il y a déjà quelque chose à terre ici" };
+    // Empilement autorisé : plusieurs trésors peuvent cohabiter sur une case.
     if (!spendPA(t, g.COSTS.drop)) return { error: "pas assez de PA" };
     t.bag.splice(act.idx, 1);
     world.items.push({ ...item, x: t.x, y: t.y });

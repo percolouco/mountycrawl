@@ -234,6 +234,16 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.8.0** (2026-06-15) — **Empilement sur les cases** dans le monde partagé.
+  Une case accueille maintenant **plusieurs trolls, plusieurs monstres et
+  plusieurs trésors** (un seul « lieu » à terme). Se déplacer ne fait **plus
+  attaquer** : on se pose sur la case (cohabitation), et l'**attaque** passe par
+  le bouton ⚔️ — avec un **menu déroulant** pour choisir la cible quand
+  plusieurs monstres sont sur ta case ou adjacents. Rendu **par coins** pour
+  rester lisible : 🧌 trolls en haut-gauche, 👹 monstres en haut-droite,
+  💰 trésors en bas-gauche, lieux en bas-droite, avec un « ×N » quand il y en a
+  plusieurs. (Le PvP — taper d'autres trolls — et le portage en solo restent à
+  faire.)
 - **2.7.1** (2026-06-14) — Encyclopédie « Trésors du Hall » : nouvelle section
   **✨ Templates** (les 19 templates de drop, lus dans la base), un **menu de
   navigation** collant en haut pour sauter directement à chaque section (Potions,

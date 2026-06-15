@@ -257,6 +257,19 @@ header h1 { font-size: 1.3em; color: #FFFFCC; text-shadow: 1px 1px 2px #000; }
   cursor: pointer;
   text-align: left;
 }
+/* Sélecteur de cible d'attaque (empilement : plusieurs monstres) */
+.mp-attack-sel { margin: 4px 0; }
+.mp-attack-sel select {
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 4px 6px;
+  font-family: inherit;
+  font-size: .85em;
+  background: #FFFFEE;
+  border: 1px solid #666633;
+  color: #333300;
+}
+.mp-attack-sel button { margin: 0 !important; }
 #improve button:hover:not(:disabled),
 #inventory button:hover:not(:disabled),
 #actions button:hover:not(:disabled),

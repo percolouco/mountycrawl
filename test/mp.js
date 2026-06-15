@@ -376,15 +376,17 @@ function makeWorld(over = {}) {
   assert.strictEqual(t.bag.length, 0, "sac vidé");
   const ground = w.items.find(i => i.x === t.x && i.y === t.y);
   assert(ground && ground.name === "Armure de bois", "l'objet est à terre");
-  // case occupée : on ne peut pas jeter par-dessus
+  // empilement : on peut désormais jeter plusieurs trésors sur la même case
   t.bag.push(gearLib.gearItemByName("arme", "Torche"));
-  assert(mp.action(w, t, { type: "drop", idx: 0 }).error, "case occupée refusée");
-  // on peut le re-ramasser
+  assert(mp.action(w, t, { type: "drop", idx: 0 }).ok, "second jet sur la même case accepté (empilement)");
+  assert.strictEqual(w.items.filter(i => i.x === t.x && i.y === t.y).length, 2, "deux trésors empilés");
+  // on peut re-ramasser (un objet à la fois)
   r = mp.action(w, t, { type: "pickup" });
   assert(r.ok && t.bag.some(i => i.name === "Armure de bois"), "objet re-ramassé");
   // goinfrer : objet détruit, un des trois effets appliqué
   t.pa = 6;
   t.pv = 1; // pour voir un éventuel soin MIAM
+  t.bag.push(gearLib.gearItemByName("arme", "Torche"));
   const before = t.bag.length;
   const idxTorche = t.bag.findIndex(i => i.name === "Torche");
   r = mp.action(w, t, { type: "eat", idx: idxTorche });
@@ -397,6 +399,27 @@ function makeWorld(over = {}) {
   // on ne goinfre pas une potion
   t.bag.push(require("../js/potions.js").makePotionItem("guerison", 3));
   assert(mp.action(w, t, { type: "eat", idx: t.bag.length - 1 }).error, "potion non goinfrable");
+}
+
+// Empilement : se déplacer sur la case d'un monstre l'empile (ne l'attaque plus) ;
+// l'attaque explicite reste possible (même case, cheby 0)
+{
+  const w = makeWorld({ monsterTarget: 0, itemTarget: 0 });
+  const { troll: t } = mp.newTroll(w, "Empileur", "Skrim");
+  t.pa = 6;
+  const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const dir = dirs.find(([dx, dy]) => w.grid[t.y + dy] && w.grid[t.y + dy][t.x + dx] !== undefined && w.grid[t.y + dy][t.x + dx] !== g.T_WALL);
+  assert(dir, "le troll a un voisin praticable");
+  const m = mp.spawnMonster(w);
+  m.x = t.x + dir[0]; m.y = t.y + dir[1];
+  const hpBefore = m.pv;
+  const r = mp.action(w, t, { type: "move", dx: dir[0], dy: dir[1] });
+  assert(r.ok, "déplacement sur la case du monstre accepté");
+  assert(t.x === m.x && t.y === m.y, "troll et monstre empilés sur la même case");
+  assert.strictEqual(m.pv, hpBefore, "se déplacer n'attaque pas le monstre");
+  t.pa = 6;
+  const ra = mp.action(w, t, { type: "attack", target: m.id });
+  assert(ra.ok, "attaque explicite possible sur la même case");
 }
 
 // Base de référence : les retouches survivent au redémarrage (seed non destructif)
