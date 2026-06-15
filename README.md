@@ -234,6 +234,12 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.10.2** (2026-06-15) — Bestiaire, étape 3 : **encyclopédie**. Nouvelle
+  section « 🐲 Bestiaire » dans « Trésors du Hall » (accessible par le menu) qui
+  liste les 150 monstres **groupés par famille**, avec leur **blason**, leurs
+  plages de stats, leur fourchette d'âges (noms par famille) et leurs
+  drapeaux/capacités. *Reste : la bascule des apparitions du jeu sur ce
+  bestiaire (en attente du choix d'équilibrage profondeur → niveaux).*
 - **2.10.1** (2026-06-15) — Bestiaire, étape 2 : **éditeur admin**. Nouvelle
   section « 🐲 Bestiaire » dans la page admin pour régler les **multiplicateurs
   d'âge** (les 8 âges) et **éditer chaque monstre** (filtre par famille +

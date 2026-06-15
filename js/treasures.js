@@ -61,6 +61,42 @@ function templateCard(t) {
     </div>`;
 }
 
+/* Carte d'un monstre du bestiaire : blason + stats (plages) + âges + capacités. */
+function monsterCard(m) {
+  const rg = (a, b, s = "") => (a === b ? `${a}${s}` : `${a}-${b}${s}`);
+  const ages = BESTIARY_AGE_NAMES[m.family] || [];
+  const ageTxt = m.minAge === m.maxAge ? (ages[m.minAge] || "—")
+    : `${ages[m.minAge] || m.minAge} → ${ages[m.maxAge] || m.maxAge}`;
+  const fx = [
+    `<span class="tz-fx">PV ${rg(m.pvMin, m.pvMax)}</span>`,
+    `<span class="tz-fx">ATT ${rg(m.attMin, m.attMax, "D6")}</span>`,
+    `<span class="tz-fx">ESQ ${rg(m.esqMin, m.esqMax, "D6")}</span>`,
+    `<span class="tz-fx">DEG ${rg(m.degMin, m.degMax, "D3")}</span>`,
+    `<span class="tz-fx">REG ${rg(m.regMin, m.regMax, "D3")}</span>`,
+    `<span class="tz-fx">Arm.phy ${rg(m.armPhysMin, m.armPhysMax)}</span>`,
+  ];
+  if (m.armMagMax) fx.push(`<span class="tz-fx">Arm.mag ${rg(m.armMagMin, m.armMagMax)}</span>`);
+  fx.push(`<span class="tz-fx">Vue ${rg(m.vueMin, m.vueMax)}</span>`,
+    `<span class="tz-fx">MM ${rg(m.mmMin, m.mmMax)}</span>`,
+    `<span class="tz-fx">RM ${rg(m.rmMin, m.rmMax)}</span>`);
+  const tags = [];
+  if (m.fly) tags.push("Vole");
+  if (m.ranged) tags.push("À distance");
+  if (m.magic) tags.push("Att. magique");
+  if (m.seesHidden) tags.push("Voit le caché");
+  if (m.nbAtt > 1) tags.push(m.nbAtt + " att./tour");
+  if (m.speed && m.speed !== "Normale") tags.push("Vitesse " + m.speed);
+  for (const t of tags) fx.push(`<span class="tz-fx tz-good">${t}</span>`);
+  if (m.capacities) fx.push(`<span class="tz-fx tz-bad">${m.capacities}</span>`);
+  const img = m.blason ? `<img class="tz-blason" src="${m.blason}" alt="" loading="lazy" onerror="this.style.display='none'">` : "";
+  return `
+    <div class="tz-card" style="--tz-color:#8a3030">
+      <div class="tz-head">${img}<span class="tz-name">${m.name}</span></div>
+      <div class="tz-meta">Niveau <b>${rg(m.levelMin, m.levelMax)}</b> · Âge : <b>${ageTxt}</b></div>
+      <div class="tz-fx-list">${fx.join("")}</div>
+    </div>`;
+}
+
 function treasureCard(def, x, duration, fx) {
   const fxHtml = fx.map(f => {
     const neg = f.includes("−");
@@ -93,6 +129,7 @@ function treasuresRender() {
     <a href="#tz-sec-scrolls">📜 Parchemins</a>
     <a href="#tz-sec-gear">⚔️ Équipement</a>
     <a href="#tz-sec-templates">✨ Templates</a>
+    <a href="#tz-sec-bestiary">🐲 Bestiaire</a>
   </nav>`;
 
   html += `<h2 class="tz-section" id="tz-sec-potions">🧪 Potions (${TREASURE_POTIONS.length})</h2><div class="tz-grid">`;
@@ -155,6 +192,22 @@ function treasuresRender() {
     html += `<p class="tz-note">Liste indisponible (base non joignable).</p>`;
   }
 
+  const bestiary = BESTIARY_DB || [];
+  html += `<h2 class="tz-section" id="tz-sec-bestiary">🐲 Bestiaire (${bestiary.length})</h2>
+    <p class="tz-intro">Les créatures du Hall. Chaque monstre est défini par ses
+    <b>stats de base</b> (l'âge le plus jeune, en plages) ; en vieillissant il gagne
+    en puissance (multiplicateurs d'âge réglables côté admin). Les stats affichées
+    sont des <b>plages</b> tirées au hasard à chaque apparition.</p>`;
+  if (bestiary.length) {
+    const fams = [...new Set(bestiary.map(m => m.family))].sort();
+    for (const fam of fams) {
+      const list = bestiary.filter(m => m.family === fam);
+      html += `<h3 class="tz-subsection">${FAMILY_EMOJI[fam] || "🐾"} ${fam} (${list.length})</h3><div class="tz-grid">${list.map(monsterCard).join("")}</div>`;
+    }
+  } else {
+    html += `<p class="tz-note">Bestiaire indisponible (base non joignable).</p>`;
+  }
+
   html += `<p class="tz-note">Effet de Zone : touche le lecteur et tous les monstres à 3 cases
     ou moins. « PV −2D3 ou −4D3 » (Rune des Foins) : la Mountypedia note « -2/4 D3 », interprété
     ici comme un tirage au sort entre 2D3 et 4D3.</p>`;
@@ -167,7 +220,18 @@ let treasuresReturnTo = "create";
 // Données de la base de référence (BDD), rechargées à chaque ouverture pour
 // refléter les éditions (admin OU sqlite-web) ; null tant qu'on n'a pas (ou pas
 // pu) charger → repli sur les valeurs statiques du code.
-let GEAR_DB = null, POTIONS_DB = null, SCROLLS_DB = null, TEMPLATES_DB = null;
+let GEAR_DB = null, POTIONS_DB = null, SCROLLS_DB = null, TEMPLATES_DB = null, BESTIARY_DB = null;
+
+// Noms d'âge par famille (table de Perco) — pour afficher la fourchette d'âges.
+const BESTIARY_AGE_NAMES = {
+  Insecte: ["Larve", "Immature", "Juvénile", "Imago", "Développé", "Mûr", "Accompli", "Achevé"],
+  Animal: ["Bébé", "Enfançon", "Jeune", "Adulte", "Mature", "Chef de harde", "Ancien", "Ancêtre"],
+  "Démon": ["Initial", "Novice", "Mineur", "Favori", "Majeur", "Supérieur", "Suprême", "Ultime"],
+  Humanoide: ["Nouveau", "Jeune", "Adulte", "Vétéran", "Briscard", "Doyen", "Légendaire", "Mythique"],
+  Monstre: ["Nouveau", "Jeune", "Adulte", "Vétéran", "Briscard", "Doyen", "Légendaire", "Mythique"],
+  "Mort-Vivant": ["Naissant", "Récent", "Ancien", "Vénérable", "Séculaire", "Antique", "Ancestral", "Antédiluvien"],
+};
+const FAMILY_EMOJI = { Insecte: "🐛", Animal: "🐾", "Démon": "👿", Humanoide: "🧝", Monstre: "👹", "Mort-Vivant": "💀" };
 
 async function fetchRef(cat) {
   try {
@@ -181,9 +245,10 @@ async function fetchRef(cat) {
 }
 
 async function loadReference() {
-  const [gear, potions, scrolls, templates] = await Promise.all([
-    fetchRef("gear"), fetchRef("potions"), fetchRef("scrolls"), fetchRef("templates"),
+  const [gear, potions, scrolls, templates, bestiary] = await Promise.all([
+    fetchRef("gear"), fetchRef("potions"), fetchRef("scrolls"), fetchRef("templates"), fetchRef("bestiary"),
   ]);
+  BESTIARY_DB = bestiary;
   GEAR_DB = gear ? gearBySlotFromRows(gear) : null;
   POTIONS_DB = potions ? indexPowerById(potions) : null;
   SCROLLS_DB = scrolls ? indexPowerById(scrolls) : null;
