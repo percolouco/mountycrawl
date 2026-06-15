@@ -22,6 +22,14 @@
   .admin-log { max-height: 220px; overflow-y: auto; font-size: 0.82em; }
   .admin-msg { font-weight: bold; margin: 8px 0; }
   #admin-login { max-width: 480px; margin: 60px auto; }
+  .bestiary-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+  .bestiary-filters select, .bestiary-filters input { padding: 4px 6px; border: 1px solid #aaa; background: #fff; }
+  .bestiary-filters #best-pick { min-width: 220px; }
+  .age-mult { display: inline-block; margin: 0 8px 4px 0; font-size: .85em; }
+  .age-mult input { width: 64px; padding: 1px 3px; border: 1px solid #aaa; }
+  .best-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin: 8px 0; }
+  .best-grid label { display: flex; flex-direction: column; font-size: .78em; color: #333; }
+  .best-grid input { padding: 2px 4px; border: 1px solid #aaa; background: #fff; }
 </style>
 </head>
 <body>
@@ -97,6 +105,27 @@
       <div id="tune-gear"></div>
       <button id="tune-gear-save" class="big-btn">💾 Appliquer l'équipement</button>
       <button id="tune-gear-reset" class="menu-btn">↩️ Tout remettre d'origine</button>
+    </div>
+
+    <div class="admin-card" style="margin-top:16px">
+      <h2>🐲 Bestiaire</h2>
+      <p><small>1 ligne par monstre (stats de base = âge le plus jeune, en plages
+      min/max) et une table d'âges (multiplicateurs appliqués à la génération /
+      croissance). Tirage au hasard dans les plages à chaque apparition.</small></p>
+      <h3>Multiplicateurs d'âge</h3>
+      <div id="tune-ages"></div>
+      <button id="tune-ages-save" class="big-btn">💾 Appliquer les âges</button>
+      <button id="tune-ages-reset" class="menu-btn">↩️ Âges d'origine</button>
+      <h3 style="margin-top:14px">Monstres</h3>
+      <div class="bestiary-filters">
+        <select id="best-family"><option value="">Toutes les familles</option></select>
+        <input type="text" id="best-search" placeholder="Rechercher un monstre…">
+        <select id="best-pick"></select>
+      </div>
+      <div id="best-form"></div>
+      <button id="best-save" class="big-btn">💾 Appliquer ce monstre</button>
+      <button id="best-reset" class="menu-btn">↩️ Tout le bestiaire d'origine</button>
+      <div id="best-msg"></div>
     </div>
   </div>
 </div>
@@ -297,6 +326,7 @@ async function refresh(withForm = false) {
 async function connect() {
   try {
     await refresh(true);
+    await loadBestiary();
     localStorage.setItem("mc_admin_token", TOKEN);
     $("admin-login").classList.add("hidden");
     $("admin-body").classList.remove("hidden");
@@ -304,6 +334,56 @@ async function connect() {
   } catch (e) {
     $("admin-login-msg").textContent = "⚠️ " + e.message;
   }
+}
+
+/* ---------- Bestiaire ---------- */
+let BEST = [], AGES = [];
+const BEST_FIELDS = [
+  ["family", "Famille", "text"], ["minAge", "Âge min", "int"], ["maxAge", "Âge max", "int"],
+  ["levelMin", "Niveau min", "int"], ["levelMax", "Niveau max", "int"],
+  ["pvMin", "PV min", "int"], ["pvMax", "PV max", "int"],
+  ["attMin", "ATT min (D6)", "int"], ["attMax", "ATT max", "int"],
+  ["esqMin", "ESQ min (D6)", "int"], ["esqMax", "ESQ max", "int"],
+  ["degMin", "DEG min (D3)", "int"], ["degMax", "DEG max", "int"],
+  ["regMin", "REG min (D3)", "int"], ["regMax", "REG max", "int"],
+  ["armPhysMin", "Arm.phy min", "int"], ["armPhysMax", "Arm.phy max", "int"],
+  ["armMagMin", "Arm.mag min", "int"], ["armMagMax", "Arm.mag max", "int"],
+  ["vueMin", "Vue min", "int"], ["vueMax", "Vue max", "int"],
+  ["mmMin", "MM min", "int"], ["mmMax", "MM max", "int"],
+  ["rmMin", "RM min", "int"], ["rmMax", "RM max", "int"], ["nbAtt", "Attaques/tour", "int"],
+  ["fly", "Vole (0/1)", "int"], ["ranged", "Att. distance (0/1)", "int"],
+  ["magic", "Att. magique (0/1)", "int"], ["seesHidden", "Voit caché (0/1)", "int"],
+  ["speed", "Vitesse", "text"], ["capacities", "Capacités", "text"], ["blason", "Blason (URL)", "text"],
+];
+
+async function loadBestiary() {
+  try {
+    [BEST, AGES] = await Promise.all([
+      fetch("api/reference/bestiary").then(r => r.json()),
+      fetch("api/reference/ages").then(r => r.json()),
+    ]);
+  } catch { BEST = []; AGES = []; }
+  $("tune-ages").innerHTML = AGES.map(a =>
+    `<label class="age-mult">âge ${a.age} <input type="number" step="0.05" data-age="${a.age}" value="${a.mult}"></label>`).join("");
+  const fams = [...new Set(BEST.map(b => b.family))].sort();
+  $("best-family").innerHTML = '<option value="">Toutes les familles</option>' + fams.map(f => `<option>${f}</option>`).join("");
+  renderMonsterPicker();
+}
+
+function renderMonsterPicker() {
+  const fam = $("best-family").value, q = $("best-search").value.trim().toLowerCase();
+  const list = BEST.filter(b => (!fam || b.family === fam) && (!q || b.name.toLowerCase().includes(q)));
+  const pick = $("best-pick"), cur = pick.value;
+  pick.innerHTML = list.map(b => `<option>${b.name}</option>`).join("");
+  if (list.some(b => b.name === cur)) pick.value = cur;
+  renderMonsterForm();
+}
+
+function renderMonsterForm() {
+  const b = BEST.find(x => x.name === $("best-pick").value);
+  if (!b) { $("best-form").innerHTML = "<p><small>Aucun monstre pour ce filtre.</small></p>"; return; }
+  $("best-form").innerHTML = `<div class="best-grid">` + BEST_FIELDS.map(([k, label, type]) =>
+    `<label>${label}<input data-key="${k}" type="${type === "int" ? "number" : "text"}" value="${String(b[k] ?? "").replace(/"/g, "&quot;")}"></label>`).join("") + "</div>";
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -327,6 +407,23 @@ document.addEventListener("DOMContentLoaded", () => {
     scrolls: collectTreasureTuning("scrolls"),
   }, "Trésors");
   $("tune-treasures-reset").onclick = () => saveTuning({ reset: ["potions", "scrolls"] }, "Trésors d'origine");
+  // Bestiaire
+  $("best-family").onchange = renderMonsterPicker;
+  $("best-search").oninput = renderMonsterPicker;
+  $("best-pick").onchange = renderMonsterForm;
+  $("tune-ages-save").onclick = async () => {
+    const ages = {};
+    for (const i of document.querySelectorAll("#tune-ages input")) ages[i.dataset.age] = Number(i.value);
+    await saveTuning({ ages }, "Âges"); await loadBestiary();
+  };
+  $("tune-ages-reset").onclick = async () => { await saveTuning({ reset: ["ages"] }, "Âges d'origine"); await loadBestiary(); };
+  $("best-save").onclick = async () => {
+    const name = $("best-pick").value; if (!name) return;
+    const vals = {};
+    for (const i of $("best-form").querySelectorAll("input")) vals[i.dataset.key] = i.value;
+    await saveTuning({ bestiary: { [name]: vals } }, "Monstre « " + name + " »"); await loadBestiary();
+  };
+  $("best-reset").onclick = async () => { await saveTuning({ reset: ["bestiary"] }, "Bestiaire d'origine"); await loadBestiary(); };
   $("tune-gear-save").onclick = () => saveTuning({ gear: collectTuning("gear") }, "Équipement");
   $("tune-gear-reset").onclick = () => saveTuning({ reset: ["gear"] }, "Équipement d'origine");
   $("admin-reset").onclick = async () => {

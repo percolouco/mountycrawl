@@ -994,7 +994,28 @@ function adminSetTuning(world, patch) {
   };
   if (Array.isArray(patch.reset)) {
     for (const cat of patch.reset) {
-      if (["monsters", "gear", "potions", "scrolls"].includes(cat)) db.resetCategory(cat);
+      if (["monsters", "gear", "potions", "scrolls", "bestiary", "ages"].includes(cat)) db.resetCategory(cat);
+    }
+  }
+  // Bestiaire : multiplicateurs d'âge + édition d'un monstre (valeurs absolues).
+  if (patch.ages && typeof patch.ages === "object") {
+    for (const [age, mult] of Object.entries(patch.ages)) {
+      const a = Number(age), m = Number(mult);
+      if (Number.isInteger(a) && a >= 0 && a <= 7 && Number.isFinite(m)) db.setMonsterAge(a, Math.max(0, Math.min(99, m)));
+    }
+  }
+  if (patch.bestiary && typeof patch.bestiary === "object") {
+    const knownB = new Set(db.bestiaryAll().map(b => b.name));
+    const txt = new Set(["family", "speed", "capacities", "blason"]);
+    for (const [name, vals] of Object.entries(patch.bestiary)) {
+      if (!knownB.has(name) || typeof vals !== "object") continue;
+      const entry = {};
+      for (const k of db.BESTIARY_KEYS) {
+        if (vals[k] == null) continue;
+        if (txt.has(k)) entry[k] = String(vals[k]).slice(0, 300);
+        else { const v = Number(vals[k]); if (Number.isFinite(v)) entry[k] = clampInt(v, 0, 99999); }
+      }
+      if (Object.keys(entry).length) db.setBestiary(name, entry);
     }
   }
   if (patch.monsters && typeof patch.monsters === "object") {

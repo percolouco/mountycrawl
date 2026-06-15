@@ -234,6 +234,12 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.10.1** (2026-06-15) — Bestiaire, étape 2 : **éditeur admin**. Nouvelle
+  section « 🐲 Bestiaire » dans la page admin pour régler les **multiplicateurs
+  d'âge** (les 8 âges) et **éditer chaque monstre** (filtre par famille +
+  recherche par nom, puis tous ses champs : plages de stats, capacités,
+  drapeaux, vitesse, blason). Sauvegarde à chaud via le tuning admin (mises à
+  jour ciblées, bouton « tout remettre d'origine » par catégorie).
 - **2.10.0** (2026-06-15) — **Nouveau bestiaire** (étape 1 : les données). Le
   bestiaire complet fourni (945 entrées monstre × âge) est replié, comme demandé,
   en **1 ligne par monstre** (150 monstres, stats de base = âge le plus jeune, en
