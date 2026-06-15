@@ -275,6 +275,7 @@ function mpRenderMap(st) {
     ctx.strokeStyle = "#8fbf5a";
     ctx.strokeRect(you.x * MP_TILE + 1, you.y * MP_TILE + 1, MP_TILE - 2, MP_TILE - 2);
   }
+  keepInView(canvas, you.x, you.y, MP_TILE);
 }
 
 function mpRenderPanels(st) {
@@ -345,7 +346,8 @@ function mpRenderPanels(st) {
     ...st.trolls.filter(onCell).map(o => ({ id: o.id, label: `🧌 ${o.name} (troll niv. ${o.level} · ${Math.round(o.pvPct * 100)} % PV)` })),
   ];
   const canAttack = attackable.length > 0 && you.pa >= 3 && !you.dead;
-  if (attackable.length > 1) {
+  if (attackable.length >= 1) {
+    // toujours un menu déroulant dès qu'il y a une cible (même une seule)
     const wrap = document.createElement("div");
     wrap.className = "mp-attack-sel";
     const sel = document.createElement("select");
@@ -362,8 +364,7 @@ function mpRenderPanels(st) {
     wrap.appendChild(b);
     actions.appendChild(wrap);
   } else {
-    const target = attackable[0];
-    addBtn("⚔️ Attaquer (3 PA)", () => target && mpAction({ type: "attack", target: target.id }), canAttack);
+    addBtn("⚔️ Attaquer (3 PA)", () => {}, false); // aucune cible : bouton désactivé
   }
   const comp = RACES[you.race].comp, sort = RACES[you.race].sort;
   addBtn(`🥋 ${comp.name} (${comp.cost} PA · ${you.comp.pct} %)`, () => mpAction({ type: "comp" }), you.pa >= comp.cost);

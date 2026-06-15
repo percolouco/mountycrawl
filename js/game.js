@@ -4,7 +4,7 @@
 
 "use strict";
 
-const APP_VERSION = "2.9.0";
+const APP_VERSION = "2.9.1";
 
 /* Alpha : maîtrise initiale haute pour les tests. Remettre 15 % / 15 % à la v1.0 officielle. */
 const START_COMP_PCT = 90;
@@ -594,9 +594,8 @@ function tryMove(dx, dy) {
   if (nx < 0 || ny < 0 || nx >= MAP_W || ny >= MAP_H) return;
   if (G.grid[ny][nx] === T_WALL) return;
 
-  const target = G.monsters.find(m => m.x === nx && m.y === ny);
-  if (target) { attackMonster(target); return; }
-
+  // Empilement : se déplacer ne fait plus attaquer — on se pose sur la case
+  // (cohabitation), l'attaque passe par le bouton ⚔️ (cible choisie au besoin).
   if (!spendPA(COSTS.move)) return;
   t.x = nx; t.y = ny;
   updateFov();
@@ -668,8 +667,8 @@ function killMonster(m, source = "attack") {
   } else {
     log(`💀 ${m.name} est terrassé !`, "good");
   }
-  // butin : les monstres lâchent parfois un trésor en mourant
-  if (Math.random() < 0.4 && !G.items.some(i => i.x === m.x && i.y === m.y)) {
+  // butin : les monstres lâchent parfois un trésor en mourant (empilable)
+  if (Math.random() < 0.4) {
     const lr = Math.random();
     const drop = lr < 0.4
       ? { ...makeRandomPotion(), x: m.x, y: m.y }
@@ -744,7 +743,7 @@ function useComp() {
   if (t.race === "Skrim") { // Botte Secrète : attaque bonus, 1 fois par DLA
     if (t.compUsed) { log("Botte Secrète déjà utilisée cette DLA.", "info"); return; }
     const m = adjacentMonster();
-    if (!m) { log("Aucun monstre adjacent.", "info"); return; }
+    if (!m) { log("Aucun monstre sur ta case.", "info"); return; }
     if (!tryTalent(t.comp, 90, comp.cost, "🥋 Botte Secrète", "comp")) { cdFlush(); afterAction(); return; }
     t.compUsed = true;
     cdLine(`Vous portez une <b>Botte Secrète</b> à <b>${m.name}</b>.`);
@@ -785,7 +784,7 @@ function useComp() {
   } else if (t.race === "Darkling") { // Balayage : déstabilise, la cible perd son tour
     if (t.compUsed) { log("Balayage déjà utilisé cette DLA.", "info"); return; }
     const m = adjacentMonster();
-    if (!m) { log("Aucun monstre adjacent.", "info"); return; }
+    if (!m) { log("Aucun monstre sur ta case.", "info"); return; }
     if (!tryTalent(t.comp, 90, comp.cost, "🥋 Balayage", "comp")) { cdFlush(); afterAction(); return; }
     t.compUsed = true;
     const destab = rollDice(te.att, 6).total;
@@ -814,7 +813,7 @@ function useSort() {
 
   if (t.race === "Skrim") { // Hypnotisme : esquive /2 + perd son tour
     const m = adjacentMonster();
-    if (!m) { log("Aucun monstre adjacent.", "info"); return; }
+    if (!m) { log("Aucun monstre sur ta case.", "info"); return; }
     if (!tryTalent(t.sort, 80, sort.cost, "🔮 Hypnotisme", "sort")) { cdFlush(); afterAction(); return; }
     cdLine(`Vous avez attaqué <b>${m.name}</b> grâce à un sortilège.`);
     const res = resistInfo(m);
@@ -828,7 +827,7 @@ function useSort() {
       : `Hypnotisme : ${m.name} est hébété ! Esquive divisée par 2 et tour perdu.`, "good");
   } else if (t.race === "Durakuir") { // Rafale Psychique : imparable, ignore l'armure
     const m = adjacentMonster();
-    if (!m) { log("Aucun monstre adjacent.", "info"); return; }
+    if (!m) { log("Aucun monstre sur ta case.", "info"); return; }
     if (!tryTalent(t.sort, 80, sort.cost, "🔮 Rafale Psychique", "sort")) { cdFlush(); afterAction(); return; }
     cdLine(`Vous avez attaqué <b>${m.name}</b> grâce à un sortilège.`);
     cdLine(`Votre jet d'Attaque est : <span class="cd-good">automatiquement réussi</span> (imparable).`);
@@ -842,7 +841,7 @@ function useSort() {
     if (m.pv <= 0) killMonster(m, "sort");
   } else if (t.race === "Kastar") { // Vampirisme : dégâts + vol de vie
     const m = adjacentMonster();
-    if (!m) { log("Aucun monstre adjacent.", "info"); return; }
+    if (!m) { log("Aucun monstre sur ta case.", "info"); return; }
     if (!tryTalent(t.sort, 80, sort.cost, "🔮 Vampirisme", "sort")) { cdFlush(); afterAction(); return; }
     cdLine(`Vous avez attaqué <b>${m.name}</b> grâce à un sortilège.`);
     const pseudo = { ...te, att: Math.max(1, Math.floor(te.deg * 2 / 3)) };
@@ -891,7 +890,7 @@ function useSort() {
     }
   } else if (t.race === "Darkling") { // Siphon des Âmes : dégâts + nécrose (−ATT)
     const m = adjacentMonster();
-    if (!m) { log("Aucun monstre adjacent.", "info"); return; }
+    if (!m) { log("Aucun monstre sur ta case.", "info"); return; }
     if (!tryTalent(t.sort, 80, sort.cost, "🔮 Siphon des Âmes", "sort")) { cdFlush(); afterAction(); return; }
     cdLine(`Vous avez attaqué <b>${m.name}</b> grâce à un sortilège.`);
     const pseudo = { ...te, deg: te.reg, degBonus: 0 };
@@ -939,8 +938,14 @@ function nearestVisibleMonster() {
   return best;
 }
 
+// On ne peut frapper (attaque de base, compétences/sortilèges d'attaque) qu'un
+// monstre sur SA PROPRE case. Exception : le Projectile Magique (sortilège du
+// Tomawak) a sa propre portée (jusqu'à la Vue) et n'utilise pas cette fonction.
 function adjacentMonster() {
-  return G.monsters.find(m => Math.abs(m.x - G.troll.x) <= 1 && Math.abs(m.y - G.troll.y) <= 1);
+  return G.monsters.find(m => m.x === G.troll.x && m.y === G.troll.y);
+}
+function sameCellMonsters() {
+  return G.monsters.filter(m => m.x === G.troll.x && m.y === G.troll.y);
 }
 
 function pickup() {
@@ -1017,10 +1022,7 @@ function dropBagItem(idx) {
   const t = G.troll;
   const item = t.bag[idx];
   if (!item) return;
-  if (G.items.some(i => i.x === t.x && i.y === t.y)) {
-    log("Il y a déjà quelque chose à terre ici.", "info");
-    return;
-  }
+  // Empilement : plusieurs trésors peuvent cohabiter sur une case.
   if (!spendPA(COSTS.drop)) return;
   t.bag.splice(idx, 1);
   G.items.push({ ...item, x: t.x, y: t.y });
@@ -1249,8 +1251,9 @@ function stepToward(m, t) {
 function moveMonster(m, nx, ny) {
   if (nx < 0 || ny < 0 || nx >= MAP_W || ny >= MAP_H) return false;
   if (G.grid[ny][nx] === T_WALL) return false;
+  // Empilement : les monstres peuvent partager une case (mais ne marchent pas
+  // sur le troll — ils l'attaquent quand il est sur leur case).
   if (nx === G.troll.x && ny === G.troll.y) return false;
-  if (G.monsters.some(o => o !== m && o.x === nx && o.y === ny)) return false;
   m.x = nx; m.y = ny;
   return true;
 }
@@ -1271,7 +1274,7 @@ function win() {
 /* ================= Interface ================= */
 
 const $ = id => document.getElementById(id);
-const TILE = 24;
+const TILE = 48;
 
 function log(msg, cls = "info") {
   if (typeof document === "undefined") return;
@@ -1295,6 +1298,18 @@ function afterAction() {
   }
 }
 
+/* Caméra : recentre le panneau défilable sur le troll dès qu'il approche d'un
+ * bord (cases agrandies → le canvas dépasse le panneau). Partagé solo/multi. */
+function keepInView(canvas, tx, ty, tile) {
+  const box = canvas && canvas.parentElement;
+  if (!box || !box.clientWidth) return;
+  const cx = tx * tile + tile / 2, cy = ty * tile + tile / 2, m = tile * 2;
+  if (cx < box.scrollLeft + m) box.scrollLeft = cx - m;
+  else if (cx > box.scrollLeft + box.clientWidth - m) box.scrollLeft = cx - box.clientWidth + m;
+  if (cy < box.scrollTop + m) box.scrollTop = cy - m;
+  else if (cy > box.scrollTop + box.clientHeight - m) box.scrollTop = cy - box.clientHeight + m;
+}
+
 function render() {
   const canvas = $("map");
   const ctx = canvas.getContext("2d");
@@ -1313,50 +1328,67 @@ function render() {
       if (t === T_WALL) ctx.fillStyle = visible ? "#4a3a22" : "#2c2315";
       else ctx.fillStyle = visible ? "#7a6a45" : "#3d3522";
       ctx.fillRect(px, py, TILE - 1, TILE - 1);
-      if (t === T_STAIRS) {
-        ctx.fillStyle = "#111";
-        ctx.fillText("▼", px + TILE / 2, py + TILE / 2 + 1);
-      }
     }
   }
 
-  // pastille de couleur sous chaque entité : lisible même sans police emoji
-  const disc = (x, y, color) => {
+  // Empilement : une case peut contenir plusieurs monstres/trésors et un lieu
+  // (porte 🚪 ou sortie ▼). On regroupe par case et on dessine chaque TYPE dans
+  // un coin — troll ↖, monstre ↗, trésor ↙, lieu ↘ — avec un « ×N » si plusieurs.
+  const cells = {};
+  const cell = (x, y) => (cells[x + "," + y] = cells[x + "," + y] || { x, y, monsters: [], items: [], place: null, youHere: false });
+  for (const i of G.items) if (inSightAt(i.x, i.y)) cell(i.x, i.y).items.push(i);
+  for (const m of G.monsters) if (inSight(m)) cell(m.x, m.y).monsters.push(m);
+  for (const d of (G.doors || [])) if (inSightAt(d.x, d.y)) cell(d.x, d.y).place = "🚪";
+  for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
+    if (G.grid[y][x] === T_STAIRS && G.seen.has(y * MAP_W + x)) cell(x, y).place = "▼";
+  }
+  cell(G.troll.x, G.troll.y).youHere = true;
+
+  const Q = TILE / 4;
+  const EMOJI_FONT = Math.round(TILE / 3) + "px serif";
+  const COUNT_FONT = "bold " + Math.round(TILE / 4.5) + "px sans-serif";
+  const corner = (c, qx, qy, color, emoji, count, mine) => {
+    const cx = c.x * TILE + qx, cy = c.y * TILE + qy;
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.arc(x * TILE + TILE / 2, y * TILE + TILE / 2, TILE / 2 - 3, 0, Math.PI * 2);
+    ctx.arc(cx, cy, Q, 0, Math.PI * 2);
     ctx.fill();
+    if (mine) { ctx.strokeStyle = "#eaffdc"; ctx.lineWidth = 2; ctx.stroke(); }
+    ctx.fillStyle = "#1a140e";
+    ctx.font = EMOJI_FONT;
+    ctx.fillText(emoji, cx, cy + 1);
+    if (count > 1) {
+      ctx.font = COUNT_FONT;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#1a140e";
+      ctx.strokeText("×" + count, cx + Q * 0.9, cy + Q * 0.9);
+      ctx.fillStyle = "#ffe";
+      ctx.fillText("×" + count, cx + Q * 0.9, cy + Q * 0.9);
+    }
   };
-  for (const i of G.items) {
-    if (!inSightAt(i.x, i.y)) continue;
-    disc(i.x, i.y, i.kind === "gold" ? "#caa53d"
-      : i.kind === "potion" || i.kind === "scroll" ? (i.color || "#5d8535") : "#7a8db0");
-    ctx.fillStyle = "#1a140e";
-    ctx.fillText(i.emoji, i.x * TILE + TILE / 2, i.y * TILE + TILE / 2 + 1);
+
+  for (const c of Object.values(cells)) {
+    if (c.youHere) corner(c, Q, Q, "#8fbf5a", "🧌", 1, true); // ↖
+    if (c.monsters.length) {
+      corner(c, TILE - Q, Q, c.monsters[0].boss ? "#7a2070" : "#8a3030", c.monsters[0].emoji, c.monsters.length); // ↗
+      const low = c.monsters.reduce((a, b) => (b.pv / b.pvMax < a.pv / a.pvMax ? b : a));
+      const bw = Math.max(3, Math.round((TILE - 6) * low.pv / low.pvMax));
+      ctx.fillStyle = "#b03030";
+      ctx.fillRect(c.x * TILE + 3, c.y * TILE + 2, bw, 3);
+    }
+    if (c.items.length) {
+      const it = c.items[0];
+      const col = it.kind === "gold" ? "#caa53d" : (it.kind === "potion" || it.kind === "scroll") ? (it.color || "#5d8535") : "#7a8db0";
+      corner(c, Q, TILE - Q, col, it.emoji, c.items.length); // ↙
+    }
+    if (c.place) corner(c, TILE - Q, TILE - Q, "#6a5a8a", c.place, 1); // ↘ lieu (porte/sortie)
   }
-  for (const d of G.doors || []) {
-    if (!inSightAt(d.x, d.y)) continue;
-    disc(d.x, d.y, "#a06a28");
-    ctx.fillStyle = "#1a140e";
-    ctx.fillText("🚪", d.x * TILE + TILE / 2, d.y * TILE + TILE / 2 + 1);
-  }
-  for (const m of G.monsters) {
-    if (!inSight(m)) continue;
-    disc(m.x, m.y, m.boss ? "#7a2070" : "#8a3030");
-    ctx.fillStyle = "#1a140e";
-    ctx.fillText(m.emoji, m.x * TILE + TILE / 2, m.y * TILE + TILE / 2 + 1);
-    // barre de vie du monstre
-    const w = Math.max(2, Math.round((TILE - 6) * m.pv / m.pvMax));
-    ctx.fillStyle = "#b03030";
-    ctx.fillRect(m.x * TILE + 3, m.y * TILE + 1, w, 3);
-  }
-  disc(G.troll.x, G.troll.y, "#8fbf5a");
-  ctx.fillStyle = "#1a140e";
-  ctx.fillText("🧌", G.troll.x * TILE + TILE / 2, G.troll.y * TILE + TILE / 2 + 1);
   if (G.troll.camo) {
     ctx.strokeStyle = "#8fbf5a";
     ctx.strokeRect(G.troll.x * TILE + 1, G.troll.y * TILE + 1, TILE - 2, TILE - 2);
   }
+  ctx.font = "18px serif";
+  keepInView(canvas, G.troll.x, G.troll.y, TILE);
 }
 
 function renderPanels() {
@@ -1424,8 +1456,29 @@ function renderPanels() {
     b.onclick = fn;
     actions.appendChild(b);
   };
-  const adj = adjacentMonster();
-  addBtn(`⚔️ Attaquer (${COSTS.attack} PA)`, () => adj && attackMonster(adj), adj && t.pa >= COSTS.attack);
+  // Cibles : monstres sur TA case. Toujours un menu déroulant dès qu'il y en a
+  // une (même une seule), pour choisir laquelle frapper en cas d'empilement.
+  const targets = sameCellMonsters();
+  const canAttack = targets.length > 0 && t.pa >= COSTS.attack && !G.over;
+  if (targets.length >= 1) {
+    const wrap = document.createElement("div");
+    wrap.className = "mp-attack-sel";
+    const sel = document.createElement("select");
+    for (const m of targets) {
+      const opt = document.createElement("option");
+      opt.textContent = `${m.emoji} ${m.name} (${m.pv}/${m.pvMax} PV)`;
+      sel.appendChild(opt);
+    }
+    const b = document.createElement("button");
+    b.textContent = `⚔️ Attaquer (${COSTS.attack} PA)`;
+    b.disabled = !canAttack;
+    b.onclick = () => { const m = targets[sel.selectedIndex]; if (m) attackMonster(m); };
+    wrap.appendChild(sel);
+    wrap.appendChild(b);
+    actions.appendChild(wrap);
+  } else {
+    addBtn(`⚔️ Attaquer (${COSTS.attack} PA)`, () => {}, false);
+  }
   const comp = RACES[t.race].comp, sort = RACES[t.race].sort;
   addBtn(`🥋 ${comp.name} (${comp.cost} PA · ${t.comp.pct} %)`, useComp, t.pa >= comp.cost);
   addBtn(`🔮 ${sort.name} (${sort.cost} PA · ${t.sort.pct} %)`, useSort, t.pa >= sort.cost);
@@ -1607,20 +1660,15 @@ if (typeof document !== "undefined") {
       if (RACES[params.get("race")]) selectedRace = params.get("race");
       if (params.get("name")) $("troll-name").value = params.get("name");
       startGame();
-      // ?demo=combat : matérialise un gobelin adjacent et enchaîne attaque + sortilège
-      // (sert aux captures d'écran et au test visuel du détail du combat)
+      // ?demo=combat : matérialise un gobelin sur la case du troll (on n'attaque
+      // que sa propre case) et enchaîne attaque + sortilège (captures / test visuel)
       if (params.get("demo") === "combat") {
         const t = G.troll;
-        const spot = [[1, 0], [-1, 0], [0, 1], [0, -1]]
-          .map(([dx, dy]) => ({ x: t.x + dx, y: t.y + dy }))
-          .find(p => G.grid[p.y] && G.grid[p.y][p.x] === T_FLOOR);
-        if (spot) {
-          const m = makeMonster(1, spot.x, spot.y);
-          G.monsters.push(m);
-          render();
-          attackMonster(m);
-          if (G.monsters.includes(m)) useSort();
-        }
+        const m = makeMonster(1, t.x, t.y);
+        G.monsters.push(m);
+        render();
+        attackMonster(m);
+        if (G.monsters.includes(m)) useSort();
       }
       // ?demo=sac : remplit le sac et équipe deux pièces (captures du sac trié)
       if (params.get("demo") === "sac") {

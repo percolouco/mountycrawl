@@ -234,6 +234,13 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.9.1** (2026-06-15) — Le **solo reçoit tout ce que le monde partagé a eu**
+  (empilement des cases, rendu par coins avec le coin **lieu** ↘ qui affiche
+  enfin les portes 🚪 / la sortie ▼, cases ×2, attaque limitée à sa propre case,
+  drop empilable). Le **menu déroulant de cible s'affiche toujours**, même quand
+  il n'y a qu'un seul monstre/troll. Et comme les cases agrandies débordent du
+  cadre, une **caméra suit le troll** (le panneau défile pour le garder en vue),
+  dans les deux modes.
 - **2.9.0** (2026-06-15) — Monde partagé : **cases deux fois plus grandes**
   (48 px) pour la lisibilité de l'empilement par coins. **Portée d'attaque =
   même case** : on ne peut frapper (attaque de base et compétences/sortilèges

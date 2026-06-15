@@ -287,7 +287,9 @@ header h1 { font-size: 1.3em; color: #FFFFCC; text-shadow: 1px 1px 2px #000; }
   opacity: .45; cursor: default;
 }
 
-#panel-center { flex-grow: 1; text-align: center; }
+/* Cases agrandies : le canvas peut dépasser le panneau → on le rend défilable
+ * (et une caméra recentre sur le troll côté JS). */
+#panel-center { flex-grow: 1; min-width: 0; text-align: center; overflow: auto; max-height: 86vh; }
 
 #map {
   background: #0d0a06;
