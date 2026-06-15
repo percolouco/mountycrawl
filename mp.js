@@ -163,7 +163,7 @@ function spawnMonster(world, now = Date.now()) {
   // profondeur, avec un âge au hasard. Données de la base (tunées admin) +
   // multiplicateurs d'âge.
   const depth = world.config.worldDepth;
-  const m = g.buildBestiaryMonster(db.bestiaryAll(), db.monsterAges().map(a => a.mult), bestiaryLib.AGE_NAMES, depth, pos.x, pos.y);
+  const m = g.buildBestiaryMonster(db.bestiaryAll(), db.monsterAges().map(a => a.mult), bestiaryLib.AGE_NAMES, bestiaryLib.AGE_NAMES_F, depth, pos.x, pos.y);
   if (!m) return null;
   m.id = world.nextId++;
   m.dlaMs = Math.round(monsterDlaMs(world.config));

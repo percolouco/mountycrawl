@@ -26,7 +26,7 @@ const bestiaryLib = require("./js/bestiary.js");
 const BESTIARY_STATS = ["level", "pv", "att", "esq", "deg", "reg", "armPhys", "armMag", "vue", "mm", "rm"];
 const BESTIARY_RANGE_KEYS = BESTIARY_STATS.flatMap(k => [k + "Min", k + "Max"]);
 const BESTIARY_INT_KEYS = [...BESTIARY_RANGE_KEYS, "minAge", "maxAge", "fly", "ranged", "magic", "seesHidden", "nbAtt"];
-const BESTIARY_TXT_KEYS = ["family", "speed", "capacities", "blason"];
+const BESTIARY_TXT_KEYS = ["family", "speed", "capacities", "blason", "gender"];
 const BESTIARY_KEYS = [...BESTIARY_INT_KEYS, ...BESTIARY_TXT_KEYS]; // hors `name` (clé)
 
 const MONSTER_KEYS = ["level", "att", "attMag", "esq", "deg", "degMag", "pv", "armor", "armorMag", "vue"];
@@ -147,6 +147,9 @@ function init(file = ":memory:") {
       age INTEGER PRIMARY KEY, mult REAL
     );
   `);
+  // Migration : la colonne `gender` du bestiaire a été ajoutée après coup → on
+  // l'ajoute aux bases déjà créées AVANT tout INSERT/UPDATE qui la référence.
+  try { DB.exec("ALTER TABLE bestiary ADD COLUMN gender TEXT"); } catch { /* déjà là */ }
   const insM = DB.prepare(`INSERT OR IGNORE INTO monsters
     (name, emoji, boss, isStatic, ${MONSTER_KEYS.join(", ")})
     VALUES (?, ?, ?, ?, ${MONSTER_KEYS.map(() => "?").join(", ")})`);
@@ -171,6 +174,9 @@ function init(file = ":memory:") {
   for (const b of bestiaryLib.BESTIARY) insB.run(b.name, ...BESTIARY_KEYS.map(k => b[k]));
   const insA = DB.prepare("INSERT OR IGNORE INTO monster_ages (age, mult) VALUES (?, ?)");
   bestiaryLib.AGE_MULT.forEach((mult, age) => insA.run(age, mult));
+  // Peuple le genre des lignes déjà présentes (sans genre) depuis la référence.
+  const updGender = DB.prepare("UPDATE bestiary SET gender = ? WHERE name = ? AND (gender IS NULL OR gender = '')");
+  for (const b of bestiaryLib.BESTIARY) updGender.run(b.gender, b.name);
   // Correctif des bases déjà créées : PufPuff avait été seedé à tort en [0,2]
   // (le niveau 0 d'une potion n'existe pas, minimum 1) → on le ramène à [1,3].
   // Le garde `powerMin = 0` évite d'écraser une plage éditée volontairement.

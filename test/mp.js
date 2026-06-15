@@ -262,10 +262,14 @@ function makeWorld(over = {}) {
     pvMin: 5000, pvMax: 5000, attMin: 7, attMax: 7, esqMin: 3, esqMax: 3, degMin: 4, degMax: 4, regMin: 1, regMax: 1,
     armPhysMin: 2, armPhysMax: 2, armMagMin: 0, armMagMax: 0, vueMin: 4, vueMax: 4, mmMin: 0, mmMax: 0, rmMin: 0, rmMax: 0,
     fly: 0, ranged: 0, magic: 1, seesHidden: 0, speed: "Normale", nbAtt: 1, capacities: "", blason: "" }];
-  const bm = g.buildBestiaryMonster(one, [1, 1, 1, 1, 1, 1, 1, 1], best.AGE_NAMES, 10, 0, 0);
+  const bm = g.buildBestiaryMonster(one, [1, 1, 1, 1, 1, 1, 1, 1], best.AGE_NAMES, best.AGE_NAMES_F, 10, 0, 0);
   assert.strictEqual(bm.pv, 5000, "PV tiré dans la plage du bestiaire");
   assert.strictEqual(bm.att, 7, "ATT tirée dans la plage");
   assert.strictEqual(bm.attMag, 7, "monstre magique : attMag = att");
+  assert.strictEqual(bm.name, "Cobaye [Nouveau]", "nom au format Nom [Âge]");
+  // féminin : « Plante [Doyenne] »
+  const fem = g.buildBestiaryMonster([{ ...one[0], name: "Plante", gender: "f", minAge: 5, maxAge: 5 }], [1, 1, 1, 1, 1, 1, 1, 1], best.AGE_NAMES, best.AGE_NAMES_F, 10, 0, 0);
+  assert.strictEqual(fem.name, "Plante [Doyenne]", "âge au féminin : " + fem.name);
   // édition admin du bestiaire reflétée en base
   const name = db.bestiaryAll()[0].name;
   mp.adminSetTuning(w, { bestiary: { [name]: { pvMin: 4242, pvMax: 4242 } } });

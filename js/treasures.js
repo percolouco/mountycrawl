@@ -64,7 +64,7 @@ function templateCard(t) {
 /* Carte d'un monstre du bestiaire : blason + stats (plages) + âges + capacités. */
 function monsterCard(m) {
   const rg = (a, b, s = "") => (a === b ? `${a}${s}` : `${a}-${b}${s}`);
-  const ages = BESTIARY_AGE_NAMES[m.family] || [];
+  const ages = ((m.gender === "f" ? BESTIARY_AGE_NAMES_F : BESTIARY_AGE_NAMES)[m.family]) || [];
   const ageTxt = m.minAge === m.maxAge ? (ages[m.minAge] || "—")
     : `${ages[m.minAge] || m.minAge} → ${ages[m.maxAge] || m.maxAge}`;
   const fx = [
@@ -230,6 +230,14 @@ const BESTIARY_AGE_NAMES = {
   Humanoide: ["Nouveau", "Jeune", "Adulte", "Vétéran", "Briscard", "Doyen", "Légendaire", "Mythique"],
   Monstre: ["Nouveau", "Jeune", "Adulte", "Vétéran", "Briscard", "Doyen", "Légendaire", "Mythique"],
   "Mort-Vivant": ["Naissant", "Récent", "Ancien", "Vénérable", "Séculaire", "Antique", "Ancestral", "Antédiluvien"],
+};
+const BESTIARY_AGE_NAMES_F = {
+  Insecte: ["Larve", "Immature", "Juvénile", "Imago", "Développée", "Mûre", "Accomplie", "Achevée"],
+  Animal: ["Bébé", "Enfançon", "Jeune", "Adulte", "Mature", "Chef de harde", "Ancienne", "Ancêtre"],
+  "Démon": ["Initiale", "Novice", "Mineure", "Favorite", "Majeure", "Supérieure", "Suprême", "Ultime"],
+  Humanoide: ["Nouvelle", "Jeune", "Adulte", "Vétérane", "Briscarde", "Doyenne", "Légendaire", "Mythique"],
+  Monstre: ["Nouvelle", "Jeune", "Adulte", "Vétérane", "Briscarde", "Doyenne", "Légendaire", "Mythique"],
+  "Mort-Vivant": ["Naissante", "Récente", "Ancienne", "Vénérable", "Séculaire", "Antique", "Ancestrale", "Antédiluvienne"],
 };
 const FAMILY_EMOJI = { Insecte: "🐛", Animal: "🐾", "Démon": "👿", Humanoide: "🧝", Monstre: "👹", "Mort-Vivant": "💀" };
 

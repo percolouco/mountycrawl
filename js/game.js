@@ -4,7 +4,7 @@
 
 "use strict";
 
-const APP_VERSION = "2.11.0";
+const APP_VERSION = "2.11.1";
 
 /* Alpha : maîtrise initiale haute pour les tests. Remettre 15 % / 15 % à la v1.0 officielle. */
 const START_COMP_PCT = 90;
@@ -218,7 +218,7 @@ const FAMILY_EMOJI_G = { Insecte: "🐛", Animal: "🐾", "Démon": "👿", Huma
  * on tire chaque stat dans sa plage. `list` = lignes du bestiaire, `ageMults` =
  * [m0..m7], `ageNames` = noms d'âge par famille. Partagé solo (données statiques
  * de bestiary.js) / multi (données de la base, tunées admin). */
-function buildBestiaryMonster(list, ageMults, ageNames, depth, x, y) {
+function buildBestiaryMonster(list, ageMults, ageNames, ageNamesF, depth, x, y) {
   if (!list || !list.length) return null;
   const band = 3;
   let pool = list.filter(m => m.levelMin <= depth + band && m.levelMax >= depth - band);
@@ -232,9 +232,9 @@ function buildBestiaryMonster(list, ageMults, ageNames, depth, x, y) {
   const f = (ageMults[age] || 1) / (ageMults[b.minAge] || 1);
   const roll = (mn, mx) => { const lo = Math.round(mn * f), hi = Math.round(mx * f); return lo + Math.floor(Math.random() * (Math.max(lo, hi) - lo + 1)); };
   const att = Math.max(1, roll(b.attMin, b.attMax)), deg = Math.max(1, roll(b.degMin, b.degMax)), pv = Math.max(1, roll(b.pvMin, b.pvMax));
-  const names = (ageNames && ageNames[b.family]) || [];
+  const names = ((b.gender === "f" ? ageNamesF : ageNames) || {})[b.family] || [];
   return {
-    name: ((names[age] ? names[age] + " " : "") + b.name).trim(),
+    name: `${b.name}${names[age] ? " [" + names[age] + "]" : ""}`,
     emoji: FAMILY_EMOJI_G[b.family] || "👹",
     level: Math.max(1, roll(b.levelMin, b.levelMax)),
     att, esq: Math.max(1, roll(b.esqMin, b.esqMax)), deg,
@@ -251,7 +251,7 @@ function buildBestiaryMonster(list, ageMults, ageNames, depth, x, y) {
 function makeMonster(depth, x, y) {
   // Bestiaire (données statiques chargées dans le navigateur en solo)
   if (typeof BESTIARY !== "undefined" && BESTIARY.length)
-    return buildBestiaryMonster(BESTIARY, AGE_MULT, AGE_NAMES, depth, x, y);
+    return buildBestiaryMonster(BESTIARY, AGE_MULT, AGE_NAMES, AGE_NAMES_F, depth, x, y);
   // Repli (bestiaire non chargé) : ancien système des 7 types
   const pool = MONSTER_TYPES.filter(m => m.level <= depth + 1 && m.level >= Math.max(1, depth - 2));
   const type = pool[Math.floor(Math.random() * pool.length)];

@@ -234,6 +234,11 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.11.1** (2026-06-15) — Nom des monstres au format **« Nom [Âge] »**
+  (« Ankheg [Mûr] », « Lutin [Adulte] ») au lieu du préfixe. Gestion du
+  **féminin** : chaque monstre a un genre (m/f, éditable en admin), et l'âge
+  s'accorde (« Plante Carnivore [Doyenne] »). ~31 monstres détectés féminins par
+  défaut (liste curatée), corrigeable au cas par cas dans l'admin.
 - **2.11.0** (2026-06-15) — Bestiaire, étape 4 : **les monstres du bestiaire
   apparaissent dans le jeu** (solo ET monde partagé), à la place des 7 anciens.
   À chaque apparition, on choisit un monstre dont le niveau de base tombe dans la
