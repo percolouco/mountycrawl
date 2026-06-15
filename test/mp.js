@@ -238,29 +238,38 @@ function makeWorld(over = {}) {
   assert(!st.includes(r.troll.passHash) && !st.includes(r.troll.salt), "pas de fuite du hash/sel");
 }
 
-// Tuning admin : bestiaire appliqué aux nouveaux spawns
+// Tuning admin : ancienne table monsters (legacy) — validation/bornage/reset
 {
   const w = makeWorld({ monsterTarget: 0, itemTarget: 0, worldDepth: 1 });
-  const tun1 = mp.adminSetTuning(w, { monsters: { "Gobelin": { att: 9, pv: 77, armorMag: 3 } } });
+  const tun1 = mp.adminSetTuning(w, { monsters: { "Gobelin": { att: 9 } } });
   assert.strictEqual(tun1.monsters.Gobelin.att, 9, "écart ATT visible dans le tuning courant");
-  // spawn forcé jusqu'à obtenir un Gobelin
-  let gob = null;
-  for (let i = 0; i < 300 && !gob; i++) {
-    const m = mp.spawnMonster(w);
-    if (m && m.name.includes("Gobelin")) gob = m;
-  }
-  assert(gob, "un Gobelin a fini par apparaître");
-  // gabarit « Jeune/normal » à depth 1 : mult 0.7 ou 1.0 → att 6 ou 9, pv 54 ou 77
-  assert([6, 9].includes(gob.att), "ATT tunée (×gabarit) : " + gob.att);
-  assert([54, 77].includes(gob.pv), "PV tunés (×gabarit) : " + gob.pv);
-  assert.strictEqual(gob.armorMag, 3, "armure magique tunée (gabarit ne la multiplie pas)");
-  // bornage et noms inconnus ignorés
   const tun2 = mp.adminSetTuning(w, { monsters: { "Dragon": { att: 5 }, "Gobelin": { att: 5000 } } });
   assert(!tun2.monsters.Dragon, "type inconnu ignoré");
   assert.strictEqual(tun2.monsters.Gobelin.att, 99, "ATT bornée à 99");
-  // retour au vanilla : reset explicite de la catégorie
   const tun3 = mp.adminSetTuning(w, { reset: ["monsters"] });
-  assert.strictEqual(Object.keys(tun3.monsters).length, 0, "bestiaire d'origine restauré");
+  assert.strictEqual(Object.keys(tun3.monsters).length, 0, "monstres legacy d'origine restaurés");
+}
+
+// Bestiaire : les apparitions du monde partagé viennent du bestiaire
+{
+  const best = require("../js/bestiary.js");
+  const db = require("../db.js");
+  const w = makeWorld({ monsterTarget: 0, itemTarget: 0, worldDepth: 12 });
+  const m = mp.spawnMonster(w);
+  assert(m && m.name && m.att >= 1 && m.deg >= 1 && m.pv >= 1 && typeof m.family === "string", "spawn d'un monstre du bestiaire : " + (m && m.name));
+  // tirage déterministe : 1 monstre, plages fixes, multiplicateurs neutres
+  const one = [{ name: "Cobaye", family: "Monstre", minAge: 0, maxAge: 0, levelMin: 10, levelMax: 10,
+    pvMin: 5000, pvMax: 5000, attMin: 7, attMax: 7, esqMin: 3, esqMax: 3, degMin: 4, degMax: 4, regMin: 1, regMax: 1,
+    armPhysMin: 2, armPhysMax: 2, armMagMin: 0, armMagMax: 0, vueMin: 4, vueMax: 4, mmMin: 0, mmMax: 0, rmMin: 0, rmMax: 0,
+    fly: 0, ranged: 0, magic: 1, seesHidden: 0, speed: "Normale", nbAtt: 1, capacities: "", blason: "" }];
+  const bm = g.buildBestiaryMonster(one, [1, 1, 1, 1, 1, 1, 1, 1], best.AGE_NAMES, 10, 0, 0);
+  assert.strictEqual(bm.pv, 5000, "PV tiré dans la plage du bestiaire");
+  assert.strictEqual(bm.att, 7, "ATT tirée dans la plage");
+  assert.strictEqual(bm.attMag, 7, "monstre magique : attMag = att");
+  // édition admin du bestiaire reflétée en base
+  const name = db.bestiaryAll()[0].name;
+  mp.adminSetTuning(w, { bestiary: { [name]: { pvMin: 4242, pvMax: 4242 } } });
+  assert.strictEqual(db.bestiaryAll().find(b => b.name === name).pvMin, 4242, "édition du bestiaire écrite en base");
 }
 
 // Tuning admin : mises à jour CIBLÉES — éditer un objet n'écrase pas les autres
@@ -327,17 +336,9 @@ function makeWorld(over = {}) {
 {
   const w = makeWorld({ monsterTarget: 0, itemTarget: 0, worldDepth: 1 });
   const tunMag = mp.adminSetTuning(w, {
-    monsters: { "Gobelin": { attMag: 6, degMag: 4 } },
     gear: { "arme/Bâton de mage": { attMag: 4, armMag: 2 } },
   });
-  assert.strictEqual(tunMag.monsters.Gobelin.attMag, 6, "ATT mag du Gobelin tunée");
   assert.strictEqual(tunMag.gear["arme/Bâton de mage"].armMag, 2, "Armure mag du bâton tunée");
-  let gob = null;
-  for (let i = 0; i < 300 && !gob; i++) {
-    const m = mp.spawnMonster(w);
-    if (m && m.name.includes("Gobelin")) gob = m;
-  }
-  assert(gob && gob.attMag > 0 && gob.degMag > 0, "le Gobelin spawné a une attaque magique");
   const gearLib = require("../js/gear.js");
   const baton = mp.applyGearTuning(gearLib.gearItemByName("arme", "Bâton de mage"));
   assert.strictEqual(baton.mods.attMag, 4, "ATT mag du bâton droppé");

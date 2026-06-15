@@ -4,7 +4,7 @@
 
 "use strict";
 
-const APP_VERSION = "2.10.2";
+const APP_VERSION = "2.11.0";
 
 /* Alpha : maîtrise initiale haute pour les tests. Remettre 15 % / 15 % à la v1.0 officielle. */
 const START_COMP_PCT = 90;
@@ -210,7 +210,49 @@ function applyTemplate(type, tpl, x, y) {
   };
 }
 
+const FAMILY_EMOJI_G = { Insecte: "🐛", Animal: "🐾", "Démon": "👿", Humanoide: "🧝", Monstre: "👹", "Mort-Vivant": "💀" };
+
+/* Construit un monstre du BESTIAIRE pour une profondeur : on choisit un monstre
+ * dont le niveau de base tombe dans une tranche autour de la profondeur (± bande),
+ * un âge au hasard dans sa fourchette (le multiplicateur d'âge est appliqué), et
+ * on tire chaque stat dans sa plage. `list` = lignes du bestiaire, `ageMults` =
+ * [m0..m7], `ageNames` = noms d'âge par famille. Partagé solo (données statiques
+ * de bestiary.js) / multi (données de la base, tunées admin). */
+function buildBestiaryMonster(list, ageMults, ageNames, depth, x, y) {
+  if (!list || !list.length) return null;
+  const band = 3;
+  let pool = list.filter(m => m.levelMin <= depth + band && m.levelMax >= depth - band);
+  if (!pool.length) { // hors tranche : on prend les plus proches en niveau
+    let best = Infinity;
+    for (const m of list) best = Math.min(best, Math.abs((m.levelMin + m.levelMax) / 2 - depth));
+    pool = list.filter(m => Math.abs((m.levelMin + m.levelMax) / 2 - depth) <= best + 1);
+  }
+  const b = pool[Math.floor(Math.random() * pool.length)];
+  const age = b.minAge + Math.floor(Math.random() * (b.maxAge - b.minAge + 1));
+  const f = (ageMults[age] || 1) / (ageMults[b.minAge] || 1);
+  const roll = (mn, mx) => { const lo = Math.round(mn * f), hi = Math.round(mx * f); return lo + Math.floor(Math.random() * (Math.max(lo, hi) - lo + 1)); };
+  const att = Math.max(1, roll(b.attMin, b.attMax)), deg = Math.max(1, roll(b.degMin, b.degMax)), pv = Math.max(1, roll(b.pvMin, b.pvMax));
+  const names = (ageNames && ageNames[b.family]) || [];
+  return {
+    name: ((names[age] ? names[age] + " " : "") + b.name).trim(),
+    emoji: FAMILY_EMOJI_G[b.family] || "👹",
+    level: Math.max(1, roll(b.levelMin, b.levelMax)),
+    att, esq: Math.max(1, roll(b.esqMin, b.esqMax)), deg,
+    reg: Math.max(0, roll(b.regMin, b.regMax)),
+    attMag: b.magic ? att : 0, degMag: b.magic ? deg : 0,
+    pv, pvMax: pv,
+    armor: Math.max(0, roll(b.armPhysMin, b.armPhysMax)), armorMag: Math.max(0, roll(b.armMagMin, b.armMagMax)),
+    vue: Math.max(1, roll(b.vueMin, b.vueMax)),
+    static: false, boss: false, x, y,
+    family: b.family, fly: !!b.fly, ranged: !!b.ranged, seesHidden: !!b.seesHidden, speed: b.speed, nbAtt: b.nbAtt, capacities: b.capacities,
+  };
+}
+
 function makeMonster(depth, x, y) {
+  // Bestiaire (données statiques chargées dans le navigateur en solo)
+  if (typeof BESTIARY !== "undefined" && BESTIARY.length)
+    return buildBestiaryMonster(BESTIARY, AGE_MULT, AGE_NAMES, depth, x, y);
+  // Repli (bestiaire non chargé) : ancien système des 7 types
   const pool = MONSTER_TYPES.filter(m => m.level <= depth + 1 && m.level >= Math.max(1, depth - 2));
   const type = pool[Math.floor(Math.random() * pool.length)];
   const tplMax = Math.min(TEMPLATES.length - 1, depth - 1);
@@ -1702,7 +1744,7 @@ if (typeof document !== "undefined") {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     APP_VERSION, rollDice, resolveAttack, resolveSpell, masteryRoll, improveCost, levelFromTotalPI, killPX,
-    RACES, MONSTER_TYPES, BOSS, TEMPLATES, applyTemplate, makeMonster, monsterFromSpec, itemFromSpec, equipGear, unequipToBag,
+    RACES, MONSTER_TYPES, BOSS, TEMPLATES, applyTemplate, makeMonster, buildBestiaryMonster, monsterFromSpec, itemFromSpec, equipGear, unequipToBag,
     generateCavern, largestRegion,
     MAP_W, MAP_H, T_WALL, T_FLOOR, T_STAIRS,
     COSTS, PA_PER_TURN, START_COMP_PCT, START_SORT_PCT,

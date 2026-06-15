@@ -234,6 +234,17 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.11.0** (2026-06-15) — Bestiaire, étape 4 : **les monstres du bestiaire
+  apparaissent dans le jeu** (solo ET monde partagé), à la place des 7 anciens.
+  À chaque apparition, on choisit un monstre dont le niveau de base tombe dans la
+  **tranche autour de la profondeur** (± quelques niveaux), un **âge au hasard**
+  dans sa fourchette (multiplicateur d'âge appliqué), puis chaque stat est tirée
+  dans sa plage ; le nom prend le préfixe d'âge (« Mûr Ankheg ») et un emoji de
+  famille. La **profondeur** du monde partagé est désormais réglable **jusqu'à 45**
+  (pour atteindre les monstres de haut niveau). Le multi lit la base (tunée
+  admin), le solo les valeurs statiques. *(Les monstres placés à la main dans
+  l'éditeur de niveaux et le Béhémoth gardent l'ancien système ; les capacités
+  spéciales et drapeaux sont portés mais pas encore actifs.)*
 - **2.10.2** (2026-06-15) — Bestiaire, étape 3 : **encyclopédie**. Nouvelle
   section « 🐲 Bestiaire » dans « Trésors du Hall » (accessible par le menu) qui
   liste les 150 monstres **groupés par famille**, avec leur **blason**, leurs

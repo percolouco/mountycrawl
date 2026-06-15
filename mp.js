@@ -24,6 +24,7 @@ const g = require("./js/game.js");
 const p = require("./js/potions.js");
 const sc = require("./js/scrolls.js");
 const gearLib = require("./js/gear.js");
+const bestiaryLib = require("./js/bestiary.js");
 const db = require("./db.js");
 
 /* ---------- Configuration par défaut (tout est réglable via l'admin) ---------- */
@@ -45,7 +46,7 @@ const DEFAULT_CONFIG = {
 };
 
 const CONFIG_BOUNDS = {
-  mapW: [24, 80], mapH: [16, 60], worldDepth: [1, 5],
+  mapW: [24, 80], mapH: [16, 60], worldDepth: [1, 45],
   monsterDlaMinSec: [5, 3600], monsterDlaMaxSec: [5, 7200],
   trollDlaSec: [5, 3600], pollSec: [1, 60],
   monsterTarget: [0, 120], repopSec: [10, 3600],
@@ -158,16 +159,12 @@ function monsterDlaMs(config) {
 function spawnMonster(world, now = Date.now()) {
   const pos = randomFloor(world);
   if (!pos) return null;
-  // même logique que makeMonster (pool par profondeur + gabarit d'âge),
-  // mais sur les types tunés par l'admin
+  // Bestiaire : on tire un monstre dont le niveau tombe dans la tranche de la
+  // profondeur, avec un âge au hasard. Données de la base (tunées admin) +
+  // multiplicateurs d'âge.
   const depth = world.config.worldDepth;
-  const types = tunedMonsterTypes().filter(t => !t.boss);
-  const pool = types.filter(t => t.level <= depth + 1 && t.level >= Math.max(1, depth - 2));
-  const list = pool.length ? pool : types;
-  const type = list[Math.floor(Math.random() * list.length)];
-  const tplMax = Math.min(g.TEMPLATES.length - 1, depth - 1);
-  const tpl = g.TEMPLATES[Math.floor(Math.random() * (tplMax + 1))];
-  const m = g.applyTemplate(type, tpl, pos.x, pos.y);
+  const m = g.buildBestiaryMonster(db.bestiaryAll(), db.monsterAges().map(a => a.mult), bestiaryLib.AGE_NAMES, depth, pos.x, pos.y);
+  if (!m) return null;
   m.id = world.nextId++;
   m.dlaMs = Math.round(monsterDlaMs(world.config));
   m.nextDla = now + m.dlaMs;
