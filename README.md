@@ -234,7 +234,17 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
-- **2.9.1** (2026-06-15) — Le **solo reçoit tout ce que le monde partagé a eu**
+- **2.10.0** (2026-06-15) — **Nouveau bestiaire** (étape 1 : les données). Le
+  bestiaire complet fourni (945 entrées monstre × âge) est replié, comme demandé,
+  en **1 ligne par monstre** (150 monstres, stats de base = âge le plus jeune, en
+  plages min/max) + une **table d'âges** (8 multiplicateurs appliqués à la
+  génération/croissance). Tout est dans la base de référence (`js/bestiary.js` →
+  tables `bestiary` et `monster_ages`), exposé sur `/api/reference/bestiary` et
+  `/api/reference/ages`, et éditable comme le reste (sqlite-web). Chaque monstre
+  porte sa famille, ses plages de stats, ses capacités (listées, effets à venir),
+  ses drapeaux (vol, attaque à distance/magique, voit le caché), sa vitesse, son
+  nombre d'attaques et son blason. *Prochaines étapes : encyclopédie, éditeur
+  admin, puis bascule des apparitions du jeu sur ce bestiaire.*
   (empilement des cases, rendu par coins avec le coin **lieu** ↘ qui affiche
   enfin les portes 🚪 / la sortie ▼, cases ×2, attaque limitée à sa propre case,
   drop empilable). Le **menu déroulant de cible s'affiche toujours**, même quand

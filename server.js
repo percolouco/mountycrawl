@@ -276,8 +276,10 @@ function handleAPI(req, res, url) {
     potions: () => db.treasuresAll("potions"),
     scrolls: () => db.treasuresAll("scrolls"),
     templates: () => db.templatesAll(),
+    bestiary: () => db.bestiaryAll(),
+    ages: () => db.monsterAges(),
   };
-  const refMatch = url.pathname.match(/^\/api\/reference\/(gear|monsters|potions|scrolls|templates)$/);
+  const refMatch = url.pathname.match(/^\/api\/reference\/(gear|monsters|potions|scrolls|templates|bestiary|ages)$/);
   if (req.method === "GET" && refMatch) {
     return sendJSON(res, 200, REFERENCE[refMatch[1]]());
   }

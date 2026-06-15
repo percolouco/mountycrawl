@@ -19,6 +19,15 @@ const g = require("./js/game.js");
 const p = require("./js/potions.js");
 const sc = require("./js/scrolls.js");
 const gearLib = require("./js/gear.js");
+const bestiaryLib = require("./js/bestiary.js");
+
+// Bestiaire complet (demande Perco) : 1 ligne par monstre (stats de base = âge
+// le plus jeune, en plages min/max) + une table d'âges (multiplicateurs).
+const BESTIARY_STATS = ["level", "pv", "att", "esq", "deg", "reg", "armPhys", "armMag", "vue", "mm", "rm"];
+const BESTIARY_RANGE_KEYS = BESTIARY_STATS.flatMap(k => [k + "Min", k + "Max"]);
+const BESTIARY_INT_KEYS = [...BESTIARY_RANGE_KEYS, "minAge", "maxAge", "fly", "ranged", "magic", "seesHidden", "nbAtt"];
+const BESTIARY_TXT_KEYS = ["family", "speed", "capacities", "blason"];
+const BESTIARY_KEYS = [...BESTIARY_INT_KEYS, ...BESTIARY_TXT_KEYS]; // hors `name` (clé)
 
 const MONSTER_KEYS = ["level", "att", "attMag", "esq", "deg", "degMag", "pv", "armor", "armorMag", "vue"];
 const GEAR_KEYS = ["att", "attMag", "esq", "deg", "degMag", "reg", "arm", "armMag", "vue", "pv", "rmPct", "mmPct"];
@@ -129,6 +138,14 @@ function init(file = ":memory:") {
     CREATE TABLE IF NOT EXISTS templates (
       id INTEGER PRIMARY KEY, name TEXT, ${TEMPLATE_KEYS.map(k => `${k} INTEGER`).join(", ")}
     );
+    CREATE TABLE IF NOT EXISTS bestiary (
+      name TEXT PRIMARY KEY,
+      ${BESTIARY_INT_KEYS.map(k => `${k} INTEGER`).join(", ")},
+      ${BESTIARY_TXT_KEYS.map(k => `${k} TEXT`).join(", ")}
+    );
+    CREATE TABLE IF NOT EXISTS monster_ages (
+      age INTEGER PRIMARY KEY, mult REAL
+    );
   `);
   const insM = DB.prepare(`INSERT OR IGNORE INTO monsters
     (name, emoji, boss, isStatic, ${MONSTER_KEYS.join(", ")})
@@ -149,6 +166,11 @@ function init(file = ":memory:") {
   const insT = DB.prepare(`INSERT OR IGNORE INTO templates (id, name, ${TEMPLATE_KEYS.join(", ")})
     VALUES (?, ?, ${TEMPLATE_KEYS.map(() => "?").join(", ")})`);
   for (const t of vanillaTemplates()) insT.run(t.id, t.name, ...TEMPLATE_KEYS.map(k => t[k]));
+  const insB = DB.prepare(`INSERT OR IGNORE INTO bestiary (name, ${BESTIARY_KEYS.join(", ")})
+    VALUES (?, ${BESTIARY_KEYS.map(() => "?").join(", ")})`);
+  for (const b of bestiaryLib.BESTIARY) insB.run(b.name, ...BESTIARY_KEYS.map(k => b[k]));
+  const insA = DB.prepare("INSERT OR IGNORE INTO monster_ages (age, mult) VALUES (?, ?)");
+  bestiaryLib.AGE_MULT.forEach((mult, age) => insA.run(age, mult));
   // Correctif des bases déjà créées : PufPuff avait été seedé à tort en [0,2]
   // (le niveau 0 d'une potion n'existe pas, minimum 1) → on le ramène à [1,3].
   // Le garde `powerMin = 0` évite d'écraser une plage éditée volontairement.
@@ -191,6 +213,14 @@ function templatesAll() {
   return db().prepare("SELECT * FROM templates ORDER BY id").all();
 }
 
+function bestiaryAll() {
+  return db().prepare("SELECT * FROM bestiary ORDER BY family, name").all();
+}
+
+function monsterAges() {
+  return db().prepare("SELECT * FROM monster_ages ORDER BY age").all();
+}
+
 /* ---------- Écriture (page admin) ---------- */
 
 function setMonster(name, vals) {
@@ -219,11 +249,24 @@ function setTemplate(id, vals) {
     .run(...keys.map(k => vals[k]), id);
 }
 
+function setBestiary(name, vals) {
+  const keys = BESTIARY_KEYS.filter(k => vals[k] != null);
+  if (!keys.length) return;
+  db().prepare(`UPDATE bestiary SET ${keys.map(k => `${k} = ?`).join(", ")} WHERE name = ?`)
+    .run(...keys.map(k => vals[k]), name);
+}
+
+function setMonsterAge(age, mult) {
+  db().prepare("UPDATE monster_ages SET mult = ? WHERE age = ?").run(mult, age);
+}
+
 /* Remet une catégorie entière aux valeurs vanilla. */
 function resetCategory(cat) {
   if (cat === "monsters") for (const m of vanillaMonsters()) setMonster(m.name, m);
   if (cat === "gear") for (const it of vanillaGear()) setGear(it.slot, it.name, it);
   if (cat === "templates") for (const t of vanillaTemplates()) setTemplate(t.id, t);
+  if (cat === "bestiary") for (const b of bestiaryLib.BESTIARY) setBestiary(b.name, b);
+  if (cat === "ages") bestiaryLib.AGE_MULT.forEach((mult, age) => setMonsterAge(age, mult));
   if (cat === "potions" || cat === "scrolls") {
     for (const t of vanillaTreasures(cat)) setTreasureRange(cat, t.id, [t.powerMin, t.powerMax]);
   }
@@ -231,8 +274,8 @@ function resetCategory(cat) {
 
 module.exports = {
   init, db,
-  MONSTER_KEYS, GEAR_KEYS, TEMPLATE_KEYS, POTION_POWER_DEFAULTS, SCROLL_POWER_DEFAULTS,
+  MONSTER_KEYS, GEAR_KEYS, TEMPLATE_KEYS, BESTIARY_KEYS, POTION_POWER_DEFAULTS, SCROLL_POWER_DEFAULTS,
   vanillaMonsters, vanillaGear, vanillaTreasures, vanillaTemplates,
-  monsters, gearAll, gearRow, treasureRange, treasuresAll, templatesAll,
-  setMonster, setGear, setTreasureRange, setTemplate, resetCategory,
+  monsters, gearAll, gearRow, treasureRange, treasuresAll, templatesAll, bestiaryAll, monsterAges,
+  setMonster, setGear, setTreasureRange, setTemplate, setBestiary, setMonsterAge, resetCategory,
 };
