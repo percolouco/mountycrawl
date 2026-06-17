@@ -4,7 +4,7 @@
 
 "use strict";
 
-const APP_VERSION = "2.11.2";
+const APP_VERSION = "2.12.0";
 
 /* Alpha : maîtrise initiale haute pour les tests. Remettre 15 % / 15 % à la v1.0 officielle. */
 const START_COMP_PCT = 90;
@@ -218,17 +218,10 @@ const FAMILY_EMOJI_G = { Insecte: "🐛", Animal: "🐾", "Démon": "👿", Huma
  * on tire chaque stat dans sa plage. `list` = lignes du bestiaire, `ageMults` =
  * [m0..m7], `ageNames` = noms d'âge par famille. Partagé solo (données statiques
  * de bestiary.js) / multi (données de la base, tunées admin). */
-function buildBestiaryMonster(list, ageMults, ageNames, ageNamesF, depth, x, y) {
-  if (!list || !list.length) return null;
-  const band = 3;
-  let pool = list.filter(m => m.levelMin <= depth + band && m.levelMax >= depth - band);
-  if (!pool.length) { // hors tranche : on prend les plus proches en niveau
-    let best = Infinity;
-    for (const m of list) best = Math.min(best, Math.abs((m.levelMin + m.levelMax) / 2 - depth));
-    pool = list.filter(m => Math.abs((m.levelMin + m.levelMax) / 2 - depth) <= best + 1);
-  }
-  const b = pool[Math.floor(Math.random() * pool.length)];
-  const age = b.minAge + Math.floor(Math.random() * (b.maxAge - b.minAge + 1));
+/* Construit un monstre concret depuis une ligne de bestiaire `b` et un âge donné
+ * (le multiplicateur d'âge est appliqué, chaque stat tirée dans sa plage). */
+function rollBestiaryMonster(b, age, ageMults, ageNames, ageNamesF, x, y) {
+  age = Math.max(b.minAge, Math.min(b.maxAge, age | 0));
   const f = (ageMults[age] || 1) / (ageMults[b.minAge] || 1);
   const roll = (mn, mx) => { const lo = Math.round(mn * f), hi = Math.round(mx * f); return lo + Math.floor(Math.random() * (Math.max(lo, hi) - lo + 1)); };
   const att = Math.max(1, roll(b.attMin, b.attMax)), deg = Math.max(1, roll(b.degMin, b.degMax)), pv = Math.max(1, roll(b.pvMin, b.pvMax));
@@ -248,6 +241,20 @@ function buildBestiaryMonster(list, ageMults, ageNames, ageNamesF, depth, x, y) 
   };
 }
 
+function buildBestiaryMonster(list, ageMults, ageNames, ageNamesF, depth, x, y) {
+  if (!list || !list.length) return null;
+  const band = 3;
+  let pool = list.filter(m => m.levelMin <= depth + band && m.levelMax >= depth - band);
+  if (!pool.length) { // hors tranche : on prend les plus proches en niveau
+    let best = Infinity;
+    for (const m of list) best = Math.min(best, Math.abs((m.levelMin + m.levelMax) / 2 - depth));
+    pool = list.filter(m => Math.abs((m.levelMin + m.levelMax) / 2 - depth) <= best + 1);
+  }
+  const b = pool[Math.floor(Math.random() * pool.length)];
+  const age = b.minAge + Math.floor(Math.random() * (b.maxAge - b.minAge + 1));
+  return rollBestiaryMonster(b, age, ageMults, ageNames, ageNamesF, x, y);
+}
+
 function makeMonster(depth, x, y) {
   // Bestiaire (données statiques chargées dans le navigateur en solo)
   if (typeof BESTIARY !== "undefined" && BESTIARY.length)
@@ -260,12 +267,31 @@ function makeMonster(depth, x, y) {
   return applyTemplate(type, tpl, x, y);
 }
 
-/* Instancie un monstre depuis une spec d'éditeur : {x, y, type, tpl} ou {x, y, boss: true} */
+/* Le monstre le plus puissant du bestiaire (à son âge le plus vieux) — sert de
+ * « gardien » pour le dernier niveau de la partie aléatoire. */
+function bestiaryBoss(x, y) {
+  if (typeof BESTIARY === "undefined" || !BESTIARY.length) return { ...BOSS, pvMax: BOSS.pv, x, y, boss: true, static: false };
+  const b = BESTIARY.reduce((a, c) => (c.levelMax > a.levelMax ? c : a));
+  const m = rollBestiaryMonster(b, b.maxAge, AGE_MULT, AGE_NAMES, AGE_NAMES_F, x, y);
+  m.boss = true;
+  return m;
+}
+
+/* Instancie un monstre depuis une spec d'éditeur. Nouveau format :
+ * {x, y, mob: "Nom", age: N} → tiré du bestiaire. Rétrocompat : {x, y, type, tpl}
+ * (anciens niveaux) et {x, y, boss: true} (ancien Béhémoth → plus fort du bestiaire). */
 function monsterFromSpec(spec) {
-  if (spec.boss) return { ...BOSS, pvMax: BOSS.pv, x: spec.x, y: spec.y, boss: true, static: false };
-  const type = MONSTER_TYPES[spec.type % MONSTER_TYPES.length];
-  const tpl = TEMPLATES[spec.tpl % TEMPLATES.length];
-  return applyTemplate(type, tpl, spec.x, spec.y);
+  if (spec.mob && typeof BESTIARY !== "undefined") {
+    const b = BESTIARY.find(m => m.name === spec.mob);
+    if (b) return rollBestiaryMonster(b, spec.age != null ? spec.age : b.minAge, AGE_MULT, AGE_NAMES, AGE_NAMES_F, spec.x, spec.y);
+  }
+  if (spec.boss) return bestiaryBoss(spec.x, spec.y);
+  if (Number.isInteger(spec.type)) {
+    const type = MONSTER_TYPES[spec.type % MONSTER_TYPES.length];
+    const tpl = TEMPLATES[(spec.tpl || 0) % TEMPLATES.length];
+    return applyTemplate(type, tpl, spec.x, spec.y);
+  }
+  return null;
 }
 
 /* Instancie un objet depuis une spec d'éditeur : {x, y, kind, slot?, idx?, gold?}.
@@ -425,7 +451,7 @@ function buildCustomLevel(level) {
   G.grid = grid;
   G.troll.x = level.start.x; G.troll.y = level.start.y;
   G.seen = new Set();
-  G.monsters = level.monsters.map(monsterFromSpec);
+  G.monsters = level.monsters.map(monsterFromSpec).filter(Boolean);
   G.items = level.items.map(itemFromSpec);
   G.doors = (level.doors || []).map(d => ({ ...d }));
   G.stairs = null;
@@ -470,7 +496,7 @@ function buildLevel() {
   G.monsters = [];
   if (G.depth === MAX_DEPTH) {
     const bp = randomFloor(grid, taken);
-    G.monsters.push({ ...BOSS, pvMax: BOSS.pv, x: bp.x, y: bp.y, static: false });
+    G.monsters.push(bestiaryBoss(bp.x, bp.y)); // gardien : le plus fort du bestiaire
   }
   const count = 4 + G.depth * 2 - (G.depth === MAX_DEPTH ? 3 : 0);
   for (let i = 0; i < count; i++) {
@@ -1192,7 +1218,7 @@ function descend() {
   }
   G.depth++;
   log(`⬇️ Tu descends. Profondeur −${G.depth}. L'air devient lourd…`, "info");
-  if (G.depth === MAX_DEPTH) log("👹 Le sol tremble. Le Béhémoth est proche.", "bad");
+  if (G.depth === MAX_DEPTH) log("👹 Le sol tremble. Le gardien du Hall est proche.", "bad");
   buildLevel();
   afterAction();
 }
@@ -1309,7 +1335,7 @@ function die(killer) {
 function win() {
   G.over = true;
   if (G.custom) log("🏆 Tous les monstres sont terrassés ! Niveau vaincu !", "good");
-  else log("🏆 Le Béhémoth s'effondre ! Le Trésor de MountyHall est à toi !", "good");
+  else log("🏆 Le gardien du Hall s'effondre ! Le Trésor de MountyHall est à toi !", "good");
   showEnd(true);
 }
 
@@ -1744,7 +1770,7 @@ if (typeof document !== "undefined") {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     APP_VERSION, rollDice, resolveAttack, resolveSpell, masteryRoll, improveCost, levelFromTotalPI, killPX,
-    RACES, MONSTER_TYPES, BOSS, TEMPLATES, applyTemplate, makeMonster, buildBestiaryMonster, monsterFromSpec, itemFromSpec, equipGear, unequipToBag,
+    RACES, MONSTER_TYPES, BOSS, TEMPLATES, applyTemplate, makeMonster, buildBestiaryMonster, rollBestiaryMonster, bestiaryBoss, monsterFromSpec, itemFromSpec, equipGear, unequipToBag,
     generateCavern, largestRegion,
     MAP_W, MAP_H, T_WALL, T_FLOOR, T_STAIRS,
     COSTS, PA_PER_TURN, START_COMP_PCT, START_SORT_PCT,

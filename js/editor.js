@@ -102,22 +102,12 @@ function edBuildPalette() {
   tilesDiv.innerHTML = "";
   for (const t of tiles) edAddBrushBtn(tilesDiv, t.label, t);
 
-  const tplSel = document.getElementById("ed-tpl");
-  tplSel.innerHTML = "";
-  TEMPLATES.forEach((tpl, i) => {
-    const opt = document.createElement("option");
-    opt.value = i;
-    opt.textContent = (tpl.prefix.trim() || "Normal") + ` (×${tpl.mult})`;
-    if (i === 1) opt.selected = true;
-    tplSel.appendChild(opt);
-  });
-
+  // Monstres : on choisit dans le bestiaire (famille → monstre → âge) puis on
+  // pose la créature choisie. Un « Xorn [Adulte] », un « Nécrochore [Naissant] »…
+  edSetupMobPickers();
   const monstersDiv = document.getElementById("ed-monsters");
   monstersDiv.innerHTML = "";
-  MONSTER_TYPES.forEach((m, i) => {
-    edAddBrushBtn(monstersDiv, `${m.emoji} ${m.name} (niv. ${m.level})`, { mode: "monster", type: i });
-  });
-  edAddBrushBtn(monstersDiv, `${BOSS.emoji} ${BOSS.name} (boss)`, { mode: "monster", boss: true });
+  edAddBrushBtn(monstersDiv, "🐲 Poser le monstre choisi", { mode: "monster" });
 
   const itemsDiv = document.getElementById("ed-items");
   itemsDiv.innerHTML = "";
@@ -162,6 +152,36 @@ function edBuildPalette() {
     edRender();
   };
   toolsDiv.appendChild(caves);
+}
+
+/* Sélecteurs bestiaire de l'éditeur : famille → monstre → âge. */
+function edBestiary() { return typeof BESTIARY !== "undefined" ? BESTIARY : []; }
+function edSetupMobPickers() {
+  const famSel = document.getElementById("ed-mob-family");
+  const mobSel = document.getElementById("ed-mob");
+  if (!famSel.dataset.init) {
+    famSel.dataset.init = "1";
+    famSel.onchange = edFillMobs;
+    mobSel.onchange = edFillAges;
+  }
+  const fams = [...new Set(edBestiary().map(m => m.family))].sort();
+  famSel.innerHTML = '<option value="">Toutes</option>' + fams.map(f => `<option>${f}</option>`).join("");
+  edFillMobs();
+}
+function edFillMobs() {
+  const fam = document.getElementById("ed-mob-family").value;
+  const list = edBestiary().filter(m => !fam || m.family === fam).sort((a, b) => a.name.localeCompare(b.name));
+  document.getElementById("ed-mob").innerHTML = list.map(m => `<option>${m.name}</option>`).join("");
+  edFillAges();
+}
+function edFillAges() {
+  const b = edBestiary().find(m => m.name === document.getElementById("ed-mob").value);
+  const ageSel = document.getElementById("ed-mob-age");
+  if (!b) { ageSel.innerHTML = ""; return; }
+  const names = ((b.gender === "f" ? AGE_NAMES_F : AGE_NAMES) || {})[b.family] || [];
+  let html = "";
+  for (let a = b.minAge; a <= b.maxAge; a++) html += `<option value="${a}">${names[a] || "âge " + a}</option>`;
+  ageSel.innerHTML = html;
 }
 
 function edAddBrushBtn(parent, label, brush) {
@@ -233,9 +253,10 @@ function edApply(x, y) {
     ED.doors.push({ x, y, target });
   } else if (b.mode === "monster") {
     if (ED.grid[y][x] === "#") return;
+    const mob = document.getElementById("ed-mob").value;
+    if (!mob) return;
     ED.monsters = ED.monsters.filter(m => m.x !== x || m.y !== y);
-    if (b.boss) ED.monsters.push({ x, y, boss: true });
-    else ED.monsters.push({ x, y, type: b.type, tpl: Number(document.getElementById("ed-tpl").value) });
+    ED.monsters.push({ x, y, mob, age: Number(document.getElementById("ed-mob-age").value) || 0 });
   } else if (b.mode === "item") {
     if (ED.grid[y][x] === "#") return;
     ED.items = ED.items.filter(i => i.x !== x || i.y !== y);
@@ -291,9 +312,11 @@ function edRender() {
     ctx.fillText("🚪", d.x * TILE + TILE / 2, d.y * TILE + TILE / 2 + 1);
   }
   for (const m of ED.monsters) {
+    const b = m.mob ? edBestiary().find(x => x.name === m.mob) : null;
     disc(m.x, m.y, m.boss ? "#7a2070" : "#8a3030");
     ctx.fillStyle = "#1a140e";
-    const emoji = m.boss ? BOSS.emoji : MONSTER_TYPES[m.type].emoji;
+    const emoji = m.mob ? (b ? (FAMILY_EMOJI_G[b.family] || "👹") : "👹")
+      : m.boss ? "👹" : (MONSTER_TYPES[m.type] ? MONSTER_TYPES[m.type].emoji : "👺");
     ctx.fillText(emoji, m.x * TILE + TILE / 2, m.y * TILE + TILE / 2 + 1);
   }
   if (ED.start) {

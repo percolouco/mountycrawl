@@ -72,7 +72,9 @@ function validateLevel(l) {
   if (!Array.isArray(l.monsters) || l.monsters.length > 60) return "monstres invalides (max 60)";
   for (const m of l.monsters) {
     if (!inBounds(m) || tile(l, m) === "#") return "monstre hors-sol";
-    if (m.boss !== true && !(Number.isInteger(m.type) && m.type >= 0 && Number.isInteger(m.tpl) && m.tpl >= 0)) return "type de monstre invalide";
+    const okMob = typeof m.mob === "string" && m.mob.length > 0 && m.mob.length <= 60 && Number.isInteger(m.age) && m.age >= 0 && m.age <= 7;
+    const okLegacy = m.boss === true || (Number.isInteger(m.type) && m.type >= 0 && Number.isInteger(m.tpl) && m.tpl >= 0);
+    if (!okMob && !okLegacy) return "type de monstre invalide";
   }
   if (!Array.isArray(l.items) || l.items.length > 60) return "objets invalides (max 60)";
   for (const i of l.items) {

@@ -234,6 +234,15 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.12.0** (2026-06-17) — **L'éditeur de niveaux pose les monstres du
+  bestiaire.** On choisit la **famille → le monstre → l'âge** (« Xorn [Mineur] »,
+  « Nécrochore [Naissant] »…) et on place la créature voulue. L'**ancien Béhémoth
+  est retiré** : dans la partie aléatoire, le gardien du dernier niveau est
+  désormais le **monstre le plus puissant du bestiaire** ; et dans l'éditeur, plus
+  de pinceau « boss » — on place le monstre fort qu'on veut comme boss de fin.
+  Rétrocompatibilité conservée pour les niveaux déjà publiés (anciens types et
+  ancien boss → repris depuis le bestiaire). `monsterFromSpec` accepte le nouveau
+  format `{mob, age}` (validé côté serveur).
 - **2.11.2** (2026-06-17) — Ménage admin : suppression de l'ancienne section
   « 🐗 Tuning du bestiaire » (les 7 monstres d'avant), devenue inutile depuis que
   le jeu utilise le nouveau bestiaire. Seule reste l'édition du bestiaire complet.
