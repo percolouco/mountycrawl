@@ -97,7 +97,16 @@ function applyGearTuning(item) {
   if (!item || item.kind !== "gear") return item;
   const row = db.gearRow(item.slot, item.name);
   if (row) {
-    item.mods = Object.fromEntries(db.GEAR_KEYS.map(k => [k, row[k] || 0]).filter(([, v]) => v));
+    const mods = {};
+    for (const k of db.GEAR_KEYS) {
+      if (k.endsWith("Min") || k === "rmPct" || k === "mmPct") continue; // bornes : traitées à part
+      if (row[k]) mods[k] = row[k];
+    }
+    // RM% et MM% : tirés au hasard dans leur plage [min, max] à la création.
+    const rr = (mn, mx) => { const lo = Math.min(mn || 0, mx || 0), hi = Math.max(mn || 0, mx || 0); return lo + Math.floor(Math.random() * (hi - lo + 1)); };
+    const rm = rr(row.rmPctMin, row.rmPct); if (rm) mods.rmPct = rm;
+    const mm = rr(row.mmPctMin, row.mmPct); if (mm) mods.mmPct = mm;
+    item.mods = mods;
   }
   return item;
 }

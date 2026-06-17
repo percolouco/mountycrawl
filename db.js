@@ -30,7 +30,9 @@ const BESTIARY_TXT_KEYS = ["family", "speed", "capacities", "blason", "gender"];
 const BESTIARY_KEYS = [...BESTIARY_INT_KEYS, ...BESTIARY_TXT_KEYS]; // hors `name` (clé)
 
 const MONSTER_KEYS = ["level", "att", "attMag", "esq", "deg", "degMag", "pv", "armor", "armorMag", "vue"];
-const GEAR_KEYS = ["att", "attMag", "esq", "deg", "degMag", "reg", "arm", "armMag", "vue", "pv", "rmPct", "mmPct"];
+// rmPct/mmPct sont les MAX ; rmPctMin/mmPctMin les MIN → à la création d'un objet
+// du monde partagé, RM% et MM% sont tirés au hasard dans leur plage (cf. mp.js).
+const GEAR_KEYS = ["att", "attMag", "esq", "deg", "degMag", "reg", "arm", "armMag", "vue", "pv", "rmPct", "rmPctMin", "mmPct", "mmPctMin"];
 
 /* Templates de drop façon MountyHall : des suffixes (« de l'Aigle », « des
  * Mages »…) ajoutés aléatoirement à l'équipement qui tombe, selon une proba
@@ -85,10 +87,14 @@ function vanillaMonsters() {
 }
 
 function vanillaGear() {
-  return Object.entries(gearLib.GEAR).flatMap(([slot, list]) => list.map(def => ({
-    slot, name: def.name, emoji: def.emoji, tier: def.tier, twoHanded: !!def.twoHanded,
-    ...Object.fromEntries(GEAR_KEYS.map(k => [k, def.mods[k] || 0])),
-  })));
+  return Object.entries(gearLib.GEAR).flatMap(([slot, list]) => list.map(def => {
+    const row = { slot, name: def.name, emoji: def.emoji, tier: def.tier, twoHanded: !!def.twoHanded };
+    for (const k of GEAR_KEYS) row[k] = def.mods[k] || 0;
+    // par défaut, min = la valeur (pas de plage tant que l'admin ne l'abaisse pas)
+    row.rmPctMin = def.mods.rmPct || 0;
+    row.mmPctMin = def.mods.mmPct || 0;
+    return row;
+  }));
 }
 
 function vanillaTemplates() {
@@ -150,6 +156,11 @@ function init(file = ":memory:") {
   // Migration : la colonne `gender` du bestiaire a été ajoutée après coup → on
   // l'ajoute aux bases déjà créées AVANT tout INSERT/UPDATE qui la référence.
   try { DB.exec("ALTER TABLE bestiary ADD COLUMN gender TEXT"); } catch { /* déjà là */ }
+  // Migration : RM%/MM% min de l'équipement (les valeurs existantes = max).
+  try { DB.exec("ALTER TABLE gear ADD COLUMN rmPctMin INTEGER"); } catch {}
+  try { DB.exec("ALTER TABLE gear ADD COLUMN mmPctMin INTEGER"); } catch {}
+  DB.exec("UPDATE gear SET rmPctMin = rmPct WHERE rmPctMin IS NULL");
+  DB.exec("UPDATE gear SET mmPctMin = mmPct WHERE mmPctMin IS NULL");
   const insM = DB.prepare(`INSERT OR IGNORE INTO monsters
     (name, emoji, boss, isStatic, ${MONSTER_KEYS.join(", ")})
     VALUES (?, ?, ?, ?, ${MONSTER_KEYS.map(() => "?").join(", ")})`);

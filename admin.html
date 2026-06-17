@@ -210,7 +210,7 @@ function renderOverview(ov) {
 
 /* ---------- Tuning : bestiaire, trésors, équipement ---------- */
 
-const GEAR_LABELS = { att: "ATT phy", attMag: "ATT mag", esq: "ESQ", deg: "DEG phy", degMag: "DEG mag", reg: "REG", arm: "Arm. phy", armMag: "Arm. mag", vue: "VUE", pv: "PV", rmPct: "RM %", mmPct: "MM %" };
+const GEAR_LABELS = { att: "ATT phy", attMag: "ATT mag", esq: "ESQ", deg: "DEG phy", degMag: "DEG mag", reg: "REG", arm: "Arm. phy", armMag: "Arm. mag", vue: "VUE", pv: "PV", rmPct: "RM% max", rmPctMin: "RM% min", mmPct: "MM% max", mmPctMin: "MM% min" };
 
 function tuneInput(cat, id, key, def, cur) {
   const val = cur !== undefined ? cur : def;

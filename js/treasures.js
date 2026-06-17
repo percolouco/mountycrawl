@@ -162,6 +162,14 @@ function treasuresRender() {
     for (const def of (gearSource[slot] || [])) {
       const fx = [];
       for (const [key, label, unit] of GEAR_MOD_LABELS) {
+        // RM%/MM% : affichés en plage [min, max] (tirés au hasard à la création)
+        if (key === "rmPct" || key === "mmPct") {
+          const max = def.mods[key] || 0, min = def[key + "Min"] != null ? def[key + "Min"] : max;
+          if (!max && !min) continue;
+          const txt = min === max ? `${max > 0 ? "+" : ""}${max}` : `${min} à ${max}`;
+          fx.push(`<span class="tz-fx ${max < 0 ? "tz-bad" : "tz-good"}">${label} ${txt}${unit}</span>`);
+          continue;
+        }
         const v = def.mods[key];
         if (!v) continue;
         const cls = v > 0 ? "tz-fx tz-good" : "tz-fx tz-bad";
@@ -272,6 +280,7 @@ function gearBySlotFromRows(rows) {
     (bySlot[r.slot] = bySlot[r.slot] || []).push({
       emoji: r.emoji, name: r.name, tier: r.tier, twoHanded: !!r.twoHanded,
       note: staticDef && staticDef.note, mods,
+      rmPctMin: r.rmPctMin != null ? r.rmPctMin : r.rmPct, mmPctMin: r.mmPctMin != null ? r.mmPctMin : r.mmPct,
     });
   }
   return bySlot;

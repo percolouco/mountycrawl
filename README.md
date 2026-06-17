@@ -234,6 +234,15 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.13.0** (2026-06-17) — **RM% et MM% de l'équipement en plages.** Les valeurs
+  existantes deviennent les **maximums** et on ajoute un **minimum** par objet
+  (`rmPctMin`/`mmPctMin`, réglables côté admin). À la **création d'un objet du
+  monde partagé**, RM% et MM% sont **tirés au hasard dans leur plage** (comme la
+  puissance des potions) — ex. min 5 / max 10 → un objet entre 5 et 10. Par
+  défaut min = max (donc rien ne change tant qu'on n'abaisse pas le min).
+  L'encyclopédie affiche la plage. *(Le solo garde ses valeurs fixes — la plage
+  est une propriété de la base de référence, éditable et tirée côté monde
+  partagé.)*
 - **2.12.0** (2026-06-17) — **L'éditeur de niveaux pose les monstres du
   bestiaire.** On choisit la **famille → le monstre → l'âge** (« Xorn [Mineur] »,
   « Nécrochore [Naissant] »…) et on place la créature voulue. L'**ancien Béhémoth
