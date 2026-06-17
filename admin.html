@@ -74,16 +74,6 @@
     </div>
 
     <div class="admin-card" style="margin-top:16px">
-      <h2>🐗 Tuning du bestiaire</h2>
-      <p><small>Valeurs de base par type (avant gabarit Jeune/Vieux/Ancien/Mythique).
-      Les cases <b>modifiées</b> (fond jaune) s'appliquent aux <b>prochains spawns</b> du monde
-      partagé — le solo reste vanilla. Vider/remettre la valeur d'origine pour annuler.</small></p>
-      <div id="tune-monsters"></div>
-      <button id="tune-monsters-save" class="big-btn">💾 Appliquer le bestiaire</button>
-      <button id="tune-monsters-reset" class="menu-btn">↩️ Tout remettre d'origine</button>
-    </div>
-
-    <div class="admin-card" style="margin-top:16px">
       <h2>🧪 Tuning des potions &amp; parchemins</h2>
       <p><small>Fourchette de puissance « niveau X » de chaque trésor (tirée au drop).
       S'applique aux prochains drops du monde partagé.</small></p>
@@ -220,7 +210,6 @@ function renderOverview(ov) {
 
 /* ---------- Tuning : bestiaire, trésors, équipement ---------- */
 
-const MONSTER_LABELS = { level: "Niv.", att: "ATT phy", attMag: "ATT mag", esq: "ESQ", deg: "DEG phy", degMag: "DEG mag", pv: "PV", armor: "Arm. phy", armorMag: "Arm. mag", vue: "VUE" };
 const GEAR_LABELS = { att: "ATT phy", attMag: "ATT mag", esq: "ESQ", deg: "DEG phy", degMag: "DEG mag", reg: "REG", arm: "Arm. phy", armMag: "Arm. mag", vue: "VUE", pv: "PV", rmPct: "RM %", mmPct: "MM %" };
 
 function tuneInput(cat, id, key, def, cur) {
@@ -237,13 +226,6 @@ function markTuned(e) {
 }
 
 function renderTuning(defaults, tuning) {
-  const mKeys = defaults.monsterKeys;
-  document.getElementById("tune-monsters").innerHTML = `<table class="admin-table">
-    <tr><th>Type</th>${mKeys.map(k => `<th>${MONSTER_LABELS[k]}</th>`).join("")}</tr>
-    ${defaults.monsters.map(m => `<tr><td>${m.emoji} ${m.name}${m.boss ? " (boss)" : ""}</td>` +
-      mKeys.map(k => `<td>${tuneInput("monsters", m.name, k, m[k], (tuning.monsters[m.name] || {})[k])}</td>`).join("") +
-    `</tr>`).join("")}</table>`;
-
   const treasureTable = (cat, list) => `<table class="admin-table">
     <tr><th>Trésor</th><th>X min</th><th>X max</th></tr>
     ${list.map(t => {
@@ -268,7 +250,7 @@ function renderTuning(defaults, tuning) {
           defaults.gearKeys.map(k => `<td>${tuneInput("gear", id, k, it.mods[k], cur[k])}</td>`).join("") + `</tr>`;
       }).join("")}</table>`).join("");
 
-  for (const input of document.querySelectorAll("#tune-monsters input, #tune-potions input, #tune-scrolls input, #tune-gear input")) {
+  for (const input of document.querySelectorAll("#tune-potions input, #tune-scrolls input, #tune-gear input")) {
     input.addEventListener("input", markTuned);
   }
 }
@@ -400,8 +382,6 @@ document.addEventListener("DOMContentLoaded", () => {
       await refresh(true);
     } catch (e) { $("admin-msg").textContent = "⚠️ " + e.message; }
   };
-  $("tune-monsters-save").onclick = () => saveTuning({ monsters: collectTuning("monsters") }, "Bestiaire");
-  $("tune-monsters-reset").onclick = () => saveTuning({ reset: ["monsters"] }, "Bestiaire d'origine");
   $("tune-treasures-save").onclick = () => saveTuning({
     potions: collectTreasureTuning("potions"),
     scrolls: collectTreasureTuning("scrolls"),

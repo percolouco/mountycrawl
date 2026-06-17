@@ -234,6 +234,9 @@ non affilié au jeu original de Mountyhall SARL.
 
 ## Versions
 
+- **2.11.2** (2026-06-17) — Ménage admin : suppression de l'ancienne section
+  « 🐗 Tuning du bestiaire » (les 7 monstres d'avant), devenue inutile depuis que
+  le jeu utilise le nouveau bestiaire. Seule reste l'édition du bestiaire complet.
 - **2.11.1** (2026-06-15) — Nom des monstres au format **« Nom [Âge] »**
   (« Ankheg [Mûr] », « Lutin [Adulte] ») au lieu du préfixe. Gestion du
   **féminin** : chaque monstre a un genre (m/f, éditable en admin), et l'âge
